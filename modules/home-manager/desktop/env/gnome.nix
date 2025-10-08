@@ -3,6 +3,8 @@
 {
   dconf = {
     enable = lib.mkIf osConfig.services.xserver.desktopManager.gnome.enable true;
+
+
     settings = {
       "org/gnome/desktop/interface".color-scheme = "prefer-dark";
       "org/gnome/shell".favorite-apps = [ "firefox.desktop" "foot.desktop" ];

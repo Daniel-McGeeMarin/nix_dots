@@ -9,7 +9,7 @@ in
       ../../modules/nixos
       ./hardware-configuration.nix
     ];
-  networking.hostName = "nixBlade";
+  networking.hostName = "XiaNix";
   head = {
     enable = true;
     gaming = true;
@@ -63,7 +63,7 @@ in
     numworks-udev-rules
   ];
 
-  users.users.greencheetah = {
+  users.users.xia = {
     isNormalUser = true;
     shell = pkgs.zsh;
     extraGroups = [ "adbusers" "docker" "wheel" "uinput" "input" "video" ]; # Enable ‘sudo’ for the user.
@@ -73,7 +73,7 @@ in
   ];
 
   home-manager = {
-    users."greencheetah" = import ./home.nix;
+    users."xia" = import ./home.nix;
   };
 
   nix.package = pkgs.lix;

@@ -5,11 +5,11 @@
     ../../modules/home-manager
   ];
   programs.home-manager.enable = true;
-  home.username = "greencheetah";
-  home.homeDirectory = "/home/greencheetah";
-  sync.enable = true;
+  home.username = "xia";
+  home.homeDirectory = "/home/xia";
+  sync.enable = false;
   programming.enable = true;
-  ai.enable = true;
+  ai.enable = false;
   desktop = {
     enable = true;
     gaming.enable = true;

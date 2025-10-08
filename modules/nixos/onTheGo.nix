@@ -8,7 +8,7 @@
         waydroid.enable = false;
       };
       home-manager = { 
-        users."greencheetah" = import ../home-manager/onTheGo.nix;
+        users."xia" = import ../home-manager/onTheGo.nix;
       };
       boot = {
         extraModprobeConfig = ''

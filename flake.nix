@@ -63,7 +63,7 @@
       };
     in
     rec {
-      nixosConfigurations.nixBlade = nixpkgs.lib.nixosSystem rec {
+      nixosConfigurations.XiaNix = nixpkgs.lib.nixosSystem rec {
         specialArgs = { inherit inputs; };
         modules = [
           ({ config, pkgs, ... }: {
@@ -80,15 +80,15 @@
               })
             ];
           })
-          ./hosts/nixBlade/configuration.nix
+          ./hosts/XiaNix/configuration.nix
         ];
       };
-      homeConfigurations.nixBlade = home-manager.lib.homeManagerConfiguration {
+      homeConfigurations.XiaNix = home-manager.lib.homeManagerConfiguration {
         extraSpecialArgs = { inherit inputs; };
         inherit pkgs;
         modules = [
           ({ config, pkgs, ... }: { nixpkgs.overlays = [ overlay-unfree overlay-unstable overlay-unstable-unfree overlay-master overlay-master-unfree ]; })
-          ./hosts/nixBlade/home.nix
+          ./hosts/XiaNix/home.nix
         ];
       };
       nixosConfigurations.nixos = nixpkgs.lib.nixosSystem rec {
