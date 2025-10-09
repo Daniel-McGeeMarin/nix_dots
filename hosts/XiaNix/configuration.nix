@@ -71,6 +71,9 @@ in
   boot.extraModulePackages = with config.boot.kernelPackages; [
     v4l2loopback
   ];
+  
+  home-manager.backupFileExtension = "backup";
+
 
   home-manager = {
     users."xia" = import ./home.nix;

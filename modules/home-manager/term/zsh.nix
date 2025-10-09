@@ -6,6 +6,14 @@
     bat
     eza
     bc
+
+    #added myself after ben
+    curl
+    jq
+    gcc
+    cgdb
+    valgrind
+    gnumake
   ];
   programs.zsh = {
     completionInit = "";
@@ -15,10 +23,29 @@
       ignoreAllDups = true;
       ignoreSpace = true;
       path = "$HOME/.local/share/zsh/history";
+      save = 10000;
+      size = 10000;
     };
-    enableCompletion = false;
+    enableCompletion = true;
     defaultKeymap = "viins";
     shellAliases = {
+      
+      #Mine
+    
+      flvim = "nvim $(fzf)";
+      fl = "nvim $(fzf)";
+      s = "cd ~/Documents/school/";
+      c = "cd ~/.config/";
+      g = "cd ~/Documents/genpf";
+      d = "cd ~/Documents";
+      m = "cd ~/MyApps/";
+      #sudo = "doas";
+      sudoedit = "doas rnano";
+      n = "cd ~/nixos/";
+      tethering = "sudo iptables -t mangle -A POSTROUTING -j TTL --ttl-set 65";
+
+      #Bens
+
       nixswitch = "st=\"$(date +%s)\"; sudo nixos-rebuild switch --flake $HOME/nixos/#XiaNix --cores 8 && notify-send 'updated' \"Took: $(($(date +%s)-$st))s\"";
       homeswitch = "st=\"$(date +%s)\"; home-manager switch --flake $HOME/nixos/#XiaNix --cores 8&& notify-send 'updated' \"Took: $(($(date +%s)-$st))s\"";
       nixtest = "st=\"$(date +%s)\"; sudo nixos-rebuild test --fast --flake $HOME/nixos/#XiaNix --cores 8 && notify-send 'updated' \"Took: $(($(date +%s)-$st))s\"";
@@ -53,7 +80,93 @@
     initExtra = /*bash*/ ''
             source $HOME/.p10k.zsh
             rn() {${pkgs.coreutils}/bin/shuf -i 1-$1 -n 1} # Random number
-            dechex() {echo "$(
+        
+        
+                    # Command history interactive fzf
+            his() {
+              emulate -L zsh -o no_aliases
+              local cmd
+              cmd=$(fc -ln 1 | fzf --height 40% --reverse --prompt='history> ') || return
+              print -S -- "$cmd"
+              eval -- "$cmd"
+            }
+
+            # Upload to 0x0.st
+            0x0() { curl -F"file=@$1" https://0x0.st }
+
+            # Directory picker using fzf
+            fcd () {
+              emulate -L zsh -o no_aliases
+              local dir
+              dir=$(
+                { find . \( \
+                  -path './.local/share/waydroid' -o \
+                  -path './.local/share/waydroid/*' -o \
+                  -path '*/.git' -o \
+                  -path '*/node_modules' -o \
+                  -path '*/.cache' -o \
+                  -path '*/__pycache__' -o \
+                  -path '*/venv' -o \
+                  -path '*/env' \) -prune -o \
+                  -type d -not -path '.' -print 2>/dev/null; } \
+                | sed 's|^\./||' | awk '{print length, $0}' | sort -n -k1,1 | cut -d' ' -f2- \
+                | fzf --height 40% --reverse --prompt='subdir> ' --tiebreak=length,index
+              ) || return
+              cd -- "$dir"
+              print -P "%F{green}➜ %f$PWD"
+            }
+
+            # App launchers
+            cursor() { "$HOME/MyApps/Cursor/Cursor-1.1.3-x86_64.AppImage" >/dev/null 2>&1 &! }
+            bb() { "$HOME/MyApps/bluebubbles-linux-x86_64/bluebubbles" >/dev/null 2>&1 &! }
+            emu() { "$HOME/MyApps/sudachi-linux-v1.0.14/sudachi" >/dev/null 2>&1 &! }
+
+            # Compile & run C
+            crun() {
+              [ -z "$1" ] && { echo "usage: crun file.c [args]"; return 2; }
+              local src="$1"; shift
+              local out="/tmp/$(basename ''${src%.*})"
+              gcc -std=c11 -O0 -g -Wall -Wextra -Wpedantic "$src" -o "$out" && "$out" "$@"
+            }
+
+          # Makefile runner with debugging modes
+          mrun() {
+            if [ -z "$1" ]; then
+              echo "usage: mrun [-g|-v] target [args]"
+              return 2
+            fi
+            local mode="normal"
+            if [ "$1" = "-g" ] || [ "$1" = "-v" ]; then
+              mode="$1"; shift
+            fi
+            local target="$1"; shift
+            make "$target" || return $?
+            if [ -x "./$target" ]; then
+              case "$mode" in
+                -g) cgdb "./$target" --args "$@" ;;
+                -v) valgrind "./$target" "$@" ;;
+                *)  "./$target" "$@" ;;
+              esac
+            else
+              echo "Built target '$target' (no matching executable)."
+            fi
+          }
+
+          # Arch chroot helper
+          boot() {
+            sudo bash -c '
+              cryptsetup luksOpen /dev/nvme0n1p2 root &&
+              mount /dev/mapper/root /mnt &&
+              mount /dev/nvme0n1p10 /mnt/boot &&
+              arch-chroot /mnt
+            '
+          }
+
+
+
+
+
+        dechex() {echo "$(
         (16#$1))"} # Decimal to Hex
             stopwatch() { local counter=0; while :; do printf "\\r%03d" "$counter"; tput el; counter=$((counter + 1)); sleep 1; done }
             bindec() {echo "$((2#$1))"} # Binary to Decimal
