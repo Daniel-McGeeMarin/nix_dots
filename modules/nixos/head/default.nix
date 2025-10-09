@@ -7,8 +7,10 @@ in
   imports = [
     ./plymouth.nix
     ./sddm.nix
-    ./grub-theme.nix
+    ./grub-theme.nix #adds grub, make sure to disable systemd
   ];
+
+
   options.head.enable = lib.mkEnableOption "Set if headed system";
   options.head.gaming = lib.mkEnableOption "Enable gaming";
   config = lib.mkIf config.head.enable {
