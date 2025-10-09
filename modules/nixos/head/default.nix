@@ -7,6 +7,7 @@ in
   imports = [
     ./plymouth.nix
     ./sddm.nix
+    ./grub-theme.nix
   ];
   options.head.enable = lib.mkEnableOption "Set if headed system";
   options.head.gaming = lib.mkEnableOption "Enable gaming";

@@ -6,6 +6,7 @@
     bat
     eza
     bc
+    tree
 
     #added myself after ben
     curl
@@ -117,6 +118,10 @@
             }
 
             # App launchers
+
+
+
+
             cursor() { "$HOME/MyApps/Cursor/Cursor-1.1.3-x86_64.AppImage" >/dev/null 2>&1 &! }
             bb() { "$HOME/MyApps/bluebubbles-linux-x86_64/bluebubbles" >/dev/null 2>&1 &! }
             emu() { "$HOME/MyApps/sudachi-linux-v1.0.14/sudachi" >/dev/null 2>&1 &! }
@@ -164,12 +169,28 @@
 
           # Search text and open file at selected line in nvim
           ff() {
+            emulate -L zsh -o no_aliases
             local query="''${1:-.}"
-            rg --line-number --no-heading --color=always "$query" \
-              | fzf --ansi --delimiter ':' \
-                    --preview "bat --color=always --style=numbers --line-range=:500 {1} | rg --color=always --context=2 \"$query\"" \
-                    --bind "enter:execute-silent(nvim {1} +{2} < /dev/tty > /dev/tty 2>&1; kill -INT \$PPID)"
+            local result
+
+            result=$(
+              rg --line-number --no-heading --color=always "$query" \
+                | fzf --ansi --delimiter ':' \
+                      --height 80% --reverse --prompt='find> ' \
+                      --preview 'bat --color=always --style=numbers --line-range=:500 {1} \
+                        | rg --color=always --context=2 --ignore-case --pretty "'"$query"'" || true' \
+                      --preview-window=right:70%:wrap
+            ) || return
+
+            local file=$(echo "$result" | cut -d':' -f1)
+            local line=$(echo "$result" | cut -d':' -f2)
+
+            if [[ -n "$file" ]]; then
+              nvim "+$line" "$file"
+            fi
           }
+
+
 
 
 

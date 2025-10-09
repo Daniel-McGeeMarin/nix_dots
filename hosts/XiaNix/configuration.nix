@@ -8,6 +8,9 @@ in
     [
       ../../modules/nixos
       ./hardware-configuration.nix
+
+      #../../modules/nixos/onTheGo.nix
+
     ];
   networking.hostName = "XiaNix";
   head = {

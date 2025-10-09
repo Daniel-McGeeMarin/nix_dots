@@ -1,8 +1,8 @@
 { pkgs, ... }:
 {
   programs.waybar = {
-    systemd.enable = true;
-    systemd.target = "graphical-session.target";
+    systemd.enable = false;
+    #systemd.target = "graphical-session.target";
 
     settings = [
       {
