@@ -22,5 +22,10 @@
     wayland.enable = true;
     theme = "sugar-dark";
     extraPackages = [ pkgs.sddm-sugar-dark pkgs.noto-fonts-cjk-sans pkgs.libsForQt5.qt5.qtgraphicaleffects ];
+
+    autoLogin.enable = true;
+    autoLogin.user = "xia";
   };
+
+  services.displayManager.defaultSession = "hyprland";
 }
