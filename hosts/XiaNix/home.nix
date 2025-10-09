@@ -13,7 +13,7 @@
   desktop = {
     enable = true;
     gaming.enable = true;
-    japanese.enable = true;
+    japanese.enable = false;
   };
 
   home.packages = [

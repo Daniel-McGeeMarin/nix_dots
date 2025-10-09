@@ -27,11 +27,15 @@ window#waybar {
 }
 
 #battery,
+#custom-bluetooth,
 #temperature,
 #clock,
 #mpris,
 #workspaces,
 #custom-rofi,
+#custom-todo1,
+#custom-todo2,
+#custom-todo3,
 #tray,
 #pulseaudio,
 #backlight,
@@ -93,6 +97,13 @@ tooltip {
   padding: 0;
 }
 
+#custom-todo {
+  color: #ff0000;
+  /* bright_red */
+  padding-left: 0;
+  padding-right: 0;
+}
+
 #custom-rofi {
   color: #fb4934;
   /* bright_red */
@@ -135,6 +146,12 @@ tooltip {
   padding-right: 0;
 }
 
+#custom-bluetooth {
+  padding-left: 19px;
+  padding-right: 8px;
+}
+
+
 #tray {
   padding-left: 0;
   padding-right: 19px;
@@ -169,3 +186,4 @@ tooltip {
   padding-left: 3px;
   border-radius: 22px 0 0 22px;
 }
+

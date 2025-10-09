@@ -21,14 +21,26 @@
           "backlight"
           "pulseaudio"
           "battery"
+          "custom/bluetooth"
           "custom/right"
         ];
+
         modules-center = [
           "custom/left"
           "hyprland/workspaces"
           "custom/right"
         ];
+
         modules-right = [
+          "custom/left"
+          "custom/todo1"
+          "custom/right"
+          "custom/left"
+          "custom/todo2"
+          "custom/right"
+          "custom/left"
+          "custom/todo3"
+          "custom/right"
           "custom/left"
           "tray"
           "mpris"
@@ -36,7 +48,6 @@
           "custom/right"
         ];
 
-        # Network Module
         network = {
           tooltip = true;
           format-wifi = "<span foreground='#FF8B49'> {bandwidthDownBytes}</span> <span foreground='#FF6962'> {bandwidthUpBytes}</span>";
@@ -49,35 +60,33 @@
           on-click-right = "~/.config/waybar/network.py";
         };
 
-        # Temperature Module
         temperature = {
           format = "{temperatureC}°C ";
         };
 
-        # Custom Rofi Launcher
         "custom/rofi" = {
-          format = "  {}";
+          format = "  {}";
           on-click = "rofi -show drun";
         };
 
-        # Workspaces
         "hyprland/workspaces" = {
           format = "{icon}";
           disable-scroll = true;
           on-click = "activate";
           all-outputs = true;
+          sort-by-number = true;
           format-icons = {
             "1" = "󰖟";
             "2" = "";
             "5" = "";
-            "6" = "󰝚";
-            "8" = "󰮂";
-            "urgent" = "";
+            "6" = "󰮂";
+            "7" = "󰈮";
+            "8" = "󰅨";
+            "9" = "󰅱";
+            "urgent-disabled" = "";
           };
-          sort-by-number = true;
         };
 
-        # Battery Module
         battery = {
           states = {
             good = 95;
@@ -104,7 +113,6 @@
           ];
         };
 
-        # PulseAudio Module
         pulseaudio = {
           format = "{icon} {volume}";
           format-muted = "󰖁";
@@ -129,13 +137,11 @@
           };
         };
 
-        # Tray Module
         tray = {
           icon-size = 20;
           spacing = 9;
         };
 
-        # Clock Module
         clock = {
           format = " {:%H:%M}";
           on-click = "~/.config/eww/scripts/toggle_control_center.sh";
@@ -159,7 +165,6 @@
           ];
         };
 
-        # Backlight Module
         backlight = {
           device = "intel_backlight";
           on-scroll-up = "light -A 7";
@@ -179,7 +184,41 @@
           ];
         };
 
-        # Padding Custom Modules
+        "custom/bluetooth" = {
+          format = "";
+          tooltip = true;
+          tooltip-format = "Open Bluetooth Manager";
+          on-click = "blueman-manager";
+          interval = "once";
+        };
+
+        "custom/todo1" = {
+          format = "<span color='#ff6f61'>Sch:</span> <span color='#ddeeff'>{}</span>";
+          interval = 30;
+          exec = "if [ -s ~/Documents/todo/SchoolTodo.md ]; then head -n 1 ~/Documents/todo/SchoolTodo.md | cut -c1-15; else echo '-'; fi";
+          on-click = "kitty -T TODO -e nvim ~/Documents/todo/SchoolTodo.md";
+          signal = 8;
+          markup = "pango";
+        };
+
+        "custom/todo2" = {
+          format = "<span color='#f6c500'>Lin:</span> <span color='#ddeeff'>{}</span>";
+          interval = 30;
+          exec = "if [ -s ~/Documents/todo/LinuxTodo.md ]; then head -n 1 ~/Documents/todo/LinuxTodo.md | cut -c1-15; else echo '-'; fi";
+          on-click = "kitty -T TODO -e nvim ~/Documents/todo/LinuxTodo.md";
+          signal = 8;
+          markup = "pango";
+        };
+
+        "custom/todo3" = {
+          format = "<span color='#65d487'>Per:</span> <span color='#ddeeff'>{}</span>";
+          interval = 30;
+          exec = "if [ -s ~/Documents/todo/PersonalTodo.md ]; then head -n 1 ~/Documents/todo/PersonalTodo.md | cut -c1-15; else echo '-'; fi";
+          on-click = "kitty -T TODO -e nvim ~/Documents/todo/PersonalTodo.md";
+          signal = 8;
+          markup = "pango";
+        };
+
         "custom/left" = {
           format = " ";
           interval = "once";
@@ -197,3 +236,4 @@
     style = builtins.readFile (./. + "/style.css");
   };
 }
+

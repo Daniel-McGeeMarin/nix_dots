@@ -162,6 +162,16 @@
             '
           }
 
+          # Search text and open file at selected line in nvim
+          ff() {
+            local query="''${1:-.}"
+            rg --line-number --no-heading --color=always "$query" \
+              | fzf --ansi --delimiter ':' \
+                    --preview "bat --color=always --style=numbers --line-range=:500 {1} | rg --color=always --context=2 \"$query\"" \
+                    --bind "enter:execute-silent(nvim {1} +{2} < /dev/tty > /dev/tty 2>&1; kill -INT \$PPID)"
+          }
+
+
 
 
 
