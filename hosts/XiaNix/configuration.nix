@@ -79,6 +79,7 @@ in
   home-manager.backupFileExtension = "backup";
 
 
+
   home-manager = {
     users."xia" = import ./home.nix;
   };
