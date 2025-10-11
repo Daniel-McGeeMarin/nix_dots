@@ -45,7 +45,7 @@ in
 
   ];
 
-  time.timeZone = "America/New_York";
+  time.timeZone = "America/Los_Angeles";
   services = {
     flatpak.enable = true;
     mullvad-vpn.enable = true;
@@ -64,6 +64,7 @@ in
     libusb1
     powertop
     numworks-udev-rules
+    blueman
   ];
 
   users.users.xia = {
