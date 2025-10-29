@@ -1,12 +1,12 @@
 { config, lib, pkgs, iputs, osConfig, ... }:
 {
   imports = [
+    ./qutebrowser.nix
     ./firefox.nix
     ./foot.nix
     ./kitty.nix
     ./mpv.nix
     ./zathura.nix
-    #./qutebrowser.nix
   ];
   config = lib.mkIf config.desktop.enable {
     home.packages = with pkgs; [
@@ -23,6 +23,14 @@
       zathura.enable = lib.mkDefault true;
       mpv.enable = lib.mkIf config.media.enable (lib.mkDefault true);
     };
+
+    xdg.mimeApps.defaultApplications = {
+      "text/html" = "org.qutebrowser.qutebrowser.desktop";
+      "x-scheme-handler/http" = "org.qutebrowser.qutebrowser.desktop";
+      "x-scheme-handler/https" = "org.qutebrowser.qutebrowser.desktop";
+    };
+
+ 
 
     
 

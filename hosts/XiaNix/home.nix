@@ -49,7 +49,7 @@
 
   services.flatpak = {
     packages = [
-      "com.calibre_ebook.calibre"
+      #"com.calibre_ebook.calibre"
       "io.missioncenter.MissionCenter"
       "net.cozic.joplin_desktop"
     ];

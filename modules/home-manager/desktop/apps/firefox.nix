@@ -24,13 +24,13 @@ in
         wl-copy "(extension \"$(printf "$1" | awk -F '/' '{printf $7 }')\" \"$(curl -s "$1" | tr ',' '\n' | grep byGUID | tail -n 1 | awk -F '"' '{printf $4}')\")" && notify-send "ext copied"
       '')
     ];
-    xdg.mimeApps.defaultApplications = {
-     "text/html" = "librewolf.desktop";
-     "x-scheme-handler/http" = "librewolf.desktop";
-     "x-scheme-handler/https" = "librewolf.desktop";
-     "x-scheme-handler/about" = "librewolf.desktop";
-     "x-scheme-handler/unknown" = "librewolf.desktop";
-    };
+    # xdg.mimeApps.defaultApplications = {
+    #  "text/html" = "librewolf.desktop";
+    #  "x-scheme-handler/http" = "librewolf.desktop";
+    #  "x-scheme-handler/https" = "librewolf.desktop";
+    #  "x-scheme-handler/about" = "librewolf.desktop";
+    #  "x-scheme-handler/unknown" = "librewolf.desktop";
+    # };
     home.file.csshacks = {
       source = inputs.firefox-css-hacks;
       target = ".librewolf/default/chrome/css-hacks";
