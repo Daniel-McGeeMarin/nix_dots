@@ -6,20 +6,26 @@
     ./kitty.nix
     ./mpv.nix
     ./zathura.nix
+    #./qutebrowser.nix
   ];
   config = lib.mkIf config.desktop.enable {
     home.packages = with pkgs; [
-      brave
+      #brave
       bitwarden
       (lib.mkIf osConfig.services.pipewire.enable helvum)
       (lib.mkIf osConfig.services.pipewire.pulse.enable pavucontrol)
     ];
     programs = {
-      librewolf.enable = lib.mkDefault true;
+      #Moved to firefox.nix 
+      #librewolf.enable = lib.mkDefault true;
       foot.enable = lib.mkDefault true;
       kitty.enable = lib.mkDefault true;
       zathura.enable = lib.mkDefault true;
       mpv.enable = lib.mkIf config.media.enable (lib.mkDefault true);
     };
+
+    
+
+
   };
 }

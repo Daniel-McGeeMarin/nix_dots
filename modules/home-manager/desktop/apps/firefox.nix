@@ -15,18 +15,21 @@ let
   };
 in
 {
-  config = lib.mkIf config.programs.librewolf.enable {
+  #Changing this to just enable librewolf on the spot
+  #config = lib.mkIf config.programs.librewolf.enable {
+  config = lib.mkIf config.desktop.enable {
+    programs.librewolf.enable = lib.mkDefault true;
     home.packages = [
       (pkgs.writeShellScriptBin "nixffext" ''
         wl-copy "(extension \"$(printf "$1" | awk -F '/' '{printf $7 }')\" \"$(curl -s "$1" | tr ',' '\n' | grep byGUID | tail -n 1 | awk -F '"' '{printf $4}')\")" && notify-send "ext copied"
       '')
     ];
     xdg.mimeApps.defaultApplications = {
-      "text/html" = "librewolf.desktop";
-      "x-scheme-handler/http" = "librewolf.desktop";
-      "x-scheme-handler/https" = "librewolf.desktop";
-      "x-scheme-handler/about" = "librewolf.desktop";
-      "x-scheme-handler/unknown" = "librewolf.desktop";
+     "text/html" = "librewolf.desktop";
+     "x-scheme-handler/http" = "librewolf.desktop";
+     "x-scheme-handler/https" = "librewolf.desktop";
+     "x-scheme-handler/about" = "librewolf.desktop";
+     "x-scheme-handler/unknown" = "librewolf.desktop";
     };
     home.file.csshacks = {
       source = inputs.firefox-css-hacks;

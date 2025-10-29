@@ -43,7 +43,7 @@
       #sudo = "doas";
       sudoedit = "doas rnano";
       n = "cd ~/nixos/";
-      tethering = "sudo iptables -t mangle -A POSTROUTING -j TTL --ttl-set 65";
+      apps="librewolf --no-remote --profile ~/.librewolf/default-kiosk &";      tethering = "sudo iptables -t mangle -A POSTROUTING -j TTL --ttl-set 65";
 
       #Bens
 
@@ -125,6 +125,25 @@
             cursor() { "$HOME/MyApps/Cursor/Cursor-1.1.3-x86_64.AppImage" >/dev/null 2>&1 &! }
             bb() { "$HOME/MyApps/bluebubbles-linux-x86_64/bluebubbles" >/dev/null 2>&1 &! }
             emu() { "$HOME/MyApps/sudachi-linux-v1.0.14/sudachi" >/dev/null 2>&1 &! }
+
+
+            fo() {
+              if ! command -v fzf >/dev/null 2>&1; then
+                echo "fzf is required."
+                return 1
+              fi
+
+              local selection
+              selection=$(flatpak list --app --columns=application,name | \
+                          fzf --prompt="Open flatpak: " --delimiter=$'\t' --with-nth=2)
+              [[ -z "$selection" ]] && return 0
+
+              local appid
+              appid=$(echo "$selection" | cut -f1)
+
+              nohup flatpak run "$appid" >/dev/null 2>&1 & disown
+              pkill -P $PPID
+            }
 
             # Compile & run C
             crun() {

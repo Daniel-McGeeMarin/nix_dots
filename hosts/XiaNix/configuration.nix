@@ -32,6 +32,13 @@ in
     noisetorch.enable = true;
   };
 
+  virtualisation.docker = {
+  enable = true;
+  # optional: allow your user to use Docker without sudo
+    #enableOnBoot = true;
+  };
+
+
   fonts.packages = with pkgs; [
     nerd-fonts.fira-code
     nerd-fonts.droid-sans-mono
@@ -41,7 +48,7 @@ in
     source-han-mono
     source-han-serif
     source-han-sans-vf-ttf
-    source-han-sans-vf-otf
+source-han-sans-vf-otf
 
   ];
 

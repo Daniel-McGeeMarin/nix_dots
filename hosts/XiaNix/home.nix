@@ -46,6 +46,16 @@
     password-store.enable = true;
     rbw.enable = true;
   };
+
+  services.flatpak = {
+    packages = [
+      "com.calibre_ebook.calibre"
+      "io.missioncenter.MissionCenter"
+      "net.cozic.joplin_desktop"
+    ];
+  };
+
+
   systemd.user.sessionVariables.SSH_AUTH_SOCK = "/run/user/1000/keyring/ssh"; # Makes ssh-agent work
   home.stateVersion = "23.11"; # Do not change
 }

@@ -17,6 +17,8 @@ in
         " net.lutris.Lutris "
         " org.prismlauncher.PrismLauncher "
         " net.veloren.airshipper "
+        " com.lunarclient.LunarClient "
+
       ];
       overrides = {
         "org.prismlauncher.PrismLauncher" = {
