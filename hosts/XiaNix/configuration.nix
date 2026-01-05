@@ -13,6 +13,7 @@ in
 
     ];
   networking.hostName = "XiaNix";
+  #networking.networkmanager.enable = true;
   head = {
     enable = true;
     gaming = true;
@@ -83,13 +84,14 @@ source-han-sans-vf-otf
     v4l2loopback
   ];
   
-  home-manager.backupFileExtension = "backup";
+  home-manager.backupFileExtension = "backup2";
 
 
 
   home-manager = {
     users."xia" = import ./home.nix;
   };
+
 
   nix.package = pkgs.lix;
 

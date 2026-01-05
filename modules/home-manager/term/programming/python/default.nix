@@ -13,6 +13,9 @@
         numpy
         sympy
         pandas
+
+        # change location later as right now disabling this module will break bitwarden on qutebrowser
+        tldextract
       ]))
     ];
   };

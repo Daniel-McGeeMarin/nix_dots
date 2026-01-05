@@ -9,15 +9,15 @@ in
       inputs.home-manager.nixosModules.default
       ./head
       ./serv
-      ./grub.nix #comment out to disable grub
+     # ./grub.nix #comment out to disable grub
     ];
 
   
-  boot.loader.systemd-boot.enable = false;
+ # boot.loader.systemd-boot.enable = false;
 
   #Disable if running in grub 
-  #boot.loader.systemd-boot.enable = true;
-  #boot.loader.efi.canTouchEfiVariables = true;
+  boot.loader.systemd-boot.enable = true;
+  boot.loader.efi.canTouchEfiVariables = true;
 
   networking.networkmanager.enable = true;
 

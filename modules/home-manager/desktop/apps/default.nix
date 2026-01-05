@@ -10,7 +10,9 @@
   ];
   config = lib.mkIf config.desktop.enable {
     home.packages = with pkgs; [
-      #brave
+      brave
+      #firefox
+
       bitwarden
       (lib.mkIf osConfig.services.pipewire.enable helvum)
       (lib.mkIf osConfig.services.pipewire.pulse.enable pavucontrol)
