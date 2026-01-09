@@ -32,15 +32,15 @@
         ];
 
         modules-right = [
-          "custom/left"
-          "custom/todo1"
-          "custom/right"
-          "custom/left"
-          "custom/todo2"
-          "custom/right"
-          "custom/left"
-          "custom/todo3"
-          "custom/right"
+          #"custom/left"
+          #"custom/todo1"
+          #"custom/right"
+          #"custom/left"
+          #"custom/todo2"
+          #"custom/right"
+          #"custom/left"
+          #"custom/todo3"
+          #"custom/right"
           "custom/left"
           "tray"
           "mpris"
@@ -192,32 +192,32 @@
           interval = "once";
         };
 
-        "custom/todo1" = {
-          format = "<span color='#ff6f61'>Sch:</span> <span color='#ddeeff'>{}</span>";
-          interval = 30;
-          exec = "if [ -s ~/Documents/todo/SchoolTodo.md ]; then head -n 1 ~/Documents/todo/SchoolTodo.md | cut -c1-15; else echo '-'; fi";
-          on-click = "kitty -T TODO -e nvim ~/Documents/todo/SchoolTodo.md";
-          signal = 8;
-          markup = "pango";
-        };
+        #"custom/todo1" = {
+        #  format = "<span color='#ff6f61'>Sch:</span> <span color='#ddeeff'>{}</span>";
+        #  interval = 30;
+        #  exec = "if [ -s ~/Documents/todo/SchoolTodo.md ]; then head -n 1 ~/Documents/todo/SchoolTodo.md | cut -c1-15; else echo '-'; fi";
+        #  on-click = "kitty -T TODO -e nvim ~/Documents/todo/SchoolTodo.md";
+        #  signal = 8;
+        #  markup = "pango";
+        #};
 
-        "custom/todo2" = {
-          format = "<span color='#f6c500'>Lin:</span> <span color='#ddeeff'>{}</span>";
-          interval = 30;
-          exec = "if [ -s ~/Documents/todo/LinuxTodo.md ]; then head -n 1 ~/Documents/todo/LinuxTodo.md | cut -c1-15; else echo '-'; fi";
-          on-click = "kitty -T TODO -e nvim ~/Documents/todo/LinuxTodo.md";
-          signal = 8;
-          markup = "pango";
-        };
+        #"custom/todo2" = {
+        #  format = "<span color='#f6c500'>Lin:</span> <span color='#ddeeff'>{}</span>";
+        #  interval = 30;
+        #  exec = "if [ -s ~/Documents/todo/LinuxTodo.md ]; then head -n 1 ~/Documents/todo/LinuxTodo.md | cut -c1-15; else echo '-'; fi";
+        #  on-click = "kitty -T TODO -e nvim ~/Documents/todo/LinuxTodo.md";
+        #  signal = 8;
+        #  markup = "pango";
+        #};
 
-        "custom/todo3" = {
-          format = "<span color='#65d487'>Per:</span> <span color='#ddeeff'>{}</span>";
-          interval = 30;
-          exec = "if [ -s ~/Documents/todo/PersonalTodo.md ]; then head -n 1 ~/Documents/todo/PersonalTodo.md | cut -c1-15; else echo '-'; fi";
-          on-click = "kitty -T TODO -e nvim ~/Documents/todo/PersonalTodo.md";
-          signal = 8;
-          markup = "pango";
-        };
+        #"custom/todo3" = {
+        #  format = "<span color='#65d487'>Per:</span> <span color='#ddeeff'>{}</span>";
+        #  interval = 30;
+        #  exec = "if [ -s ~/Documents/todo/PersonalTodo.md ]; then head -n 1 ~/Documents/todo/PersonalTodo.md | cut -c1-15; else echo '-'; fi";
+        #  on-click = "kitty -T TODO -e nvim ~/Documents/todo/PersonalTodo.md";
+        #  signal = 8;
+        #  markup = "pango";
+        #};
 
         "custom/left" = {
           format = " ";

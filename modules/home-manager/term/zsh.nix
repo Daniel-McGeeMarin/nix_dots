@@ -15,6 +15,9 @@
     cgdb
     valgrind
     gnumake
+
+    #zsh-powerlevel10k
+
   ];
   programs.zsh = {
     completionInit = "";

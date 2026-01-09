@@ -73,6 +73,7 @@ source-han-sans-vf-otf
     powertop
     numworks-udev-rules
     blueman
+    alsa-utils
   ];
 
   users.users.xia = {
