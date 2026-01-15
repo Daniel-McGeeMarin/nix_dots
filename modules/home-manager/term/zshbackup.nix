@@ -294,5 +294,10 @@
                 }
     '';
   };
-
+  home.file.".zsh_plugins.txt".text = ''
+    jeffreytse/zsh-vi-mode
+    zsh-users/zsh-autosuggestions
+    zdharma-continuum/fast-syntax-highlighting kind:defer
+    romkatv/powerlevel10k
+  '';
 }

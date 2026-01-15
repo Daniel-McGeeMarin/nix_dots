@@ -14,6 +14,7 @@
     ./sync.nix
     ./office.nix
     ./media.nix
+    ./gram.nix
   ];
   config = lib.mkIf config.desktop.enable {
     comms.enable = lib.mkDefault true;

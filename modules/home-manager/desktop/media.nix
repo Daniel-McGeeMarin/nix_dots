@@ -7,6 +7,7 @@
       gimp
       inkscape
       sxiv
+      
     ];
     services.flatpak.packages = [
       "org.qbittorrent.qBittorrent"

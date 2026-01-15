@@ -16,12 +16,18 @@ in
     
 
 
-
+    
     xdg.mimeApps.defaultApplications = {
-      "text/html" = "org.qutebrowser.qutebrowser.desktop";
-      "x-scheme-handler/http" = "org.qutebrowser.qutebrowser.desktop";
-      "x-scheme-handler/https" = "org.qutebrowser.qutebrowser.desktop";
+      "text/html" = "brave-browser.desktop";
+      "x-scheme-handler/http" = "brave-browser.desktop";
+      "x-scheme-handler/https" = "brave-browser.desktop";
     };
+    #temp changed here due to lazyness lol 
+    #xdg.mimeApps.defaultApplications = {
+    #  "text/html" = "org.qutebrowser.qutebrowser.desktop";
+    #  "x-scheme-handler/http" = "org.qutebrowser.qutebrowser.desktop";
+    #  "x-scheme-handler/https" = "org.qutebrowser.qutebrowser.desktop";
+    #};
 
     # Fetch the theme directly from GitHub using curl
     programs.qutebrowser = {
