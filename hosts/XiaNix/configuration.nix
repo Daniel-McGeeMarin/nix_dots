@@ -40,14 +40,14 @@ in
   };
 
   virtualisation.waydroid.enable = true;
-  #location.provider = "geoclue2";
 
-  #services.geoclue2.enable = true;
 
 
 
 
   fonts.packages = with pkgs; [
+    rubik
+    nerd-fonts.ubuntu
     nerd-fonts.fira-code
     nerd-fonts.droid-sans-mono
     nerd-fonts.jetbrains-mono
@@ -56,7 +56,7 @@ in
     source-han-mono
     source-han-serif
     source-han-sans-vf-ttf
-source-han-sans-vf-otf
+    source-han-sans-vf-otf
 
   ];
 
@@ -69,6 +69,9 @@ source-han-sans-vf-otf
     fwupd.enable = true;
     fprintd.enable = true;
     thermald.enable = true;
+    geoclue2.enable = true;
+    upower.enable = true;
+
 
     xserver = {
       enable = true;
