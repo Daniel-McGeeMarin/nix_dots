@@ -7,7 +7,9 @@ in
   imports = [
     ./plymouth.nix
     ./sddm.nix
-    ./grub-theme.nix #adds grub, make sure to disable systemd
+    ./grub-theme.nix 
+    ./gram.nix
+    #adds grub, make sure to disable systemd
   ];
 
 

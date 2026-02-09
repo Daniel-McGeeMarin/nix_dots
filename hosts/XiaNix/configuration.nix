@@ -39,6 +39,13 @@ in
     #enableOnBoot = true;
   };
 
+  virtualisation.waydroid.enable = true;
+  #location.provider = "geoclue2";
+
+  #services.geoclue2.enable = true;
+
+
+
 
   fonts.packages = with pkgs; [
     nerd-fonts.fira-code
@@ -74,16 +81,20 @@ source-han-sans-vf-otf
     numworks-udev-rules
     blueman
     alsa-utils
+
   ];
 
   users.users.xia = {
     isNormalUser = true;
     shell = pkgs.zsh;
-    extraGroups = [ "adbusers" "docker" "wheel" "uinput" "input" "video" ]; # Enable ‘sudo’ for the user.
+    extraGroups = [ "adbusers" "docker" "wheel" "uinput" "input" "video" "lxc"]; # Enable ‘sudo’ for the user.
   };
   boot.extraModulePackages = with config.boot.kernelPackages; [
     v4l2loopback
   ];
+
+  boot.kernelModules = [ "binder_linux" ];
+
   
   home-manager.backupFileExtension = "backup2";
 

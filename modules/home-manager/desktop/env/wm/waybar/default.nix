@@ -66,7 +66,7 @@
 
         "custom/rofi" = {
           format = "  {}";
-          on-click = "rofi -show drun";
+          #on-click = "rofi -show drun";
         };
 
         "hyprland/workspaces" = {

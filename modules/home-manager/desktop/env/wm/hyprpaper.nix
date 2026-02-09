@@ -7,6 +7,7 @@
       preload = [ "${config.home.homeDirectory}/Pictures/Wallpapers/e7.jpg" ];
       wallpaper = [
         "eDP-1,${config.home.homeDirectory}/Pictures/Wallpapers/e7.jpg"
+        "DP-5,${config.home.homeDirectory}/Pictures/Wallpapers/e7.jpg"
       ];
     };
   };
