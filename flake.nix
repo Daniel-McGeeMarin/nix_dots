@@ -40,6 +40,17 @@
       url = "github:BenMac31/sddm-sugar-dark";
       flake = false;
     };
+
+    dotfiles = {
+      url = "path:./confs/illogical-dotfiles";
+      flake = false;
+    };
+
+    illogical-flake = {
+      url = "github:soymou/illogical-flake";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.dotfiles.follows = "dotfiles";
+    };
   };
 
 

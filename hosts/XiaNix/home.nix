@@ -3,6 +3,7 @@
 {
   imports = [
     ../../modules/home-manager
+    inputs.illogical-flake.homeManagerModules.default
   ];
   programs.home-manager.enable = true;
   home.username = "xia";
@@ -10,10 +11,36 @@
   sync.enable = false;
   programming.enable = true;
   ai.enable = false;
+  #desktop = {
+  #  enable = true;
+  #  gaming.enable = true;
+  #  japanese.enable = false;
+  #};
+  
+
+  # IMPORTANT: disable your existing desktop module to avoid conflicts (hyprland, hypridle, waybar, etc.)
   desktop = {
-    enable = true;
-    gaming.enable = true;
+    enable = false;
+    gaming.enable = false;
     japanese.enable = false;
+  };
+
+  programs.illogical-impulse = {
+    enable = true;
+
+    # Customize shell tools (all enabled by default)
+    dotfiles = {
+      fish.enable = true;     # Fish shell with custom config
+      kitty.enable = true;    # Kitty terminal emulator
+      starship.enable = true; # Starship prompt
+    };
+    
+    # Hyprland Plugins (Declarative installation & loading)
+    hyprland.plugins = [
+      pkgs.hyprlandPlugins.hyprbars
+      pkgs.hyprlandPlugins.hyprexpo
+      # Add any other plugins available in nixpkgs
+    ];
   };
 
   home.packages = [

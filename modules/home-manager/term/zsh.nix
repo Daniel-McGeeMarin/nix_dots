@@ -22,10 +22,10 @@
     shellAliases = {
       
       #Mine
-    
+      pys = "source ./venv/bin/activate";
       flvim = "nvim $(fzf)";
       fl = "nvim $(fzf)";
-      s = "cd ~/Documents/school/";
+      sch = "cd ~/Documents/school/";
       c = "cd ~/.config/";
       g = "cd ~/Documents/genpf";
       d = "cd ~/Documents";

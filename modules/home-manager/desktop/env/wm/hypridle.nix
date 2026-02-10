@@ -1,5 +1,4 @@
 { config, pkgs, lib, ... }:
-
 {
   home.packages = [
     pkgs.hypridle
