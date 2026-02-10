@@ -41,15 +41,28 @@
       flake = false;
     };
 
-    caelestia-shell = {
-    # We are adding the version tag 'v1.4.2' to the end of the URL
-    url = "github:caelestia-dots/shell/v1.4.1"; 
-      #inputs.nixpkgs.follows = "nixpkgs-unstable";
-  };    
- 
+    illogical-flake = {
+      url = "github:soymou/illogical-flake";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+
+
+
+    #dotfiles = {
+    #  url = "path:./confs/illogical-dotfiles";
+    #  flake = false;
+    #};
+
+    #illogical-flake = {
+    #  url = "github:soymou/illogical-flake";
+    #  inputs.nixpkgs.follows = "nixpkgs";
+    #  inputs.dotfiles.follows = "dotfiles";
+    #};
   };
 
-  outputs = { self, nixpkgs, home-manager, nixpkgs-master, nixpkgs-unstable, caelestia-shell, ... }@inputs:
+
+  outputs = { self, nixpkgs, home-manager, nixpkgs-master, nixpkgs-unstable, illogical-flake, ... }@inputs:
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
@@ -95,17 +108,19 @@
               overlay-master-unfree
               overlay-unstable
               overlay-unstable-unfree
+              # --- ADD THE FIX BELOW ---
+              (final: prev: {
+                papirus-icon-theme = prev.papirus-icon-theme.overrideAttrs (old: {
+                  meta = (old.meta or {}) // { priority = 4; }; 
+                });
+              })
+              # --- END FIX ---
+
               (final: prev: {
                 sddm-sugar-dark = prev.sddm-sugar-dark.overrideAttrs {
                   src = inputs.patched-sddm-sugar-dark;
                 };
               })
-
-              
-              
-
-
-
             ];
           })
           ./hosts/XiaNix/configuration.nix
@@ -115,9 +130,12 @@
         extraSpecialArgs = { inherit inputs; };
         inherit pkgs;
         modules = [
-          
+          illogical-flake.homeManagerModules.default
+	  {
+	    programs.illogical-impulse.enable = true;
+	  }
           ({ config, pkgs, ... }: { nixpkgs.overlays = [ overlay-unfree overlay-unstable overlay-unstable-unfree overlay-master overlay-master-unfree ]; })
-	  ./hosts/XiaNix/home.nix
+          ./hosts/XiaNix/home.nix
         ];
       };
       nixosConfigurations.nixos = nixpkgs.lib.nixosSystem rec {

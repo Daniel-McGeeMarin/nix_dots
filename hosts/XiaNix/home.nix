@@ -2,48 +2,53 @@
 
 {
   imports = [
+    #this disables my entire local homemanager config
     ../../modules/home-manager
-    inputs.illogical-flake.homeManagerModules.default
+
+    inputs.caelestia-shell.homeManagerModules.default
   ];
   programs.home-manager.enable = true;
   home.username = "xia";
   home.homeDirectory = "/home/xia";
+
+
+
+  # IMPORTANT: disable your existing desktop module to avoid conflicts (hyprland, hypridle, waybar, etc.)
+
   sync.enable = false;
   programming.enable = true;
   ai.enable = false;
-  #desktop = {
-  #  enable = true;
-  #  gaming.enable = true;
-  #  japanese.enable = false;
-  #};
   
-
-  # IMPORTANT: disable your existing desktop module to avoid conflicts (hyprland, hypridle, waybar, etc.)
   desktop = {
-    enable = false;
-    gaming.enable = false;
+    enable = true;
+    gaming.enable = true;
     japanese.enable = false;
   };
 
-  programs.illogical-impulse = {
-    enable = true;
 
-    # Customize shell tools (all enabled by default)
-    dotfiles = {
-      fish.enable = true;     # Fish shell with custom config
-      kitty.enable = true;    # Kitty terminal emulator
-      starship.enable = true; # Starship prompt
-    };
-    
-    # Hyprland Plugins (Declarative installation & loading)
-    hyprland.plugins = [
-      pkgs.hyprlandPlugins.hyprbars
-      pkgs.hyprlandPlugins.hyprexpo
-      # Add any other plugins available in nixpkgs
-    ];
+  
+  programs.caelestia = {
+  enable = true;
+  systemd = {
+    enable = true; # if you prefer starting from your compositor
+    target = "graphical-session.target";
+    environment = [];
   };
+    #settings = {
+    #paths.wallpaperDir = "~/Images";
+    #};
+  cli = {
+    enable = true; # Also add caelestia-cli to path
+      #settings = {
+      #  theme.enableGtk = false;
+      #};
+  };
+};
 
   home.packages = [
+    pkgs.papirus-icon-theme
+
+    
     # pkgs.unfree.android-studio
     # pkgs.mullvad-vpn
     pkgs.nix-output-monitor
@@ -72,14 +77,6 @@
   programs = {
     password-store.enable = true;
     rbw.enable = true;
-  };
-
-  services.flatpak = {
-    packages = [
-      #"com.calibre_ebook.calibre"
-      "io.missioncenter.MissionCenter"
-      "net.cozic.joplin_desktop"
-    ];
   };
 
 

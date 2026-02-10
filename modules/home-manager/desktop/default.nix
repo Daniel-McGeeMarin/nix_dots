@@ -22,6 +22,8 @@
     media.enable = lib.mkDefault true;
     services.flatpak.packages = [
       "com.github.tchx84.Flatseal"
+      "io.missioncenter.MissionCenter"
+      "net.cozic.joplin_desktop"
     ];
     home.packages = with pkgs; [
       brightnessctl

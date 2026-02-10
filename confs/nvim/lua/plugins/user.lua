@@ -25,6 +25,8 @@ return {
   },
 
   -- Example plugins (optional)
+  --
+
   "andweeb/presence.nvim",
   {
     "ray-x/lsp_signature.nvim",

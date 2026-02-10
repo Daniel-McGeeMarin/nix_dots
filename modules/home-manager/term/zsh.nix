@@ -54,7 +54,12 @@
 
     initExtra = /*bash*/ ''
             [[ -f $HOME/.p10k.zsh ]] && source $HOME/.p10k.zsh
-            
+
+            # Caelestia terminal theming for new terminals (kitty)
+            if [[ -o interactive ]] && [[ -z "$TMUX" ]]; then
+              [[ -f "$HOME/.local/state/caelestia/sequences.txt" ]] && cat "$HOME/.local/state/caelestia/sequences.txt" 2>/dev/null
+            fi
+                      
 
 
             rn() {${pkgs.coreutils}/bin/shuf -i 1-$1 -n 1} # Random number

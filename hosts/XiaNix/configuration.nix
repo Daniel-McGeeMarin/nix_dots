@@ -9,6 +9,7 @@ in
       ../../modules/nixos
       ./hardware-configuration.nix
 
+
       #../../modules/nixos/onTheGo.nix
 
     ];
@@ -40,8 +41,6 @@ in
   };
 
   virtualisation.waydroid.enable = true;
-
-
 
 
 
@@ -85,6 +84,7 @@ in
     blueman
     alsa-utils
 
+
   ];
 
   users.users.xia = {
@@ -109,6 +109,8 @@ in
 
 
   nix.package = pkgs.lix;
+
+ 
 
   system.stateVersion = "23.11"; # DO NOT CHANGE
 }

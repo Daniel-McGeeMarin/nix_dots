@@ -5,7 +5,7 @@
     settings = with config.colorScheme.palette; {
       font_family = "FiraCodeNerdFont-Regular";
       enable_audio_bell = true;
-      font_size = 10;
+      font_size = 12;
       color0 = "#${base00}";
       color1 = "#${base08}";
       color2 = "#${base09}";

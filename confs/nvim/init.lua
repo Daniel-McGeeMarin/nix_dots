@@ -17,6 +17,7 @@ end
 
 vim.opt.rtp:prepend(lazypath)
 
+
 -- validate that lazy is available
 if not pcall(require, "lazy") then
   -- stylua: ignore
