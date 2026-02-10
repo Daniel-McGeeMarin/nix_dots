@@ -1,3 +1,9 @@
 [submodule "confs/illogical-dotfiles"]
 	path = confs/illogical-dotfiles
 	url = https://github.com/end-4/dots-hyprland
+[submodule "confs/confs/illogical-dotfiles"]
+	path = confs/confs/illogical-dotfiles
+	url = git@github.com:Daniel-McGeeMarin/illogical-flake.git
+[submodule "confs/illogical-flake"]
+	path = confs/illogical-flake
+	url = git@github.com:Daniel-McGeeMarin/illogical-flake.git
