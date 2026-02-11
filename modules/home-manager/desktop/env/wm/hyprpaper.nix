@@ -2,7 +2,7 @@
 
 {
   services.hyprpaper = {
-    enable = true;
+    enable = false;
     settings = {
       preload = [ "${config.home.homeDirectory}/Pictures/Wallpapers/e7.jpg" ];
       wallpaper = [
