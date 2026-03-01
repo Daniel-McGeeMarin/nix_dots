@@ -938,7 +938,21 @@
         "nixpkgs-master": "nixpkgs-master",
         "nixpkgs-unstable": "nixpkgs-unstable",
         "patched-sddm-sugar-dark": "patched-sddm-sugar-dark",
+        "secrets": "secrets",
         "xremap-flake": "xremap-flake"
+      }
+    },
+    "secrets": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1772400005,
+        "narHash": "sha256-uoHjSNPHdJf++GEyBiydCjw//S/3wXwfF30L9IZ32Hw=",
+        "path": "/home/xia/nixos/secrets.nix",
+        "type": "path"
+      },
+      "original": {
+        "path": "/home/xia/nixos/secrets.nix",
+        "type": "path"
       }
     },
     "systems": {

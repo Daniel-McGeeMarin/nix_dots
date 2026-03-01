@@ -41,6 +41,12 @@
       flake = false;
     };
 
+    # Local secrets; kept out of VCS. See README.
+    secrets = {
+      url = "path:/home/xia/nixos/secrets.nix";
+      flake = false;
+    };
+
     caelestia-shell = {
     # We are adding the version tag 'v1.4.2' to the end of the URL
     url = "github:caelestia-dots/shell"; 
@@ -53,8 +59,7 @@
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
-      secrets = import ./secrets.nix;
-      
+      secrets = import inputs.secrets;
 
       overlay-master = final: prev: {
         master = import nixpkgs-master.legacyPackages.${system};

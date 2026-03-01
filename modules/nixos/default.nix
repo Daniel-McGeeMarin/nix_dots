@@ -1,4 +1,4 @@
-{ config, lib, pkgs, inputs, ... }:
+{ config, lib, pkgs, inputs, secrets, ... }:
 
 let
   upkgs = pkgs.unstable;
@@ -63,8 +63,8 @@ in
     options = "--delete-older-than 7d";
   };
   home-manager = {
-    # also pass inputs to home-manager modules
-    extraSpecialArgs = { inherit inputs; inherit pkgs; };
+    # also pass inputs and secrets to home-manager modules
+    extraSpecialArgs = { inherit inputs pkgs secrets; };
   };
   networking.firewall = {
     enable = lib.mkDefault true;
