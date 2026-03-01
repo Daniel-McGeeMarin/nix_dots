@@ -12,6 +12,7 @@
     home.packages = with pkgs; [
       brave
       #firefox
+      #code-cursor
 
       bitwarden
       (lib.mkIf osConfig.services.pipewire.enable helvum)

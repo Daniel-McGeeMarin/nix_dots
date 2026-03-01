@@ -13,6 +13,15 @@ in
       #../../modules/nixos/onTheGo.nix
 
     ];
+
+
+  # new fix for sound error
+
+  boot.extraModprobeConfig = ''
+    options snd-hda-intel model=alc298-samsung-amp2
+  '';
+
+
   networking.hostName = "XiaNix";
   #networking.networkmanager.enable = true;
   head = {
@@ -78,6 +87,8 @@ in
     };
   };
   environment.systemPackages = with pkgs; [
+    
+    wireguard-tools
     libusb1
     powertop
     numworks-udev-rules

@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ pkgs, config, ... }:
 
 {
 
@@ -18,9 +18,36 @@
   }
   ];
 
+  ### KERNEL FIXES FOR AUDIO
+
+
+
+  
+  systemd.services.lg-gram-audio = {
+    description = "LG Gram internal speaker amp init";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "sound.target" ];
+
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${pkgs.bash}/bin/bash ${./lg-gram-audio.sh}";
+      RemainAfterExit = true;
+    };
+  };
+
+
+  hardware.firmware = [ pkgs.sof-firmware ];
+  ### END ###
+
 
   # --- Input Remapper Section ---
   environment.systemPackages = with pkgs; [
+
+
+    ####### WARNING NEEDED FOR SOUND TO WORK#####
+    alsa-tools
+    ########## DO NOT DELETE #########
+
     input-remapper
     wvkbd
     squeekboard

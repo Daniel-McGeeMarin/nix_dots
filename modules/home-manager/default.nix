@@ -1,4 +1,4 @@
-{ config, lib, pkgs, inputs, osConfig, ... }:
+{ config, lib, pkgs, inputs, osConfig, secrets, ... }:
 {
   imports = [
     ./desktop

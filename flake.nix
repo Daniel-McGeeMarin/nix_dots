@@ -43,7 +43,7 @@
 
     caelestia-shell = {
     # We are adding the version tag 'v1.4.2' to the end of the URL
-    url = "github:caelestia-dots/shell/v1.4.1"; 
+    url = "github:caelestia-dots/shell"; 
       #inputs.nixpkgs.follows = "nixpkgs-unstable";
   };    
  
@@ -53,6 +53,7 @@
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
+      secrets = import ./secrets.nix;
       
 
       overlay-master = final: prev: {
@@ -82,7 +83,7 @@
     in
     rec {
       nixosConfigurations.XiaNix = nixpkgs.lib.nixosSystem rec {
-        specialArgs = { inherit inputs; };
+        specialArgs = { inherit inputs secrets; };
         modules = [
           ({ config, pkgs, ... }: {
             # added just for illogical dots
@@ -112,7 +113,7 @@
         ];
       };
       homeConfigurations.XiaNix = home-manager.lib.homeManagerConfiguration {
-        extraSpecialArgs = { inherit inputs; };
+        extraSpecialArgs = { inherit inputs secrets; };
         inherit pkgs;
         modules = [
           
@@ -121,14 +122,14 @@
         ];
       };
       nixosConfigurations.nixos = nixpkgs.lib.nixosSystem rec {
-        specialArgs = { inherit inputs; };
+        specialArgs = { inherit inputs secrets; };
         modules = [
           ({ config, pkgs, ... }: { nixpkgs.overlays = [ overlay-unfree overlay-master overlay-master-unfree overlay-unstable overlay-unstable-unfree ]; })
           ./hosts/phantomServ/configuration.nix
         ];
       };
       homeConfigurations.nixos = home-manager.lib.homeManagerConfiguration {
-        extraSpecialArgs = { inherit inputs; };
+        extraSpecialArgs = { inherit inputs secrets; };
         inherit pkgs;
         modules = [
           ({ config, pkgs, ... }: { nixpkgs.overlays = [ overlay-unfree overlay-unstable overlay-unstable-unfree overlay-master overlay-master-unfree ]; })

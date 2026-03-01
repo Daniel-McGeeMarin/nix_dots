@@ -3,7 +3,7 @@
 {
   # To escape bashisms use ''${}
   home.packages = with pkgs; [
-    bat eza bc tree curl jq gcc cgdb valgrind gnumake
+    bat eza bc tree curl jq gcc cgdb valgrind gnumake appimage-run
   ];
 
   programs.zsh = {
@@ -104,12 +104,12 @@
 
 
 
-            cursor() { "$HOME/MyApps/Cursor/Cursor-1.1.3-x86_64.AppImage" >/dev/null 2>&1 &! }
+            cursor() { appimage-run "$HOME/MyApps/Cursor/Cursor-2.4.35-x86_64.AppImage" >/dev/null 2>&1 &}
             bb() { "$HOME/MyApps/bluebubbles-linux-x86_64/bluebubbles" >/dev/null 2>&1 &! }
             emu() { "$HOME/MyApps/sudachi-linux-v1.0.14/sudachi" >/dev/null 2>&1 &! }
 
 
-            fo() {
+            flatrun() {
               if ! command -v fzf >/dev/null 2>&1; then
                 echo "fzf is required."
                 return 1
