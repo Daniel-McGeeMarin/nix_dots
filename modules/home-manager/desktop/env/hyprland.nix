@@ -6,6 +6,11 @@ let
   pactl = "${pkgs.pulseaudio}/bin/pactl";
   socat = "${pkgs.socat}/bin/socat";
   hyprctl = "${pkgs.hyprland}/bin/hyprctl";
+  jq = "${pkgs.jq}/bin/jq";
+  # Modular isolated workspace cycle — see wm/hypr-workspace-cycle.sh
+  hyprWorkspaceCycle = pkgs.writeShellScriptBin "hypr-workspace-cycle" (builtins.readFile ./wm/hypr-workspace-cycle.sh);
+  hyprWorkspaceNext = pkgs.writeShellScriptBin "hypr-workspace-next" ''exec "${hyprWorkspaceCycle}/bin/hypr-workspace-cycle" next'';
+  hyprWorkspacePrev = pkgs.writeShellScriptBin "hypr-workspace-prev" ''exec "${hyprWorkspaceCycle}/bin/hypr-workspace-cycle" prev'';
 in
 {
   imports = [
@@ -46,6 +51,8 @@ in
       NIXOS_OZONE_WL = "1";
     };
     home.packages = [
+      hyprWorkspaceNext
+      hyprWorkspacePrev
       #
       #pkgs.nwg-launchers
       #pkgs.nwg-look
@@ -152,6 +159,8 @@ in
         ];
         exec-once = [
 
+
+
           "systemctl --user restart xdg-desktop-portal.service"
 
           
@@ -181,6 +190,10 @@ in
 
           
           "sleep 4 && brave"
+
+          # Magic workspace: waydroid + xournal++ (toggle with mainmod+X or 4-finger hold)
+          "sleep 5 && waydroid show-full-ui"
+          "sleep 6 && flatpak run com.github.xournalpp.xournalpp"
         ];
         input = {
           kb_layout = "us";
@@ -276,9 +289,11 @@ in
         [
 
 
-          ### WAYDROID ###
+          ### WAYDROID (magic workspace 21) ###
           "fullscreen, class:^(Waydroid)$"
           "fullscreen, class:^(waydroid\\..+)$"
+          "workspace 21 silent, class:^(Waydroid)$"
+          "workspace 21 silent, class:^(waydroid\\..+)$"
 
 
           ### Generic rules ###
@@ -328,6 +343,11 @@ in
           "pin,title:^(TODO)$"
           "center,title:^(TODO)$"
           "noanim,title:^(TODO)$"
+
+          ### Magic workspace 22 (xournal++) ###
+          "workspace 22 silent, class:^(com\\.github\\.xournalpp\\.xournalpp)$"
+          "workspace 22 silent, class:^(Xournalpp)$"
+          "workspace 22 silent, class:^(xournalpp)$"
 
           ### Workspace assignments ###
           (w 5 "title:^(Signal)$")
@@ -415,7 +435,7 @@ in
           "$mainMod,V,togglefloating,"
           "$mainMod,n,exec,swaync-client --close-latest"
           "$mainMod SHIFT,n,exec,swaync-client -t"
-          #"$mainMod,R,exec,pkill rofi || rofi -show drun"
+          "$mainMod SHIFT,R,exec,pkill rofi || rofi -show drun"
 
           "$mainMod,R,global,caelestia:launcher"
           "$mainMod,A,global,caelestia:control-center"
@@ -435,10 +455,12 @@ in
           "$mainMod SHIFT,J,movewindoworgroup,d"
           "$mainMod,S,togglespecialworkspace,magic"
           "$mainMod SHIFT,S,movetoworkspace,special:magic"
+          # Magic workspaces 21 (waydroid) + 22 (xournal++) — only via Super+X or 4-finger hold
+          "$mainMod,X,exec,${hyprWorkspaceCycle}/bin/hypr-workspace-cycle toggle"
           "$mainMod,T,togglespecialworkspace,todo"
           "SHIFT$mainMod,t,exec,todo"
-          "$mainMod,mouse_down,workspace,e+1"
-          "$mainMod,mouse_up,workspace,e-1"
+          "$mainMod,mouse_down,exec,${hyprWorkspaceNext}/bin/hypr-workspace-next"
+          "$mainMod,mouse_up,exec,${hyprWorkspacePrev}/bin/hypr-workspace-prev"
           "$mainMod,Z,exec,qshot"
           "$mainMod,F,fullscreen,0"
           "CTRL$mainMod,F,fullscreen,1"
@@ -595,22 +617,22 @@ in
               hyprgrass-bind = , edge:ru:ld, exec, $rotate
               hyprgrass-bind = , edge:rd:lu, exec, $rotate
 
-              # swipe left from right edge
-              hyprgrass-bind = , edge:r:l, workspace, +1
-              hyprgrass-bind = , edge:l:r, workspace, -1
+              # swipe: isolated cycle (1–12 only, 13↔14 only; no cross)
+              hyprgrass-bind = , edge:r:l, exec, ${hyprWorkspaceNext}/bin/hypr-workspace-next
+              hyprgrass-bind = , edge:l:r, exec, ${hyprWorkspacePrev}/bin/hypr-workspace-prev
 
-              hyprgrass-bind = , edge:r:lu, workspace, +1
-              hyprgrass-bind = , edge:l:ru, workspace, -1
+              hyprgrass-bind = , edge:r:lu, exec, ${hyprWorkspaceNext}/bin/hypr-workspace-next
+              hyprgrass-bind = , edge:l:ru, exec, ${hyprWorkspacePrev}/bin/hypr-workspace-prev
 
-              hyprgrass-bind = , edge:r:ld, workspace, +1
-              hyprgrass-bind = , edge:l:rd, workspace, -1
+              hyprgrass-bind = , edge:r:ld, exec, ${hyprWorkspaceNext}/bin/hypr-workspace-next
+              hyprgrass-bind = , edge:l:rd, exec, ${hyprWorkspacePrev}/bin/hypr-workspace-prev
 
               #hyprgrass-bind = , edge:u:d, overview:toggle
               #hyprgrass-bind = , edge:d:u, exec, nwg-drawer -open
 
               hyprgrass-bindm = , longpress:2, movewindow
               hyprgrass-bindm = , longpress:3, resizewindow
-              hyprgrass-bind = , longpress:4, killactive
+              hyprgrass-bind = , longpress:4, exec, ${hyprWorkspaceCycle}/bin/hypr-workspace-cycle toggle
 
               # tap with 3 fingers toggles squeekboard
               hyprgrass-bind = , tap:3, exec, sh -c 'pgrep squeekboard >/dev/null || squeekboard & sleep 0.2; busctl --user get-property sm.puri.OSK0 /sm/puri/OSK0 sm.puri.OSK0 Visible 2>/dev/null | grep -q true && busctl --user call sm.puri.OSK0 /sm/puri/OSK0 sm.puri.OSK0 SetVisible b false || busctl --user call sm.puri.OSK0 /sm/puri/OSK0 sm.puri.OSK0 SetVisible b true'

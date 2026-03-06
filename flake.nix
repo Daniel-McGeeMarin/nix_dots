@@ -41,6 +41,12 @@
       flake = false;
     };
 
+    # Nixpkgs fork with Howdy module + package
+    nixpkgs-howdy = {
+      url = "github:fufexan/nixpkgs/howdy";
+      flake = false;
+    };
+
     # Local secrets; kept out of VCS. See README.
     secrets = {
       url = "path:/home/xia/nixos/secrets.nix";

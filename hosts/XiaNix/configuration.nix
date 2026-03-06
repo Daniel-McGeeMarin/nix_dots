@@ -27,6 +27,7 @@ in
   head = {
     enable = true;
     gaming = true;
+    howdy.enable = true;
   };
   programs = {
     hyprland.enable = true;
@@ -68,6 +69,7 @@ in
 
   ];
 
+
   time.timeZone = "America/Los_Angeles";
   services = {
     flatpak.enable = true;
@@ -86,6 +88,7 @@ in
       desktopManager.gnome.enable = true;
     };
   };
+
   environment.systemPackages = with pkgs; [
     
     wireguard-tools
@@ -111,6 +114,7 @@ in
 
   
   home-manager.backupFileExtension = "backup2";
+
 
 
 

@@ -9,6 +9,7 @@ in
     ./sddm.nix
     ./grub-theme.nix 
     ./gram.nix
+    ./howdy.nix
     #adds grub, make sure to disable systemd
   ];
 
