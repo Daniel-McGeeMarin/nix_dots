@@ -181,6 +181,10 @@ in
 
           "kitty --class StartupTerm"
 
+          "kitty --class BufferTerm1 -e sleep infinity &" # For Workspace 13
+          "kitty --class BufferTerm2 -e sleep infinity &" # For Workspace 14
+          "kitty --class BufferTerm3 -e sleep infinity &" # For Workspace 15
+
           
           
           ''bash -c '[ "$(cat /sys/class/power_supply/AC0/online 2>/dev/null)" = "1" ] && filen-desktop' ''
@@ -192,8 +196,8 @@ in
           "sleep 4 && brave"
 
           # Magic workspace: waydroid + xournal++ (toggle with mainmod+X or 4-finger hold)
-          "sleep 5 && waydroid show-full-ui"
-          "sleep 6 && flatpak run com.github.xournalpp.xournalpp"
+          "waydroid show-full-ui"
+          "flatpak run com.github.xournalpp.xournalpp"
         ];
         input = {
           kb_layout = "us";
@@ -271,7 +275,8 @@ in
 
         gestures = {
           workspace_swipe = true;
-          workspace_swipe_forever = true;
+          workspace_swipe_forever = false;
+
         };
 
         misc = {
@@ -287,6 +292,18 @@ in
           w = s: r: "workspace ${toString s} silent, ${r}";
         in
         [
+
+            ### Buffer Terms
+
+            "workspace 13 silent, class:^(BufferTerm1)$"
+            "workspace 14 silent, class:^(BufferTerm2)$"
+            "workspace 15 silent, class:^(BufferTerm3)$"
+
+            # Optional: Make them invisible/tiny so they don't distract you
+            "nofocus, class:^(BufferTerm.*)$"
+            "size 0 0, class:^(BufferTerm.*)$"
+            "move 0 0, class:^(BufferTerm.*)$"
+            "noinitialfocus, class:^(BufferTerm.*)$" # Extra safety for v0.49
 
 
           ### WAYDROID (magic workspace 21) ###
@@ -348,6 +365,7 @@ in
           "workspace 22 silent, class:^(com\\.github\\.xournalpp\\.xournalpp)$"
           "workspace 22 silent, class:^(Xournalpp)$"
           "workspace 22 silent, class:^(xournalpp)$"
+          "fullscreen, class:^(xournalpp|Xournalpp|com\\.github\\.xournalpp\\.xournalpp)$"
 
           ### Workspace assignments ###
           (w 5 "title:^(Signal)$")
@@ -380,7 +398,13 @@ in
 
         bind = [
 
-          "$mainMod,D,exec,nwg-drawer -open"
+          #", swipe:3:u, exec, notify-send 'Gesture Working'"
+
+          # 4-finger swipe left to trigger the "Next" script
+          #", swipe:3:l, exec, ${hyprWorkspaceNext}/bin/hypr-workspace-next"
+    
+          # 4-finger swipe right to trigger the "Prev" script
+          #", swipe:3:r, exec, ${hyprWorkspacePrev}/bin/hypr-workspace-prev"
 
 
           "$mainMod, TAB, overview:toggle, "
@@ -568,45 +592,27 @@ in
       };
       extraConfig = ''
 
+
       # Define the monitor name
       $screen = eDP-1
 
-      # Normal (your current) spacing
-      $gaps_in_normal = 6
-      $gaps_out_normal = 10
-      $border_normal = 2
-
-      # Vertical "almost no space"
-      $gaps_in_vertical = 1
-      $gaps_out_vertical = 1
-      $border_vertical = 1
-
-      # Waydroid target sizes for your panel (2880x1800)
-      $waydroid_landscape = 2880x1800
-      $waydroid_portrait  = 1800x2880
-
-      # Toggle rotate + gaps/border + Waydroid relayout
-      $rotate = hyprctl monitors -j | ${pkgs.jq}/bin/jq -e ".[] | select(.name == \"$screen\" and .transform == 0)" > /dev/null && \
-        ( \
-          hyprctl keyword monitor "$screen,preferred,auto,2,transform,1" && \
-          hyprctl keyword input:touchdevice:transform 1 && \
-          hyprctl keyword input:tablet:transform 1 && \
-          hyprctl keyword general:gaps_in "$gaps_in_vertical" && \
-          hyprctl keyword general:gaps_out "$gaps_out_vertical" && \
-          hyprctl keyword general:border_size "$border_vertical" && \
-          sudo -n /run/current-system/sw/bin/waydroid shell wm size "$waydroid_portrait" && \
-          sudo -n /run/current-system/sw/bin/waydroid shell wm density reset \
-        ) || \
-        ( \
-          hyprctl keyword monitor "$screen,preferred,auto,1.5,transform,0" && \
-          hyprctl keyword input:touchdevice:transform 0 && \
-          hyprctl keyword input:tablet:transform 0 && \
-          hyprctl keyword general:gaps_in "$gaps_in_normal" && \
-          hyprctl keyword general:gaps_out "$gaps_out_normal" && \
-          hyprctl keyword general:border_size "$border_normal" && \
-          sudo -n /run/current-system/sw/bin/waydroid shell wm size "$waydroid_landscape" && \
-          sudo -n /run/current-system/sw/bin/waydroid shell wm density reset \
-        )
+      # Define the command string. We wrap the logic in 'sh -c' 
+      # so Hyprland treats the entire block as one single executable variable.
+      $rotate = bash -c 'if hyprctl monitors -j | ${pkgs.jq}/bin/jq -e ".[] | select(.name == \"$screen\" and .transform == 0)" > /dev/null; then \
+          waydroid session stop; \
+          hyprctl keyword monitor "$screen,preferred,auto,2,transform,1"; \
+          hyprctl keyword input:touchdevice:transform 1; \
+          hyprctl keyword input:tablet:transform 1; \
+          sleep 1; \
+          waydroid show-full-ui & \
+        else \
+          waydroid session stop; \
+          hyprctl keyword monitor "$screen,preferred,auto,1.5,transform,0"; \
+          hyprctl keyword input:touchdevice:transform 0; \
+          hyprctl keyword input:tablet:transform 0; \
+          sleep 1; \
+          waydroid show-full-ui & \
+        fi'
 
 
       plugin {
@@ -632,10 +638,10 @@ in
 
               hyprgrass-bindm = , longpress:2, movewindow
               hyprgrass-bindm = , longpress:3, resizewindow
-              hyprgrass-bind = , longpress:4, exec, ${hyprWorkspaceCycle}/bin/hypr-workspace-cycle toggle
+              hyprgrass-bind = , tap:3, exec, ${hyprWorkspaceCycle}/bin/hypr-workspace-cycle toggle
 
               # tap with 3 fingers toggles squeekboard
-              hyprgrass-bind = , tap:3, exec, sh -c 'pgrep squeekboard >/dev/null || squeekboard & sleep 0.2; busctl --user get-property sm.puri.OSK0 /sm/puri/OSK0 sm.puri.OSK0 Visible 2>/dev/null | grep -q true && busctl --user call sm.puri.OSK0 /sm/puri/OSK0 sm.puri.OSK0 SetVisible b false || busctl --user call sm.puri.OSK0 /sm/puri/OSK0 sm.puri.OSK0 SetVisible b true'
+              hyprgrass-bind = , tap:4, exec, sh -c 'pgrep squeekboard >/dev/null || squeekboard & sleep 0.2; busctl --user get-property sm.puri.OSK0 /sm/puri/OSK0 sm.puri.OSK0 Visible 2>/dev/null | grep -q true && busctl --user call sm.puri.OSK0 /sm/puri/OSK0 sm.puri.OSK0 SetVisible b false || busctl --user call sm.puri.OSK0 /sm/puri/OSK0 sm.puri.OSK0 SetVisible b true'
             }
           } 
       '';
