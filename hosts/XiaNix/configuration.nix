@@ -97,6 +97,8 @@ in
     numworks-udev-rules
     blueman
     alsa-utils
+    kdePackages.breeze-icons
+    kdePackages.breeze-icons
 
 
   ];

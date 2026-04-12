@@ -22,6 +22,7 @@
     shellAliases = {
       
       #Mine
+      fixaudio = "sudo ~/nixos/modules/nixos/head/lg-gram-audio.sh";
       pys = "source ./venv/bin/activate";
       flvim = "nvim $(fzf)";
       fl = "nvim $(fzf)";

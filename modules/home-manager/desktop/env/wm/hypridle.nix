@@ -22,7 +22,7 @@
       #if caelestia is on this is likeley ignored
       listener = [
         {
-          timeout = 15;  # 10m
+          timeout = 45;  # 10m
           on-timeout = "swaylock --protocol layer-shell";
           on-resume  = "hyprctl dispatch dpms on";
         }

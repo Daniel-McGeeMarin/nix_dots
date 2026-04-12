@@ -158,47 +158,46 @@ in
 
         ];
         exec-once = [
-
-
-
           "systemctl --user restart xdg-desktop-portal.service"
+          "nmcli radio wifi off && nmcli radio wifi on &"
+          "bwfloat &"
+          "nm-applet &"
+          "squeekboard &"
+          "signal-desktop &"
+          "kitty --class StartupTerm &"
 
-          
+          # Background these so they don't block the rotation logic
+          "kitty --class BufferTerm1 -e sleep infinity &"
+          "kitty --class BufferTerm2 -e sleep infinity &"
+          "kitty --class BufferTerm3 -e sleep infinity &"
 
-          #"waybar"
-          "nmcli radio wifi off && nmcli radio wifi on" # wifi doesn't work without this.
-          "bwfloat"
-          #"swaync"
-          "nm-applet"
+          #"${pkgs.wlsunset}/bin/wlsunset -l 39.103119 -L -84.512016 -t 0 -g 0.7 &"
+          "${pkgs.plasma5Packages.kdeconnect-kde}/bin/kdeconnect-indicator &"
 
-          #"fcitx5 -d --replace"
+          "sleep 4"
+          "[workspace 22 silent; fullscreen] flatpak run com.github.xournalpp.xournalpp"
 
-          #"wvkbd-mobintl --hidden"
-          "squeekboard"  
-          "signal-desktop"
-          "nwg-drawer -r -wm hyprland -ovl -c 4 -is 60 -spacing 40 -nocats"
+          "flatpak run app.zen_browser.zen &"
 
-
-          "kitty --class StartupTerm"
-
-          "kitty --class BufferTerm1 -e sleep infinity &" # For Workspace 13
-          "kitty --class BufferTerm2 -e sleep infinity &" # For Workspace 14
-          "kitty --class BufferTerm3 -e sleep infinity &" # For Workspace 15
-
-          
-          
-          ''bash -c '[ "$(cat /sys/class/power_supply/AC0/online 2>/dev/null)" = "1" ] && filen-desktop' ''
-
-          "${pkgs.wlsunset}/wlsunset -l 39.103119 -L -84.512016 -t 0 -g 0.7"
-          "${pkgs.plasma5Packages.kdeconnect-kde}/bin/kdeconnect-indicator"
-
-          
-          "sleep 4 && brave"
-
-          # Magic workspace: waydroid + xournal++ (toggle with mainmod+X or 4-finger hold)
-          "waydroid show-full-ui"
-          "flatpak run com.github.xournalpp.xournalpp"
+          "${hyprWorkspaceCycle}/bin/hypr-workspace-cycle rotation-vertical"
+          "waydroid show-full-ui &"
+          "flatpak run com.github.xournalpp.xournalpp &"
+          "sleep 12 && ${hyprWorkspaceCycle}/bin/hypr-workspace-cycle rotation-landscape &"
         ];
+
+        device = [
+          {
+            name = "elan-touchscreen";
+            output = "eDP-1";
+          }
+          {
+            name = "elan-touchscreen-stylus";
+            output = "eDP-1";
+          }
+        ];
+
+
+
         input = {
           kb_layout = "us";
           kb_options = "caps:swapescape";
@@ -362,10 +361,15 @@ in
           "noanim,title:^(TODO)$"
 
           ### Magic workspace 22 (xournal++) ###
-          "workspace 22 silent, class:^(com\\.github\\.xournalpp\\.xournalpp)$"
-          "workspace 22 silent, class:^(Xournalpp)$"
-          "workspace 22 silent, class:^(xournalpp)$"
-          "fullscreen, class:^(xournalpp|Xournalpp|com\\.github\\.xournalpp\\.xournalpp)$"
+            #"workspace 22 silent, class:^(com\\.github\\.xournalpp\\.xournalpp)$"
+            #"workspace 22 silent, class:^(Xournalpp)$"
+            #"workspace 22 silent, class:^(xournalpp)$"
+            #"fullscreen, class:^(xournalpp|Xournalpp|com\\.github\\.xournalpp\\.xournalpp)$"
+
+          # Dialog Specific Overrides (Place these AFTER general rules)
+            #"float, class:^(com\\.github\\.xournalpp\\.xournalpp)$, title:(?i).*(open|save|select).*"
+            #"size 900 700 override, class:^(com\\.github\\.xournalpp\\.xournalpp)$, title:(?i).*(open|save|select).*"
+            #"center, class:^(com\\.github\\.xournalpp\\.xournalpp)$, title:(?i).*(open|save|select).*"
 
           ### Workspace assignments ###
           (w 5 "title:^(Signal)$")
@@ -452,7 +456,7 @@ in
           "$mainMod,C,killactive,"
           "CTRL$mainMod,M,exit,"
           "$mainMod,E,exec,xdg-open '/'"
-          "$mainMod,W,exec,brave"
+          "$mainMod,W,exec,flatpak run app.zen_browser.zen"
 
           #"$mainMod,W,exec,xdg-open 'http://'"
           "$mainMod,A,exec,pkill aiclip; aiclip"
@@ -523,6 +527,9 @@ in
           "$mainMod SHIFT, comma,  movecurrentworkspacetomonitor, DP-6"
           "$mainMod SHIFT, comma,  movecurrentworkspacetomonitor, DP-7"
           "$mainMod SHIFT, comma,  movecurrentworkspacetomonitor, DP-4"
+          "$mainMod SHIFT, comma,  movecurrentworkspacetomonitor, DP-1"
+          "$mainMod SHIFT, comma,  movecurrentworkspacetomonitor, DP-2"
+          "$mainMod SHIFT, comma,  movecurrentworkspacetomonitor, DP-3"
 
 
 
@@ -593,27 +600,8 @@ in
       extraConfig = ''
 
 
-      # Define the monitor name
-      $screen = eDP-1
-
-      # Define the command string. We wrap the logic in 'sh -c' 
-      # so Hyprland treats the entire block as one single executable variable.
-      $rotate = bash -c 'if hyprctl monitors -j | ${pkgs.jq}/bin/jq -e ".[] | select(.name == \"$screen\" and .transform == 0)" > /dev/null; then \
-          waydroid session stop; \
-          hyprctl keyword monitor "$screen,preferred,auto,2,transform,1"; \
-          hyprctl keyword input:touchdevice:transform 1; \
-          hyprctl keyword input:tablet:transform 1; \
-          sleep 1; \
-          waydroid show-full-ui & \
-        else \
-          waydroid session stop; \
-          hyprctl keyword monitor "$screen,preferred,auto,1.5,transform,0"; \
-          hyprctl keyword input:touchdevice:transform 0; \
-          hyprctl keyword input:tablet:transform 0; \
-          sleep 1; \
-          waydroid show-full-ui & \
-        fi'
-
+      # Corner gesture: toggle rotation (same logic as workspace-cycle; no waydroid kill)
+      $rotate = ${hyprWorkspaceCycle}/bin/hypr-workspace-cycle toggle-rotation
 
       plugin {
             touch_gestures {

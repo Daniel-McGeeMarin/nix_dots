@@ -28,6 +28,7 @@ in {
         video = {
           device_path = "/dev/video2";
           dark_threshold = 60;
+          timeout = 2;
         };
         core = {
           detection_notice = false;
@@ -38,26 +39,26 @@ in {
     # PAM: Howdy for lock screens and login
     security.pam.services = {
       swaylock.rules.auth.howdy = {
-        order = 1;
+        order = 2;
         control = "sufficient";
         modulePath = "${howdyPkgs.howdy}/lib/security/pam_howdy.so";
       };
 
       hypridle.rules.auth.howdy = {
-        order = 1; # Ensure it runs first
+        order = 2; # Ensure it runs first
         control = "sufficient";
         modulePath = "${howdyPkgs.howdy}/lib/security/pam_howdy.so";
       };
 
       # ADDING SUDO HERE: This lets you test without locking your screen
       sudo.rules.auth.howdy = {
-        order = 1;
+        order = 2;
         control = "sufficient";
         modulePath = "${howdyPkgs.howdy}/lib/security/pam_howdy.so";
       };
 
       login.rules.auth.howdy = {
-        order = 1;
+        order = 2;
         control = "sufficient";
         modulePath = "${howdyPkgs.howdy}/lib/security/pam_howdy.so";
       };

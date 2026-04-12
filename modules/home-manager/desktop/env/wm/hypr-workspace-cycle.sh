@@ -3,17 +3,31 @@
 # Hyprland Isolated Workspace Ranges (with Per-Range Memory)
 #===============================================================================
 #
-# Usage: hypr-workspace-cycle (next|prev|toggle)
+# Usage: hypr-workspace-cycle (next|prev|toggle|toggle-rotation|rotation-vertical|rotation-landscape)
 #
-#   next/prev - Moves within current range; saves position to range-specific cache.
-#   toggle    - Jumps between RANGES; always restores the last-used workspace 
-#               for the target range.
+#   next/prev           - Moves within current range; saves position to range-specific cache.
+#   toggle              - Jumps between RANGES; restores last-used workspace. If
+#                         ROTATE_WITH_TOGGLE_RANGE=1, also rotates to vertical when
+#                         entering TOGGLE_RANGES (21–22) and to landscape when leaving.
+#   toggle-rotation     - Toggle display rotation only (for corner gesture; no waydroid).
+#   rotation-vertical   - Set display to vertical (for exec-once / scripts).
+#   rotation-landscape  - Set display to landscape (for exec-once / scripts).
 #
 #-------------------------------------------------------------------------------
 # CONFIGURATION
 #-------------------------------------------------------------------------------
 RANGES="1-12 21-22"
 TOGGLE_RANGES="21-22"
+
+# Rotation when entering/leaving TOGGLE_RANGES (e.g. vertical for 21–22, landscape otherwise)
+# Set to 1 to enable; 0 to disable.
+ROTATE_WITH_TOGGLE_RANGE="${ROTATE_WITH_TOGGLE_RANGE:-1}"
+ROTATE_SCREEN="${ROTATE_SCREEN:-eDP-1}"
+# Monitor keyword suffix (after "name,"): preferred,auto,<scale>,transform,<0|1>
+ROTATE_LANDSCAPE_MONITOR="${ROTATE_LANDSCAPE_MONITOR:-preferred,auto,1.5,transform,0}"
+ROTATE_VERTICAL_MONITOR="${ROTATE_VERTICAL_MONITOR:-preferred,auto,2,transform,1}"
+ROTATE_LANDSCAPE_INPUT="${ROTATE_LANDSCAPE_INPUT:-0}"
+ROTATE_VERTICAL_INPUT="${ROTATE_VERTICAL_INPUT:-1}"
 #===============================================================================
 
 set -euo pipefail
@@ -22,6 +36,33 @@ HYPRCTL="${HYPRCTL:-hyprctl}"
 JQ="${JQ:-jq}"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/hypr-workspace-memory"
 mkdir -p "$CACHE_DIR"
+
+# Apply landscape (horizontal) orientation
+apply_landscape() {
+  [[ "$ROTATE_WITH_TOGGLE_RANGE" != "1" ]] && return 0
+  "$HYPRCTL" keyword monitor "${ROTATE_SCREEN},${ROTATE_LANDSCAPE_MONITOR}"
+  "$HYPRCTL" keyword input:touchdevice:transform "$ROTATE_LANDSCAPE_INPUT"
+  "$HYPRCTL" keyword input:tablet:transform "$ROTATE_LANDSCAPE_INPUT"
+}
+
+# Apply vertical orientation
+apply_vertical() {
+  [[ "$ROTATE_WITH_TOGGLE_RANGE" != "1" ]] && return 0
+  "$HYPRCTL" keyword monitor "${ROTATE_SCREEN},${ROTATE_VERTICAL_MONITOR}"
+  "$HYPRCTL" keyword input:touchdevice:transform "$ROTATE_VERTICAL_INPUT"
+  "$HYPRCTL" keyword input:tablet:transform "$ROTATE_VERTICAL_INPUT"
+}
+
+# Toggle rotation (for corner gesture): if currently landscape → vertical, else → landscape
+toggle_rotation() {
+  local transform
+  transform=$("$HYPRCTL" monitors -j | "$JQ" -r --arg n "$ROTATE_SCREEN" '.[] | select(.name == $n) | .transform')
+  if [[ "${transform:-0}" == "0" ]]; then
+    apply_vertical
+  else
+    apply_landscape
+  fi
+}
 
 # Find which range contains the given workspace number
 find_range_for_workspace() {
@@ -60,6 +101,21 @@ save_range_last_ws() {
 
 # Main Logic
 DIRECTION="${1:-next}"
+
+# Corner gesture: toggle rotation only (no workspace change)
+if [[ "$DIRECTION" == "toggle-rotation" ]]; then
+  toggle_rotation
+  exit 0
+fi
+if [[ "$DIRECTION" == "rotation-vertical" ]]; then
+  apply_vertical
+  exit 0
+fi
+if [[ "$DIRECTION" == "rotation-landscape" ]]; then
+  apply_landscape
+  exit 0
+fi
+
 CURRENT_RAW=$("$HYPRCTL" activeworkspace -j | "$JQ" -r .name)
 
 # Sanitize workspace name
@@ -85,6 +141,16 @@ if [[ "$DIRECTION" == "toggle" ]]; then
   fi
 
   TARGET=$(get_range_last_ws "$TARGET_RANGE")
+
+  # Optional: rotate display when entering/leaving toggle range (21–22 = vertical)
+  if [[ "$ROTATE_WITH_TOGGLE_RANGE" == "1" ]]; then
+    if [[ "$TARGET_RANGE" == "$SECOND_RANGE" ]]; then
+      apply_vertical
+    else
+      apply_landscape
+    fi
+  fi
+
   "$HYPRCTL" dispatch workspace "$TARGET"
   exit 0
 fi
