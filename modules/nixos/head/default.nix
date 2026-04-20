@@ -20,6 +20,7 @@ in
     boot.plymouth.enable = lib.mkDefault true;
     services = {
       displayManager.sddm.enable = lib.mkDefault true;
+      pulseaudio.enable = false;
       pipewire = {
         enable = true;
         alsa.enable = true;
@@ -27,7 +28,6 @@ in
         pulse.enable = true;
       };
     };
-    hardware.pulseaudio.enable = false;
     programs = lib.mkIf config.head.gaming {
       gamemode.enable = true;
       gamescope.enable = true;

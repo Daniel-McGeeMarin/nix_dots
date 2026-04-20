@@ -14,7 +14,8 @@
       #firefox
       #code-cursor
 
-      bitwarden
+      bitwarden-desktop
+      syncplay # synchronized playback with mpv (see programs.mpv)
       (lib.mkIf osConfig.services.pipewire.enable helvum)
       (lib.mkIf osConfig.services.pipewire.pulse.enable pavucontrol)
     ];

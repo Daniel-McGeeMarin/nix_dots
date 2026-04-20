@@ -6,7 +6,7 @@
   ];
 
   services.hypridle = {
-    enable = true;
+    enable = false;
     settings = {
       general = {
         # Removed '--protocol layer-shell' and added '-f'
@@ -33,7 +33,7 @@
   # swaylock-effects (mortie's fork) provides --submit-on-touch and blur/effects
   # https://github.com/mortie/swaylock-effects
   programs.swaylock = {
-    enable = true;
+    enable = false;
     package = pkgs.swaylock-effects;
     settings = {
       # --- General ---

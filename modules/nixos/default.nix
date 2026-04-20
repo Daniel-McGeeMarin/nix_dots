@@ -44,7 +44,7 @@ in
     htop
     wget
     home-manager
-    pinentry
+    pinentry-gtk2
     git
     unzip
     ripgrep
@@ -54,7 +54,10 @@ in
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
   programs = {
-    gnupg.agent.enable = true;
+    gnupg.agent = {
+      enable = true;
+      pinentryPackage = pkgs.pinentry-gtk2;
+    };
     zsh.enable = true;
   };
   nix.gc = {

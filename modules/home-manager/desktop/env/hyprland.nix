@@ -57,7 +57,7 @@ in
       #pkgs.nwg-launchers
       #pkgs.nwg-look
       inputs.nixpkgs-unstable.legacyPackages.${pkgs.system}.nwg-drawer
-      pkgs.papirus-icon-theme
+      #pkgs.papirus-icon-theme
 
 
       pkgs.wtype
@@ -172,7 +172,7 @@ in
           "kitty --class BufferTerm3 -e sleep infinity &"
 
           #"${pkgs.wlsunset}/bin/wlsunset -l 39.103119 -L -84.512016 -t 0 -g 0.7 &"
-          "${pkgs.plasma5Packages.kdeconnect-kde}/bin/kdeconnect-indicator &"
+          "${pkgs.kdePackages.kdeconnect-kde}/bin/kdeconnect-indicator &"
 
           "sleep 4"
           "[workspace 22 silent; fullscreen] flatpak run com.github.xournalpp.xournalpp"

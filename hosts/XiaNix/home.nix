@@ -46,7 +46,7 @@
 };
 
   home.packages = [
-    pkgs.papirus-icon-theme
+    #pkgs.papirus-icon-theme
 
     
     # pkgs.unfree.android-studio

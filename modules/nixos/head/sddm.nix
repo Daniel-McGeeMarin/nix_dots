@@ -21,7 +21,7 @@
   services.displayManager.sddm = {
     wayland.enable = true;
     theme = "sugar-dark";
-    extraPackages = [ pkgs.sddm-sugar-dark pkgs.noto-fonts-cjk-sans pkgs.libsForQt5.qt5.qtgraphicaleffects ];
+    extraPackages = [ pkgs.sddm-sugar-dark pkgs.noto-fonts-cjk-sans];
 
     autoLogin.enable = true;
     autoLogin.user = "xia";

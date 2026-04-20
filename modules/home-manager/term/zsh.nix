@@ -28,7 +28,7 @@
       fl = "nvim $(fzf)";
       sch = "cd ~/Documents/school/";
       c = "cd ~/.config/";
-      g = "cd ~/Documents/genpf";
+      p = "cd ~/Documents/Projects";
       d = "cd ~/Documents";
       m = "cd ~/MyApps/";
       #sudo = "doas";
