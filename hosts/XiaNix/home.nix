@@ -1,9 +1,9 @@
 { config, lib, pkgs, inputs, osConfig, ... }:
 
 let
-  patched-caelestia = (import ../../caelestiapatches {
-    caelestia-shell = inputs.caelestia-shell.packages.${pkgs.stdenv.hostPlatform.system}.caelestia-shell;
-  }).override { withCli = true; };
+  patched-caelestia = import ../../caelestiapatches {
+    caelestia-shell = inputs.caelestia-shell.packages.${pkgs.stdenv.hostPlatform.system}.with-cli;
+  };
 in
 {
   imports = [

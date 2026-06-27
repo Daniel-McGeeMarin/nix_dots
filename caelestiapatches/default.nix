@@ -10,9 +10,13 @@
 #   2. Remove it from the list below.
 #
 # Usage in home.nix:
-#   package = (import ../../caelestiapatches {
-#     caelestia-shell = inputs.caelestia-shell.packages.${pkgs.stdenv.hostPlatform.system}.caelestia-shell;
-#   }).override { withCli = true; };
+#   package = import ../../caelestiapatches {
+#     caelestia-shell = inputs.caelestia-shell.packages.${pkgs.stdenv.hostPlatform.system}.with-cli;
+#   };
+#
+# IMPORTANT: pass with-cli directly — do NOT call .override { withCli = true; }
+# after this, as override() recreates the derivation from callPackage args and
+# silently drops all overrideAttrs patches.
 
 { caelestia-shell }:
 caelestia-shell.overrideAttrs (old: {
