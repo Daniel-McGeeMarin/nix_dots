@@ -1,7 +1,7 @@
 { config, lib, pkgs, inputs, ... }:
 {
   imports = [
-    ./caelestia.nix
+    ./caelestia
     ./gnome.nix
     ./hyprland.nix
     ./xdg.nix

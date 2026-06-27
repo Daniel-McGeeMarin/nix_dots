@@ -2,7 +2,7 @@
 # Patches are unified diffs against the caelestia-shell source tree.
 #
 # To add a patch:
-#   1. Generate: diff -u original.qml modified.qml > caelestiapatches/my-feature.patch
+#   1. Generate: diff -u original.qml modified.qml > modules/home-manager/desktop/env/caelestia/patches/my-feature.patch
 #   2. Add it to the list below.
 #
 # To remove when upstream merges a fix:
@@ -10,7 +10,7 @@
 #   2. Remove it from the list below.
 #
 # Usage in home.nix:
-#   package = import ../../caelestiapatches {
+#   package = import ../../modules/home-manager/desktop/env/caelestia/patches {
 #     caelestia-shell = inputs.caelestia-shell.packages.${pkgs.stdenv.hostPlatform.system}.with-cli;
 #   };
 #

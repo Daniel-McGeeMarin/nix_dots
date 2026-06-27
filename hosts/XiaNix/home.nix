@@ -1,7 +1,7 @@
 { config, lib, pkgs, inputs, osConfig, ... }:
 
 let
-  patched-caelestia = import ../../caelestiapatches {
+  patched-caelestia = import ../../modules/home-manager/desktop/env/caelestia/patches {
     caelestia-shell = inputs.caelestia-shell.packages.${pkgs.stdenv.hostPlatform.system}.with-cli;
   };
 in
