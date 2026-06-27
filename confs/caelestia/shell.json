@@ -130,8 +130,7 @@
             "occupiedBg": false,
             "occupiedLabel": "󰮯",
             "perMonitorWorkspaces": false,
-            "iconReplacesDot": true,
-        "showWindows": false,
+            "showWindows": false,
             "showWindowsOnSpecialWorkspaces": false,
             "shown": 10,
             "specialWorkspaceIcons": [

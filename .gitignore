@@ -6,3 +6,7 @@ confs/nvim/.secrets.lua
 # Local Nix secrets (not for git)
 secrets.nix
 
+# Nix build output symlinks
+result
+result-*
+

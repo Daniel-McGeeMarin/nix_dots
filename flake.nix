@@ -35,6 +35,11 @@
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
 
+    nixvim = {
+      url = "github:nix-community/nixvim/nixos-25.11";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     zen-browser = {
       url = "github:youwen5/zen-browser-flake";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -48,7 +53,7 @@
     nixpkgs-electron-pin.url = "github:NixOS/nixpkgs/8a6fd288ce1b6f52fa0038397f36608f64743d5a";
   };
 
-  outputs = { self, nixpkgs, home-manager, nixpkgs-unstable, caelestia-shell, ... }@inputs:
+  outputs = { self, nixpkgs, home-manager, nixpkgs-unstable, caelestia-shell, nixvim, ... }@inputs:
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
