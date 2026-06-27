@@ -23,7 +23,7 @@
 
     # Local secrets; kept out of VCS. See README.
     secrets = {
-      url = "path:/home/xia/nixos/secrets.nix";
+      url = "path:./secrets.nix";
       flake = false;
     };
 
