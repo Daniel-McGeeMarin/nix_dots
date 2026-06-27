@@ -5,8 +5,8 @@
              const occupiedLabel = Config.bar.workspaces.occupiedLabel || label;
              const activeLabel = Config.bar.workspaces.activeLabel || (root.isOccupied ? occupiedLabel : label);
 -            return root.activeWsId === root.ws ? activeLabel : root.isOccupied ? occupiedLabel : label;
-+            const icons = Config.bar.workspaces.workspaceIcons;
-+            const wsIcon = icons && icons[root.ws.toString()];
++            const icons = {"1":"󰖟","2":"","3":"3","4":"4","5":"","6":"󰮂","7":"󰈮","8":"󰅨","9":"󰅱","10":"10"};
++            const wsIcon = icons[root.ws.toString()];
 +            if (wsIcon && root.isOccupied)
 +                return wsIcon;
 +            return root.activeWsId === root.ws ? activeLabel : root.isOccupied ? occupiedLabel : label;

@@ -5,6 +5,13 @@
                 "scale": 1
             }
         },
+        "font": {
+            "body": {
+                "small": {
+                    "size": 12
+                }
+            }
+        },
         "padding": {
             "scale": 1
         },
@@ -89,7 +96,8 @@
                 "id": "power"
             }
         ],
-        "excludedScreens": [],
+        "excludedScreens": [
+        ],
         "persistent": true,
         "popouts": {
             "activeWindow": true,
@@ -115,7 +123,8 @@
         "tray": {
             "background": false,
             "compact": true,
-            "iconSubs": [],
+            "iconSubs": [
+            ],
             "recolour": false
         },
         "workspaces": {
@@ -131,16 +140,8 @@
             "showWindows": false,
             "showWindowsOnSpecialWorkspaces": false,
             "shown": 10,
-            "specialWorkspaceIcons": [],
-            "workspaceIcons": {
-                "1": "󰖟",
-                "2": "",
-                "5": "",
-                "6": "󰮂",
-                "7": "󰈮",
-                "8": "󰅨",
-                "9": "󰅱"
-            }
+            "specialWorkspaceIcons": [
+            ]
         }
     },
     "border": {
