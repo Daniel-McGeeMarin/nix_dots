@@ -1,0 +1,129 @@
+# Function to call the LLM API and get the appropriate Nix file for the action
+get_nix_file() {
+    local action="$1"
+    local response
+
+    # Call the LLM API
+    response=$(curl -s -X POST "http://localhost:1337/v1/chat/completions" \
+        -H "Content-Type: application/json" \
+        -d '{
+              "messages": [
+                {
+                  "role": "user",
+                  "content": "For the action: '"$action"'. Which Nix configuration file should I modify? files: '"$(git ls-tree -r master --name-only | grep -v 'modules/nixos' |  jq -R -s . | sed 's/^.\(.*\).$/\1/')"' Remember it is always preferable to use a module instead of editing a host file. DO NOT CREATE A NEW FILE. Provide the full file name in the format [[[FULL_FILE_NAME]]]."
+                }
+              ],
+              "model": "gpt-4o"
+            }')
+
+    # Extract the file name from the response
+    local file_name
+    file_name=$(echo "$response" | jq -r '.choices[0].message.content | capture("(?<file_name>\\[\\[\\[.*?\\]\\]\\])") | .file_name')
+    [ $DEBUG ] && echo "Response:" >&2 && echo "$response" | jq -r '.choices[0].message.content' >&2
+    echo "${file_name:3:-3}"
+}
+
+# Function to call the LLM API and get the changes for the specified file
+get_changes_from_llm() {
+    local action="$1"
+    local file_name="$2"
+    local current_contents="$3"
+    local response
+
+    # Call the LLM API with the current contents of the file
+    response=$(curl -s -X POST "http://localhost:1337/v1/chat/completions" \
+        -H "Content-Type: application/json" \
+        -d '{
+              "messages": [
+                {
+                  "role": "user",
+                  "content": "For the action: '"$action"' and the file: '"$file_name"', the current contents are:\n\n'"$current_contents"'\n. Please think about what changes need to be made to the file then re-write with the changes applied. Write the new contents as such: ```NEW_CONTENTS\ncontents_of_file\n```"
+                }
+              ],
+              "model": "gpt-4o"
+            }')
+
+    # Extract the changes from the response
+    local changes
+    changes=$(echo "$response" | jq -r '.choices[0].message.content' | sed -n '/^```NEW_CONTENTS/,/^\s*```/p' | sed '1d;$d' )
+    [ $DEBUG ] && echo "Response:" >&2 && echo "$response" | jq -r '.choices[0].message.content' >&2
+
+    echo "$changes"
+}
+
+check_patch_llm() {
+    local action="$1"
+    local current_contents="$2"
+    local current_patch="$3"
+    local response
+
+    # Call the LLM API with the current contents of the file
+    response=$(curl -s -X POST "http://localhost:1337/v1/chat/completions" \
+        -H "Content-Type: application/json" \
+        -d '{
+              "messages": [
+                {
+                  "role": "user",
+                  "content": "I am trying to patch the a file to perform the following action: '"$action"'. The current contents of the file are:\n\n'"$current_contents"'\n\nThe proposed changes are:\n\n'"$current_patch"'\n\n Please review the changes. Make sure that the all changed made align with the desired aciton: '"$action"'. Please make sure no syntax errors are introduced into the nix file. Ensure that all new comments are actually useful, and not fluff. List everything (if anything) wrong with the patch, and then re-write the PATCH to have these problems ammended. Format the new patch as:\n```NEW_PATCH\nfixed_contents_of_new_patch\n```. **only ever put one new patch."
+                }
+              ],
+              "model": "gpt-4o"
+            }')
+
+    # Extract the changes from the response
+    local changes
+    changes=$(echo "$response" | jq -r '.choices[0].message.content' | sed -n '/^```NEW_PATCH/,/^\s*```/p' | sed '1d;$d' )
+    [ $DEBUG ] && echo "Response:" >&2 && echo "$response" | jq -r '.choices[0].message.content' >&2
+
+    echo "$changes"
+}
+
+# Function to display the diff and ask for confirmation
+confirm_changes() {
+    echo "Changes to be made in $file:"
+    bat /tmp/changes.diff
+    read -p "Do you want to proceed with these changes? (Y/N): " confirmation
+    if [[ "$confirmation" == "Y" || "$confirmation" == "y" ]]; then
+        return 0  # User confirmed
+    else
+        return 1  # User did not confirm
+    fi
+}
+
+# Main script execution
+if [ $# -ne 1 ]; then
+    echo "Usage: $0 <action>"
+    exit 1
+fi
+
+action="$(echo $1 | jq -R -s . | sed 's/^.\(.*\).$/\1/')"
+
+# Step 1: Get the appropriate Nix configuration file
+nix_file=$(get_nix_file "$action")
+echo "File to modify: $nix_file"
+
+# Check if the file name is valid
+if [[ "$nix_file" == "" ]]; then
+    echo "Failed to retrieve file name from the LLM."
+    exit 1
+fi
+
+# Check if the file exists
+if [ ! -f "$nix_file" ]; then
+    echo "File $nix_file does not exist."
+    exit 1
+fi
+
+
+# Step 2: Display the current contents of the file
+current_contents=$(cat -n "$nix_file"| jq -R -s . | sed 's/^.\(.*\).$/\1/')
+
+
+# Step 3: Get the proposed changes from the LLM
+new_file=$(get_changes_from_llm "$action" "$nix_file" "$current_contents")
+echo "$new_file" > /tmp/new_file
+patch=$(diff -u "$nix_file" /tmp/new_file | jq -R -s . | sed 's/^.\(.*\).$/\1/')
+[ $DEBUG ] && echo "Patch:" >&2 && echo "$patch" >&2
+check_patch_llm "$action" "$current_contents" "$patch" > /tmp/changes.diff
+confirm_changes || exit
+patch --ignore-whitespace "$nix_file" /tmp/changes.diff

@@ -1,0 +1,22 @@
+--- a/Main.qml
++++ b/Main.qml
+@@ -40,6 +40,7 @@ Pane {
+     palette.window: "#444"
+ 
+     font.family: config.Font
++    font.weight: config.FontWeight
+     font.pointSize: config.FontSize !== "" ? config.FontSize : parseInt(height / 80)
+     focus: true
+ 
+--- a/theme.conf
++++ b/theme.conf
+@@ -28,6 +28,8 @@ ScreenPadding=0
+ 
+ Font="Noto Sans"
+ ## If you want to choose a custom font it will have to be available to the X root user. See https://wiki.archlinux.org/index.php/fonts#Manual_installation
++FontWeight=
++# Set font weight. See https://doc.qt.io/qt-6/qfont.html#Weight-enum
+ 
+ FontSize=
+ ## Only set a fixed value if fonts are way too small for your resolution. Preferrably kept empty.
+
