@@ -57,7 +57,14 @@
     # We are adding the version tag 'v1.4.2' to the end of the URL
     url = "github:caelestia-dots/shell"; 
       #inputs.nixpkgs.follows = "nixpkgs-unstable";
-  };    
+    };   
+
+    zen-browser = {
+      url = "github:youwen5/zen-browser-flake";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+
  
   };
 
@@ -128,7 +135,10 @@
         inherit pkgs;
         modules = [
           
-          ({ config, pkgs, ... }: { nixpkgs.overlays = [ overlay-unfree overlay-unstable overlay-unstable-unfree overlay-master overlay-master-unfree ]; })
+          ({ config, pkgs, ... }: {
+            nixpkgs.config.allowUnfree = true;
+            nixpkgs.overlays = [ overlay-unfree overlay-unstable overlay-unstable-unfree overlay-master overlay-master-unfree ];
+          })
 	  ./hosts/XiaNix/home.nix
         ];
       };
@@ -143,7 +153,10 @@
         extraSpecialArgs = { inherit inputs secrets; };
         inherit pkgs;
         modules = [
-          ({ config, pkgs, ... }: { nixpkgs.overlays = [ overlay-unfree overlay-unstable overlay-unstable-unfree overlay-master overlay-master-unfree ]; })
+          ({ config, pkgs, ... }: {
+            nixpkgs.config.allowUnfree = true;
+            nixpkgs.overlays = [ overlay-unfree overlay-unstable overlay-unstable-unfree overlay-master overlay-master-unfree ];
+          })
           ./hosts/phantomServ/home.nix
         ];
       };

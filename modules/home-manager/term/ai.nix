@@ -4,9 +4,14 @@
     ai = {
       enable = lib.mkEnableOption "Enable AI";
       localrun.enable = lib.mkEnableOption "Enable local AI";
+      claudeCode.enable = lib.mkEnableOption "Enable Claude Code CLI";
     };
   };
-  config = lib.mkIf config.ai.enable {
+  config = lib.mkMerge [
+    (lib.mkIf config.ai.claudeCode.enable {
+      home.packages = [ pkgs.claude-code ];
+    })
+    (lib.mkIf config.ai.enable {
     home.packages = [
       pkgs.aichat
       (pkgs.writeShellApplication
@@ -111,5 +116,6 @@
         <AI> Abraham Lincoln was the 16th President of the United States, serving from 1861 until his assassination in 1865. He is best known for leading the country during the Civil War and for his efforts to abolish slavery through the Emancipation Proclamation.
         ```
       '';
-  };
+    })
+  ];
 }

@@ -47,7 +47,7 @@
       cat = "bat";
       neofetch = "fastfetch";
       ls = "eza --icons=auto";
-      vpnexit = lib.mkIf osConfig.services.mullvad-vpn.enable "mullvad split-tunnel add \$$";
+      vpnexit = lib.mkIf ((osConfig.services or { }).mullvad-vpn.enable or false) "mullvad split-tunnel add \$$";
       hexdec = "printf '%x\n' \$1";
     };
 

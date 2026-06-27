@@ -2,7 +2,9 @@
 
 {
   dconf = {
-    enable = lib.mkIf osConfig.services.xserver.desktopManager.gnome.enable true;
+    enable = lib.mkIf
+      (((osConfig.services or { }).xserver or { }).desktopManager or { }).gnome.enable or false
+      true;
 
 
     settings = {

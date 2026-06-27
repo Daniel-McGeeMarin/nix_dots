@@ -49,6 +49,8 @@ in
     unzip
     ripgrep
     fzf
+
+    inputs.zen-browser.packages.${pkgs.stdenv.hostPlatform.system}.default
   ];
 
   nix.settings.experimental-features = [ "nix-command" "flakes" ];

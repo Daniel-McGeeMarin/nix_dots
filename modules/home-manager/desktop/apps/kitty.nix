@@ -25,7 +25,7 @@
       # alpha = 0.8;
       background = "#${base00}";
       foreground = "#${base05}";
-      background_opacity = 0.8;
+      background_opacity = 0.65;
     };
   };
 }

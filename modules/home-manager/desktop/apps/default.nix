@@ -13,11 +13,12 @@
       brave
       #firefox
       #code-cursor
+      vscodium
 
       bitwarden-desktop
       syncplay # synchronized playback with mpv (see programs.mpv)
-      (lib.mkIf osConfig.services.pipewire.enable helvum)
-      (lib.mkIf osConfig.services.pipewire.pulse.enable pavucontrol)
+      (lib.mkIf ((osConfig.services or { }).pipewire.enable or false) helvum)
+      (lib.mkIf ((osConfig.services or { }).pipewire.pulse.enable or false) pavucontrol)
     ];
     programs = {
       #Moved to firefox.nix 

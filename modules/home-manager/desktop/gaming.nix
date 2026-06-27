@@ -1,4 +1,4 @@
-{ pkgs, config, lib, osConfig, ... }:
+{ pkgs, config, lib, osConfig, inputs, ... }:
 let
   ydotoold = "${pkgs.ydotool}/bin/ydotoold";
 in
@@ -7,6 +7,7 @@ in
   config = lib.mkIf config.desktop.gaming.enable {
     home.packages = with pkgs; [
       pkgs.r2modman
+      steam-run
       (pkgs.writeShellScriptBin "steam" ''
         ${pkgs.flatpak}/bin/flatpak run com.valvesoftware.Steam -silent "$@"
       '')
@@ -52,7 +53,7 @@ in
         };
       };
     };
-    programs.zsh.shellAliases.stardewmacro = lib.mkIf osConfig.programs.hyprland.enable "hyprctl keyword bind ',mouse:276,exec,env YDOTOOL_SOCKET=/run/user/1000/.$ ydotool key 54:1 111:1 19:1 19:0 54:0 111:0' && ${ydotoold}";
+    programs.zsh.shellAliases.stardewmacro = lib.mkIf ((osConfig.programs or { }).hyprland.enable or false) "hyprctl keyword bind ',mouse:276,exec,env YDOTOOL_SOCKET=/run/user/1000/.$ ydotool key 54:1 111:1 19:1 19:0 54:0 111:0' && ${ydotoold}";
   };
 }
 

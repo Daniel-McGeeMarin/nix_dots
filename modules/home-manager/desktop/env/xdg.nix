@@ -1,4 +1,10 @@
 { pkgs, config, lib, osConfig, ... }:
+
+let
+  gnomeEnabled =
+    ((osConfig.services or { }).xserver or { }).enable or false
+    && ((osConfig.services.xserver or { }).desktopManager or { }).gnome.enable or false;
+in
 {
   config = lib.mkIf config.desktop.enable {
     systemd.user.settings.Manager.DefaultEnvironment = {
@@ -10,11 +16,11 @@
         enable = true;
         xdgOpenUsePortal = true;
         configPackages = with pkgs; [
-          (lib.mkIf osConfig.services.xserver.desktopManager.gnome.enable gnome-session)
+          (lib.mkIf gnomeEnabled gnome-session)
         ];
         extraPortals = with pkgs; [
-          (lib.mkIf osConfig.services.xserver.desktopManager.gnome.enable xdg-desktop-portal-gtk)
-          (lib.mkIf osConfig.programs.hyprland.enable xdg-desktop-portal-hyprland)
+          (lib.mkIf gnomeEnabled xdg-desktop-portal-gtk)
+          (lib.mkIf ((osConfig.programs or { }).hyprland.enable or false) xdg-desktop-portal-hyprland)
         ];
       };
       mime.enable = true;

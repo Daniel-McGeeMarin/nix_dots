@@ -30,6 +30,7 @@ in
     howdy.enable = true;
   };
   programs = {
+
     hyprland.enable = true;
     adb.enable = true;
     nix-ld.enable = true;
@@ -103,6 +104,7 @@ in
 
   ];
 
+
   users.users.xia = {
     isNormalUser = true;
     shell = pkgs.zsh;
@@ -116,6 +118,7 @@ in
 
   
   home-manager.backupFileExtension = "backup2";
+
 
 
 

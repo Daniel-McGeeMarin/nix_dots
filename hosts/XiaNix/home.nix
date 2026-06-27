@@ -18,6 +18,7 @@
   sync.enable = false;
   programming.enable = true;
   ai.enable = false;
+  ai.claudeCode.enable = true;
   
   desktop = {
     enable = true;

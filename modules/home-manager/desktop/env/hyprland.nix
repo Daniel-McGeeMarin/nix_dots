@@ -177,7 +177,8 @@ in
           "sleep 4"
           "[workspace 22 silent; fullscreen] flatpak run com.github.xournalpp.xournalpp"
 
-          "flatpak run app.zen_browser.zen &"
+          #"flatpak run app.zen_browser.zen &"
+          "zen"
 
           "${hyprWorkspaceCycle}/bin/hypr-workspace-cycle rotation-vertical"
           "waydroid show-full-ui &"
@@ -242,7 +243,20 @@ in
           blur = {
             enabled = true;
             size = 3;
-            passes = 1;
+            passes = 2;
+
+            new_optimizations = true;
+            #ignore_opacity = true;
+            #xray = false;
+
+            noise = 0.02;
+            #contrast = 0.95;
+            #brightness = 1;
+            #vibrancy = 0.28;
+            #vibrancy_darkness = 0.15;
+
+            #popups = true;
+            #popups_ignorealpha = 0.2;
           };
 
           shadow = {
@@ -267,16 +281,29 @@ in
           ];
         };
 
+        # Hyprland v52 native gestures (trackpad 1:1).
+        # Keep horizontal swipes script-driven for workspace cycling behavior.
+        gesture = [
+          "3, left, dispatcher, exec, ${hyprWorkspaceNext}/bin/hypr-workspace-next"
+          "3, right, dispatcher, exec, ${hyprWorkspacePrev}/bin/hypr-workspace-prev"
+        ];
+
         dwindle = {
           pseudotile = true;
           preserve_split = true;
         };
+  
+        #depricated in hyprland 52
+        #gestures = {
+        #  # Disable Hyprland default workspace swipe so hyprgrass custom
+          # next/prev scripts are the only swipe behavior.
+        #  workspace_swipe = true;
+        #  workspace_swipe_forever = false;
+          # Use relative workspace stepping (r+/-1) so swipes move to
+          # adjacent workspace numbers, including empty ones.
+        #  workspace_swipe_use_r = true;
 
-        gestures = {
-          workspace_swipe = true;
-          workspace_swipe_forever = false;
-
-        };
+        #};
 
         misc = {
           force_default_wallpaper = -1;
@@ -411,7 +438,6 @@ in
           #", swipe:3:r, exec, ${hyprWorkspacePrev}/bin/hypr-workspace-prev"
 
 
-          "$mainMod, TAB, overview:toggle, "
           
           "CTRL $mainMod,U,workspace,11"
           "CTRL $mainMod,U,workspace,11"
@@ -456,7 +482,7 @@ in
           "$mainMod,C,killactive,"
           "CTRL$mainMod,M,exit,"
           "$mainMod,E,exec,xdg-open '/'"
-          "$mainMod,W,exec,flatpak run app.zen_browser.zen"
+          "$mainMod,W,exec,zen"
 
           #"$mainMod,W,exec,xdg-open 'http://'"
           "$mainMod,A,exec,pkill aiclip; aiclip"
@@ -485,6 +511,8 @@ in
           "$mainMod SHIFT,S,movetoworkspace,special:magic"
           # Magic workspaces 21 (waydroid) + 22 (xournal++) — only via Super+X or 4-finger hold
           "$mainMod,X,exec,${hyprWorkspaceCycle}/bin/hypr-workspace-cycle toggle"
+
+          "$mainMod SHIFT,X,workspace, 22"
           "$mainMod,T,togglespecialworkspace,todo"
           "SHIFT$mainMod,t,exec,todo"
           "$mainMod,mouse_down,exec,${hyprWorkspaceNext}/bin/hypr-workspace-next"
@@ -621,8 +649,6 @@ in
               hyprgrass-bind = , edge:r:ld, exec, ${hyprWorkspaceNext}/bin/hypr-workspace-next
               hyprgrass-bind = , edge:l:rd, exec, ${hyprWorkspacePrev}/bin/hypr-workspace-prev
 
-              #hyprgrass-bind = , edge:u:d, overview:toggle
-              #hyprgrass-bind = , edge:d:u, exec, nwg-drawer -open
 
               hyprgrass-bindm = , longpress:2, movewindow
               hyprgrass-bindm = , longpress:3, resizewindow
