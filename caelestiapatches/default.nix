@@ -21,6 +21,7 @@
 { caelestia-shell }:
 caelestia-shell.overrideAttrs (old: {
   patches = (old.patches or []) ++ [
+    ./barconfig.patch
     ./workspace-icons.patch
   ];
 })

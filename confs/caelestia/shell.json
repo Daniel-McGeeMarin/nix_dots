@@ -89,8 +89,7 @@
                 "id": "power"
             }
         ],
-        "excludedScreens": [
-        ],
+        "excludedScreens": [],
         "persistent": true,
         "popouts": {
             "activeWindow": true,
@@ -116,8 +115,7 @@
         "tray": {
             "background": false,
             "compact": true,
-            "iconSubs": [
-            ],
+            "iconSubs": [],
             "recolour": false
         },
         "workspaces": {
@@ -133,8 +131,16 @@
             "showWindows": false,
             "showWindowsOnSpecialWorkspaces": false,
             "shown": 10,
-            "specialWorkspaceIcons": [
-            ]
+            "specialWorkspaceIcons": [],
+            "workspaceIcons": {
+                "1": "󰖟",
+                "2": "",
+                "5": "",
+                "6": "󰮂",
+                "7": "󰈮",
+                "8": "󰅨",
+                "9": "󰅱"
+            }
         }
     },
     "border": {
