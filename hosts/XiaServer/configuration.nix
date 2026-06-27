@@ -6,6 +6,8 @@
     ./hardware-configuration.nix
   ];
 
+  nixpkgs.config.allowUnfree = true;
+
   networking.hostName = "XiaServer";
 
   head = {
