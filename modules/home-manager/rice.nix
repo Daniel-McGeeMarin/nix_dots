@@ -47,7 +47,7 @@
   };
   home.pointerCursor = {
     package = pkgs.graphite-cursors;
-    gtk.enable = true;
+    gtk.enable = false;
     name = "graphite-dark";
   };
 }
