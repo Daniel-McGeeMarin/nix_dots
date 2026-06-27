@@ -15,6 +15,11 @@
     gaming = true;
   };
 
+  services.displayManager.autoLogin = {
+    enable = true;
+    user = "XiaServer";
+  };
+
   serv.enable = true;
 
   # NVIDIA 1080 Ti — standalone GPU, no PRIME

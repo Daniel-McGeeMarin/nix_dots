@@ -16,11 +16,6 @@
     firefox-css-hacks = { url = "github:MrOtherGuy/firefox-csshacks"; flake = false; };
     fcitx5-gruvbox = { url = "github:ayamir/fcitx5-gruvbox"; flake = false; };
     gruvbox-kvantum = { url = "github:isouravgope/Gruvbox-Kvantum"; flake = false; };
-    patched-sddm-sugar-dark = {
-      url = "github:BenMac31/sddm-sugar-dark";
-      flake = false;
-    };
-
     caelestia-shell = {
       url = "github:caelestia-dots/shell";
       # Share the single unstable nixpkgs so caelestia only builds its own
@@ -87,17 +82,6 @@
               overlay-unstable
               overlay-unstable-unfree
               overlay-electron-pin
-              (final: prev: {
-                sddm-sugar-dark = prev.sddm-sugar-dark.overrideAttrs {
-                  src = inputs.patched-sddm-sugar-dark;
-                };
-              })
-
-              
-              
-
-
-
             ];
           })
           ./hosts/XiaNix/configuration.nix

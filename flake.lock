@@ -411,21 +411,7 @@
         "nixpkgs-unstable": "nixpkgs-unstable",
         "nixvim": "nixvim",
         "patched-sddm-sugar-dark": "patched-sddm-sugar-dark",
-        "secrets": "secrets",
         "zen-browser": "zen-browser"
-      }
-    },
-    "secrets": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1782557171,
-        "narHash": "sha256-uoHjSNPHdJf++GEyBiydCjw//S/3wXwfF30L9IZ32Hw=",
-        "path": "/home/xia/nixos/secrets.nix",
-        "type": "path"
-      },
-      "original": {
-        "path": "/home/xia/nixos/secrets.nix",
-        "type": "path"
       }
     },
     "systems": {

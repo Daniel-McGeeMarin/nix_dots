@@ -1,4 +1,4 @@
-{ config, lib, pkgs, iputs, osConfig, ... }:
+{ config, lib, pkgs, inputs, osConfig, ... }:
 {
   imports = [
     ./firefox.nix

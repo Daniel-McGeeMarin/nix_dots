@@ -8,10 +8,6 @@ in
     [
       ../../modules/nixos
       ./hardware-configuration.nix
-
-
-      #../../modules/nixos/onTheGo.nix
-
     ];
 
 
@@ -27,6 +23,12 @@ in
   head = {
     enable = true;
     gaming = true;
+    gram = true;
+  };
+
+  services.displayManager.autoLogin = {
+    enable = true;
+    user = "xia";
   };
   programs = {
 

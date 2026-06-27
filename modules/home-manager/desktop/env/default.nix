@@ -1,4 +1,4 @@
-{ config, lib, pkgs, iputs, ... }:
+{ config, lib, pkgs, inputs, ... }:
 {
   imports = [
     ./caelestia.nix

@@ -6,19 +6,20 @@ in
 {
   imports = [
     ./plymouth.nix
-    ./sddm.nix
-    ./grub-theme.nix 
+    ./grub-theme.nix
     ./gram.nix
-    #adds grub, make sure to disable systemd
   ];
 
+  options.head = {
+    enable = lib.mkEnableOption "Set if headed system";
+    gaming = lib.mkEnableOption "Enable gaming";
+    gram = lib.mkEnableOption "LG Gram hardware quirks";
+  };
 
-  options.head.enable = lib.mkEnableOption "Set if headed system";
-  options.head.gaming = lib.mkEnableOption "Enable gaming";
   config = lib.mkIf config.head.enable {
     boot.plymouth.enable = lib.mkDefault true;
+
     services = {
-      displayManager.sddm.enable = lib.mkDefault true;
       pulseaudio.enable = false;
       pipewire = {
         enable = true;
@@ -26,11 +27,17 @@ in
         alsa.support32Bit = true;
         pulse.enable = true;
       };
+      displayManager.gdm = {
+        enable = true;
+        wayland = true;
+      };
     };
+
     programs = lib.mkIf config.head.gaming {
       gamemode.enable = true;
       gamescope.enable = true;
     };
+
     fonts.fontDir.enable = true;
     hardware.uinput.enable = lib.mkIf config.head.gaming true;
   };
