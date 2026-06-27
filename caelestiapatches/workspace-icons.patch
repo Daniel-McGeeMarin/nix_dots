@@ -1,6 +1,6 @@
 --- a/modules/bar/components/workspaces/Workspace.qml
 +++ b/modules/bar/components/workspaces/Workspace.qml
-@@ -48,5 +48,9 @@
+@@ -48,9 +48,14 @@
              const label = Config.bar.workspaces.label || displayName;
              const occupiedLabel = Config.bar.workspaces.occupiedLabel || label;
              const activeLabel = Config.bar.workspaces.activeLabel || (root.isOccupied ? occupiedLabel : label);
@@ -11,3 +11,8 @@
 +                return wsIcon;
 +            return root.activeWsId === root.ws ? activeLabel : root.isOccupied ? occupiedLabel : label;
          }
+         color: Config.bar.workspaces.occupiedBg || root.isOccupied || root.activeWsId === root.ws ? Colours.palette.m3onSurface : Colours.layer(Colours.palette.m3outlineVariant, 2)
+         verticalAlignment: Qt.AlignVCenter
+         font.family: Tokens.font.workspaces
++        font.pointSize: Tokens.font.icon.small.pointSize
+     }

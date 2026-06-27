@@ -7,5 +7,8 @@
     xdg.configFile."caelestia/shell.json".source =
       config.lib.file.mkOutOfStoreSymlink
         "${config.home.homeDirectory}/nixos/confs/caelestia/shell.json";
+    xdg.configFile."caelestia/shell-tokens.json".source =
+      config.lib.file.mkOutOfStoreSymlink
+        "${config.home.homeDirectory}/nixos/confs/caelestia/shell-tokens.json";
   };
 }
