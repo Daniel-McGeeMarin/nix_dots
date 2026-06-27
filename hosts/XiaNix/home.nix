@@ -1,5 +1,10 @@
 { config, lib, pkgs, inputs, osConfig, ... }:
 
+let
+  patched-caelestia = (import ../../caelestiapatches {
+    caelestia-shell = inputs.caelestia-shell.packages.${pkgs.stdenv.hostPlatform.system}.caelestia-shell;
+  }).override { withCli = true; };
+in
 {
   imports = [
     #this disables my entire local homemanager config
@@ -30,6 +35,7 @@
   
   programs.caelestia = {
   enable = true;
+  package = patched-caelestia;
   systemd = {
     enable = true; # if you prefer starting from your compositor
     target = "graphical-session.target";

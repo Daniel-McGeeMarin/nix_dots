@@ -1,0 +1,15 @@
+--- a/modules/bar/components/workspaces/Workspace.qml
++++ b/modules/bar/components/workspaces/Workspace.qml
+@@ -48,5 +48,11 @@
+             const label = Config.bar.workspaces.label || displayName;
+             const occupiedLabel = Config.bar.workspaces.occupiedLabel || label;
+             const activeLabel = Config.bar.workspaces.activeLabel || (root.isOccupied ? occupiedLabel : label);
+-            return root.activeWsId === root.ws ? activeLabel : root.isOccupied ? occupiedLabel : label;
++            if (root.isOccupied && Config.bar.workspaces.iconReplacesDot) {
++                const wins = Hypr.toplevels.values.filter(c => c.workspace?.id === root.ws);
++                if (wins.length > 0)
++                    return Icons.getAppCategoryIcon(wins[0].lastIpcObject.class,
++                        root.activeWsId === root.ws ? activeLabel : occupiedLabel);
++            }
++            return root.activeWsId === root.ws ? activeLabel : root.isOccupied ? occupiedLabel : label;
+         }
