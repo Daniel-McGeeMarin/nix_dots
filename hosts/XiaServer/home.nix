@@ -1,0 +1,28 @@
+{ config, lib, pkgs, inputs, ... }:
+
+{
+  imports = [
+    ../../modules/home-manager
+  ];
+
+  programs.home-manager.enable = true;
+  home.username = "XiaServer";
+  home.homeDirectory = "/home/XiaServer";
+
+  desktop = {
+    enable = true;
+    gaming.enable = true;
+    japanese.enable = false;
+  };
+
+  programming.enable = true;
+  ai.enable = false;
+  ai.claudeCode.enable = true;
+  sync.enable = false;
+
+  home.packages = with pkgs; [
+    nix-output-monitor
+  ];
+
+  home.stateVersion = "24.11";
+}

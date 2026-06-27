@@ -125,7 +125,7 @@
         specialArgs = { inherit inputs secrets; };
         modules = [
           ({ config, pkgs, ... }: { nixpkgs.overlays = [ overlay-unfree overlay-unstable overlay-unstable-unfree ]; })
-          ./hosts/phantomServ/configuration.nix
+          ./hosts/XiaServer/configuration.nix
         ];
       };
       homeConfigurations.nixos = home-manager.lib.homeManagerConfiguration {
@@ -136,7 +136,7 @@
             nixpkgs.config.allowUnfree = true;
             nixpkgs.overlays = [ overlay-unfree overlay-unstable overlay-unstable-unfree ];
           })
-          ./hosts/phantomServ/home.nix
+          ./hosts/XiaServer/home.nix
         ];
       };
     };
