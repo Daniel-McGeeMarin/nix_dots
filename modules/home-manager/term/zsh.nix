@@ -18,7 +18,20 @@
       size = 10000;
     };
     enableCompletion = true;
+    autosuggestion.enable = true;
+    syntaxHighlighting.enable = true;
     defaultKeymap = "viins";
+
+    # powerlevel10k prompt theme. The matching prompt config lives in the
+    # home.file.".p10k.zsh" block below and is sourced from initExtra.
+    plugins = [
+      {
+        name = "powerlevel10k";
+        src = pkgs.zsh-powerlevel10k;
+        file = "share/zsh-powerlevel10k/powerlevel10k.zsh-theme";
+      }
+    ];
+
     shellAliases = {
       
       #Mine
@@ -300,5 +313,125 @@
                 }
     '';
   };
+
+  # Curated powerlevel10k prompt configuration. Managed declaratively, so to
+  # tweak it edit this block (running `p10k configure` cannot overwrite the
+  # nix-store symlink). A two-line prompt: context on top, prompt char below.
+  home.file.".p10k.zsh".text = /* bash */ ''
+    # Temporarily change options for sourcing.
+    'builtin' 'local' '-a' 'p10k_config_opts'
+    [[ ! -o 'aliases'         ]] || p10k_config_opts+=('aliases')
+    [[ ! -o 'sh_glob'         ]] || p10k_config_opts+=('sh_glob')
+    [[ ! -o 'no_brace_expand' ]] || p10k_config_opts+=('no_brace_expand')
+    'builtin' 'setopt' 'no_aliases' 'no_sh_glob' 'brace_expand'
+
+    () {
+      emulate -L zsh -o extended_glob
+      unset -m '(POWERLEVEL9K_*|DEFAULT_USER)~POWERLEVEL9K_GITSTATUS_DIR'
+
+      # Left prompt segments.
+      typeset -g POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(
+        os_icon                 # OS identifier
+        dir                     # current directory
+        vcs                     # git status
+        newline                 # \n
+        prompt_char             # prompt symbol
+      )
+
+      # Right prompt segments.
+      typeset -g POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(
+        status                  # exit code of the last command
+        command_execution_time  # previous command duration
+        background_jobs         # presence of background jobs
+        direnv                  # direnv status
+        nix_shell               # nix shell indicator
+        time                    # current time
+      )
+
+      # General styling.
+      typeset -g POWERLEVEL9K_MODE=nerdfont-complete
+      typeset -g POWERLEVEL9K_ICON_PADDING=moderate
+      typeset -g POWERLEVEL9K_BACKGROUND=
+      typeset -g POWERLEVEL9K_{LEFT,RIGHT}_{LEFT,RIGHT}_WHITESPACE=
+      typeset -g POWERLEVEL9K_{LEFT,RIGHT}_SUBSEGMENT_SEPARATOR=' '
+      typeset -g POWERLEVEL9K_{LEFT,RIGHT}_SEGMENT_SEPARATOR=
+      typeset -g POWERLEVEL9K_PROMPT_ADD_NEWLINE=true
+
+      # Connect the two prompt lines with a thin frame on the left.
+      typeset -g POWERLEVEL9K_MULTILINE_FIRST_PROMPT_PREFIX='%240F╭─'
+      typeset -g POWERLEVEL9K_MULTILINE_NEWLINE_PROMPT_PREFIX='%240F├─'
+      typeset -g POWERLEVEL9K_MULTILINE_LAST_PROMPT_PREFIX='%240F╰─'
+      typeset -g POWERLEVEL9K_MULTILINE_FIRST_PROMPT_GAP_CHAR='─'
+      typeset -g POWERLEVEL9K_MULTILINE_FIRST_PROMPT_GAP_FOREGROUND=240
+
+      # OS icon.
+      typeset -g POWERLEVEL9K_OS_ICON_FOREGROUND=255
+
+      # Prompt char: green on success, red on error; changes with vi mode.
+      typeset -g POWERLEVEL9K_PROMPT_CHAR_OK_{VIINS,VICMD,VIVIS,VIOWR}_FOREGROUND=76
+      typeset -g POWERLEVEL9K_PROMPT_CHAR_ERROR_{VIINS,VICMD,VIVIS,VIOWR}_FOREGROUND=196
+      typeset -g POWERLEVEL9K_PROMPT_CHAR_{OK,ERROR}_VIINS_CONTENT_EXPANSION='❯'
+      typeset -g POWERLEVEL9K_PROMPT_CHAR_{OK,ERROR}_VICMD_CONTENT_EXPANSION='❮'
+      typeset -g POWERLEVEL9K_PROMPT_CHAR_{OK,ERROR}_VIVIS_CONTENT_EXPANSION='V'
+      typeset -g POWERLEVEL9K_PROMPT_CHAR_{OK,ERROR}_VIOWR_CONTENT_EXPANSION='▶'
+      typeset -g POWERLEVEL9K_PROMPT_CHAR_OVERWRITE_STATE=true
+
+      # Directory.
+      typeset -g POWERLEVEL9K_DIR_FOREGROUND=39
+      typeset -g POWERLEVEL9K_SHORTEN_STRATEGY=truncate_to_unique
+      typeset -g POWERLEVEL9K_SHORTEN_DELIMITER=
+      typeset -g POWERLEVEL9K_DIR_SHORTENED_FOREGROUND=103
+      typeset -g POWERLEVEL9K_DIR_ANCHOR_FOREGROUND=39
+      typeset -g POWERLEVEL9K_DIR_ANCHOR_BOLD=true
+      typeset -g POWERLEVEL9K_DIR_MAX_LENGTH=80
+
+      # VCS / git.
+      typeset -g POWERLEVEL9K_VCS_CLEAN_FOREGROUND=76
+      typeset -g POWERLEVEL9K_VCS_UNTRACKED_FOREGROUND=178
+      typeset -g POWERLEVEL9K_VCS_MODIFIED_FOREGROUND=178
+      typeset -g POWERLEVEL9K_VCS_CONFLICTED_FOREGROUND=196
+      typeset -g POWERLEVEL9K_VCS_LOADING_FOREGROUND=244
+      typeset -g POWERLEVEL9K_VCS_BRANCH_ICON=' '
+      typeset -g POWERLEVEL9K_VCS_UNTRACKED_ICON='?'
+
+      # Status: only show on error.
+      typeset -g POWERLEVEL9K_STATUS_OK=false
+      typeset -g POWERLEVEL9K_STATUS_ERROR=true
+      typeset -g POWERLEVEL9K_STATUS_ERROR_FOREGROUND=196
+      typeset -g POWERLEVEL9K_STATUS_ERROR_SIGNAL_FOREGROUND=196
+      typeset -g POWERLEVEL9K_STATUS_ERROR_PIPE_FOREGROUND=196
+
+      # Command execution time (shown when a command takes >3s).
+      typeset -g POWERLEVEL9K_COMMAND_EXECUTION_TIME_THRESHOLD=3
+      typeset -g POWERLEVEL9K_COMMAND_EXECUTION_TIME_PRECISION=0
+      typeset -g POWERLEVEL9K_COMMAND_EXECUTION_TIME_FOREGROUND=101
+      typeset -g POWERLEVEL9K_COMMAND_EXECUTION_TIME_FORMAT='d h m s'
+
+      # Background jobs.
+      typeset -g POWERLEVEL9K_BACKGROUND_JOBS_VERBOSE=false
+      typeset -g POWERLEVEL9K_BACKGROUND_JOBS_FOREGROUND=70
+
+      # direnv.
+      typeset -g POWERLEVEL9K_DIRENV_FOREGROUND=178
+
+      # nix-shell indicator.
+      typeset -g POWERLEVEL9K_NIX_SHELL_FOREGROUND=74
+      typeset -g POWERLEVEL9K_NIX_SHELL_SHOW_PYTHON=false
+
+      # Clock.
+      typeset -g POWERLEVEL9K_TIME_FOREGROUND=66
+      typeset -g POWERLEVEL9K_TIME_FORMAT='%D{%H:%M:%S}'
+      typeset -g POWERLEVEL9K_TIME_UPDATE_ON_COMMAND=false
+
+      # Transient prompt: collapse to a bare prompt char on previous lines.
+      typeset -g POWERLEVEL9K_TRANSIENT_PROMPT=always
+
+      # Instant prompt (cosmetic; quiet to avoid warnings under nix).
+      typeset -g POWERLEVEL9K_INSTANT_PROMPT=quiet
+      typeset -g POWERLEVEL9K_DISABLE_HOT_RELOAD=true
+
+      (( ! ''${#p10k_config_opts} )) || setopt ''${p10k_config_opts[@]}
+    }
+  '';
 
 }

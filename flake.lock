@@ -749,23 +749,6 @@
         "type": "github"
       }
     },
-    "nixpkgs-howdy": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1768922466,
-        "narHash": "sha256-Gtht3GbFGkcVlPZePFvkKYbLbqcmfGkmc8lsakvefOc=",
-        "owner": "fufexan",
-        "repo": "nixpkgs",
-        "rev": "beea11b99e0ee7e9891f2273743e1a07f84156a5",
-        "type": "github"
-      },
-      "original": {
-        "owner": "fufexan",
-        "ref": "howdy",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
     "nixpkgs-lib": {
       "locked": {
         "lastModified": 1697935651,
@@ -952,7 +935,6 @@
         "nix-colors": "nix-colors",
         "nix-flatpak": "nix-flatpak",
         "nixpkgs": "nixpkgs_3",
-        "nixpkgs-howdy": "nixpkgs-howdy",
         "nixpkgs-master": "nixpkgs-master",
         "nixpkgs-unstable": "nixpkgs-unstable",
         "patched-sddm-sugar-dark": "patched-sddm-sugar-dark",

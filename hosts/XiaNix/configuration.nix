@@ -27,7 +27,6 @@ in
   head = {
     enable = true;
     gaming = true;
-    howdy.enable = true;
   };
   programs = {
 
