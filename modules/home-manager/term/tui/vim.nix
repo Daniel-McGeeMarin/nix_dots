@@ -84,9 +84,9 @@ in
 
       # ── Init lua (runs after all plugin setups) ──────────────────────────────
       extraConfigLua = ''
-        -- caelestia colorscheme (must setup before applying)
+        -- caelestia: reads ~/.local/state/caelestia/scheme.json and applies
+        -- highlights directly — no named vim colorscheme, setup() is all we need
         require("caelestia").setup()
-        vim.cmd.colorscheme("caelestia")
 
         -- lsp_signature: show function signature as you type
         require("lsp_signature").setup({ hint_enable = false })
@@ -96,9 +96,6 @@ in
 
         -- nvim-highlight-colors: inline colour swatches
         require("nvim-highlight-colors").setup()
-
-        -- lazygit.nvim
-        require("lazygit").setup()
 
         -- LuaSnip: treat JS files as JSX for snippet purposes
         require("luasnip").filetype_extend("javascript", { "javascriptreact" })
@@ -239,8 +236,8 @@ in
         # File tree
         neo-tree = {
           enable = true;
-          window.position = "left";
-          window.width = 30;
+          settings.window.position = "left";
+          settings.window.width = 30;
         };
 
         # Syntax / AST
@@ -276,9 +273,9 @@ in
         lsp = {
           enable = true;
           servers = {
-            lua-ls.enable = true;
+            lua_ls.enable = true;
             clangd.enable = true;
-            rust-analyzer = {
+            rust_analyzer = {
               enable = true;
               installRustc = false;
               installCargo = false;
@@ -337,19 +334,16 @@ in
         snacks = {
           enable = true;
           settings = {
-            dashboard.preset.header = ''
-               █████  ███████ ████████ ██████   ██████
-              ██   ██ ██         ██    ██   ██ ██    ██
-              ███████ ███████    ██    ██████  ██    ██
-              ██   ██      ██    ██    ██   ██ ██    ██
-              ██   ██ ███████    ██    ██   ██  ██████
-
-              ███    ██ ██    ██ ██ ███    ███
-              ████   ██ ██    ██ ██ ████  ████
-              ██ ██  ██ ██    ██ ██ ██ ████ ██
-              ██  ██ ██  ██  ██  ██ ██  ██  ██
-              ██   ████   ████   ██ ██      ██'';
             notifier.enable = true;
+            dashboard = {
+              # omit "startup" — it requires lazy.stats which doesn't exist without lazy.nvim
+              sections = [
+                { section = "header"; }
+                { section = "keys"; gap = 1; padding = 1; }
+                { section = "recent_files"; padding = 1; }
+                { section = "projects"; padding = 1; }
+              ];
+            };
           };
         };
 
