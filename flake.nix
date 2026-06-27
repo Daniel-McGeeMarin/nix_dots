@@ -21,12 +21,6 @@
       flake = false;
     };
 
-    # Local secrets; kept out of VCS. See README.
-    secrets = {
-      url = "path:./secrets.nix";
-      flake = false;
-    };
-
     caelestia-shell = {
       url = "github:caelestia-dots/shell";
       # Share the single unstable nixpkgs so caelestia only builds its own
@@ -57,7 +51,7 @@
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
-      secrets = import inputs.secrets;
+      secrets = import (builtins.getEnv "HOME" + "/nixos/secrets.nix");
 
       overlay-unstable = final: prev: {
         unstable = import nixpkgs-unstable.legacyPackages.${system};
