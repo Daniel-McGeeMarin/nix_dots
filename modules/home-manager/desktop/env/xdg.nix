@@ -1,9 +1,7 @@
 { pkgs, config, lib, osConfig, ... }:
 
 let
-  gnomeEnabled =
-    ((osConfig.services or { }).xserver or { }).enable or false
-    && ((osConfig.services.xserver or { }).desktopManager or { }).gnome.enable or false;
+  gnomeEnabled = ((osConfig.services or { }).desktopManager or { }).gnome.enable or false;
 in
 {
   config = lib.mkIf config.desktop.enable {

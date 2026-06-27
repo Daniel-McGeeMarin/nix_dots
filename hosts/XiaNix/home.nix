@@ -53,7 +53,6 @@
     # pkgs.unfree.android-studio
     # pkgs.mullvad-vpn
     pkgs.nix-output-monitor
-    pkgs.fractal
     (pkgs.calibre.overrideAttrs
       (attrs: {
         preFixup = (

@@ -1,7 +1,6 @@
 { config, lib, pkgs, iputs, osConfig, ... }:
 {
   imports = [
-    ./qutebrowser.nix
     ./firefox.nix
     ./foot.nix
     ./kitty.nix
@@ -15,7 +14,6 @@
       #code-cursor
       vscodium
 
-      bitwarden-desktop
       syncplay # synchronized playback with mpv (see programs.mpv)
       (lib.mkIf ((osConfig.services or { }).pipewire.enable or false) helvum)
       (lib.mkIf ((osConfig.services or { }).pipewire.pulse.enable or false) pavucontrol)
@@ -30,9 +28,9 @@
     };
 
     xdg.mimeApps.defaultApplications = {
-      "text/html" = "org.qutebrowser.qutebrowser.desktop";
-      "x-scheme-handler/http" = "org.qutebrowser.qutebrowser.desktop";
-      "x-scheme-handler/https" = "org.qutebrowser.qutebrowser.desktop";
+      "text/html" = "brave-browser.desktop";
+      "x-scheme-handler/http" = "brave-browser.desktop";
+      "x-scheme-handler/https" = "brave-browser.desktop";
     };
 
  

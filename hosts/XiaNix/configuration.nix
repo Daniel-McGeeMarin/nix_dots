@@ -45,8 +45,9 @@ in
   };
 
   virtualisation.docker = {
-  enable = true;
-  # optional: allow your user to use Docker without sudo
+    enable = true;
+    package = pkgs.docker_29;
+    # optional: allow your user to use Docker without sudo
     #enableOnBoot = true;
   };
 
@@ -83,9 +84,10 @@ in
     upower.enable = true;
 
 
+    desktopManager.gnome.enable = true;
+
     xserver = {
       enable = true;
-      desktopManager.gnome.enable = true;
     };
   };
 

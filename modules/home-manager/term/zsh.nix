@@ -316,7 +316,7 @@
 
   # Curated powerlevel10k prompt configuration. Managed declaratively, so to
   # tweak it edit this block (running `p10k configure` cannot overwrite the
-  # nix-store symlink). A two-line prompt: context on top, prompt char below.
+  # nix-store symlink). Single-line lean prompt with icons.
   home.file.".p10k.zsh".text = /* bash */ ''
     # Temporarily change options for sourcing.
     'builtin' 'local' '-a' 'p10k_config_opts'
@@ -329,26 +329,21 @@
       emulate -L zsh -o extended_glob
       unset -m '(POWERLEVEL9K_*|DEFAULT_USER)~POWERLEVEL9K_GITSTATUS_DIR'
 
-      # Left prompt segments.
+      # Single-line lean prompt: icons, user@host, directory, git, prompt char.
       typeset -g POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(
         os_icon                 # OS identifier
+        context                 # user@host
         dir                     # current directory
         vcs                     # git status
-        newline                 # \n
         prompt_char             # prompt symbol
       )
 
-      # Right prompt segments.
+      # Right side: exit code on error only.
       typeset -g POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(
         status                  # exit code of the last command
-        command_execution_time  # previous command duration
-        background_jobs         # presence of background jobs
-        direnv                  # direnv status
-        nix_shell               # nix shell indicator
-        time                    # current time
       )
 
-      # General styling.
+      # General styling — lean (colored text, no segment backgrounds).
       typeset -g POWERLEVEL9K_MODE=nerdfont-complete
       typeset -g POWERLEVEL9K_ICON_PADDING=moderate
       typeset -g POWERLEVEL9K_BACKGROUND=
@@ -357,15 +352,13 @@
       typeset -g POWERLEVEL9K_{LEFT,RIGHT}_SEGMENT_SEPARATOR=
       typeset -g POWERLEVEL9K_PROMPT_ADD_NEWLINE=true
 
-      # Connect the two prompt lines with a thin frame on the left.
-      typeset -g POWERLEVEL9K_MULTILINE_FIRST_PROMPT_PREFIX='%240F╭─'
-      typeset -g POWERLEVEL9K_MULTILINE_NEWLINE_PROMPT_PREFIX='%240F├─'
-      typeset -g POWERLEVEL9K_MULTILINE_LAST_PROMPT_PREFIX='%240F╰─'
-      typeset -g POWERLEVEL9K_MULTILINE_FIRST_PROMPT_GAP_CHAR='─'
-      typeset -g POWERLEVEL9K_MULTILINE_FIRST_PROMPT_GAP_FOREGROUND=240
-
       # OS icon.
       typeset -g POWERLEVEL9K_OS_ICON_FOREGROUND=255
+
+      # Context (user@host). Hidden when local and default user.
+      typeset -g POWERLEVEL9K_CONTEXT_{DEFAULT,SUDO}_CONTENT_EXPANSION=
+      typeset -g POWERLEVEL9K_CONTEXT_{REMOTE,SUDO}_FOREGROUND=180
+      typeset -g POWERLEVEL9K_CONTEXT_ROOT_FOREGROUND=196
 
       # Prompt char: green on success, red on error; changes with vi mode.
       typeset -g POWERLEVEL9K_PROMPT_CHAR_OK_{VIINS,VICMD,VIVIS,VIOWR}_FOREGROUND=76
@@ -391,7 +384,6 @@
       typeset -g POWERLEVEL9K_VCS_MODIFIED_FOREGROUND=178
       typeset -g POWERLEVEL9K_VCS_CONFLICTED_FOREGROUND=196
       typeset -g POWERLEVEL9K_VCS_LOADING_FOREGROUND=244
-      typeset -g POWERLEVEL9K_VCS_BRANCH_ICON=' '
       typeset -g POWERLEVEL9K_VCS_UNTRACKED_ICON='?'
 
       # Status: only show on error.
@@ -401,37 +393,19 @@
       typeset -g POWERLEVEL9K_STATUS_ERROR_SIGNAL_FOREGROUND=196
       typeset -g POWERLEVEL9K_STATUS_ERROR_PIPE_FOREGROUND=196
 
-      # Command execution time (shown when a command takes >3s).
-      typeset -g POWERLEVEL9K_COMMAND_EXECUTION_TIME_THRESHOLD=3
-      typeset -g POWERLEVEL9K_COMMAND_EXECUTION_TIME_PRECISION=0
-      typeset -g POWERLEVEL9K_COMMAND_EXECUTION_TIME_FOREGROUND=101
-      typeset -g POWERLEVEL9K_COMMAND_EXECUTION_TIME_FORMAT='d h m s'
-
-      # Background jobs.
-      typeset -g POWERLEVEL9K_BACKGROUND_JOBS_VERBOSE=false
-      typeset -g POWERLEVEL9K_BACKGROUND_JOBS_FOREGROUND=70
-
-      # direnv.
-      typeset -g POWERLEVEL9K_DIRENV_FOREGROUND=178
-
-      # nix-shell indicator.
-      typeset -g POWERLEVEL9K_NIX_SHELL_FOREGROUND=74
-      typeset -g POWERLEVEL9K_NIX_SHELL_SHOW_PYTHON=false
-
-      # Clock.
-      typeset -g POWERLEVEL9K_TIME_FOREGROUND=66
-      typeset -g POWERLEVEL9K_TIME_FORMAT='%D{%H:%M:%S}'
-      typeset -g POWERLEVEL9K_TIME_UPDATE_ON_COMMAND=false
-
       # Transient prompt: collapse to a bare prompt char on previous lines.
       typeset -g POWERLEVEL9K_TRANSIENT_PROMPT=always
 
       # Instant prompt (cosmetic; quiet to avoid warnings under nix).
       typeset -g POWERLEVEL9K_INSTANT_PROMPT=quiet
       typeset -g POWERLEVEL9K_DISABLE_HOT_RELOAD=true
-
-      (( ! ''${#p10k_config_opts} )) || setopt ''${p10k_config_opts[@]}
     }
+
+    # Restore options OUTSIDE the anonymous function above. Doing it inside
+    # would be undone by that function's `emulate -L zsh`, leaving `no_aliases`
+    # set globally and breaking all alias expansion.
+    (( ! ''${#p10k_config_opts} )) || setopt ''${p10k_config_opts[@]}
+    'builtin' 'unset' 'p10k_config_opts'
   '';
 
 }

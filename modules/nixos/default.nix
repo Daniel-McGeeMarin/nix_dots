@@ -67,6 +67,14 @@ in
     dates = "weekly";
     options = "--delete-older-than 7d";
   };
+  # Deduplicate identical files in the store via hardlinks. With multiple
+  # nixpkgs/toolchains this reclaims a lot; runs incrementally on each build
+  # plus a weekly full pass.
+  nix.settings.auto-optimise-store = true;
+  nix.optimise = {
+    automatic = true;
+    dates = [ "weekly" ];
+  };
   home-manager = {
     # also pass inputs and secrets to home-manager modules
     extraSpecialArgs = { inherit inputs pkgs secrets; };

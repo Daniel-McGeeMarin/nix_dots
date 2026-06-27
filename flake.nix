@@ -8,33 +8,13 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
-    nixpkgs-master.url = "github:nixos/nixpkgs/master";
     nix-flatpak = {
       url = "github:gmodena/nix-flatpak";
     };
     nix-colors.url = "github:misterio77/nix-colors";
-    gBar.url = "github:scorpion-26/gBar";
-    xremap-flake.url = "github:xremap/nix-flake";
-    hyprland = {
-      url = "github:hyprwm/Hyprland";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    hycov={
-      url = "github:DreamMaoMao/hycov";
-      inputs.hyprland.follows = "hyprland";
-    };
-    hyprgrass = {
-      url = "github:horriblename/hyprgrass";
-      inputs.hyprland.follows = "hyprland"; # IMPORTANT
-    };
-  
+
     firefox-css-hacks = { url = "github:MrOtherGuy/firefox-csshacks"; flake = false; };
     fcitx5-gruvbox = { url = "github:ayamir/fcitx5-gruvbox"; flake = false; };
-    hypr-darkwindow = {
-      url = "github:micha4w/Hypr-DarkWindow/v0.44.0";
-      inputs.hyprland.follows = "hyprland";
-    };
-    gruvbox-wallpapers = { url = "github:AngelJumbo/gruvbox-wallpapers"; flake = false; };
     gruvbox-kvantum = { url = "github:isouravgope/Gruvbox-Kvantum"; flake = false; };
     patched-sddm-sugar-dark = {
       url = "github:BenMac31/sddm-sugar-dark";
@@ -48,29 +28,32 @@
     };
 
     caelestia-shell = {
-    # We are adding the version tag 'v1.4.2' to the end of the URL
-    url = "github:caelestia-dots/shell"; 
-      #inputs.nixpkgs.follows = "nixpkgs-unstable";
-    };   
+      url = "github:caelestia-dots/shell";
+      # Share the single unstable nixpkgs so caelestia only builds its own
+      # components (quickshell, cef, the shell) instead of pulling a whole
+      # separate nixpkgs + toolchain.
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+    };
 
     zen-browser = {
       url = "github:youwen5/zen-browser-flake";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-
- 
+    # Hello, electron was pinned manually because there was no build when you
+    # used it before, remember to unpin eventually if things are not working there.
+    # nixpkgs@03c7292 (2026-06-24) has a Hydra cache miss for electron-41.7.2.
+    # This commit (2026-06-09) has electron-41.7.1 which IS cached.
+    # To unpin: remove this input, remove overlay-electron-pin, run nix flake lock.
+    nixpkgs-electron-pin.url = "github:NixOS/nixpkgs/8a6fd288ce1b6f52fa0038397f36608f64743d5a";
   };
 
-  outputs = { self, nixpkgs, home-manager, nixpkgs-master, nixpkgs-unstable, caelestia-shell, ... }@inputs:
+  outputs = { self, nixpkgs, home-manager, nixpkgs-unstable, caelestia-shell, ... }@inputs:
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
       secrets = import inputs.secrets;
 
-      overlay-master = final: prev: {
-        master = import nixpkgs-master.legacyPackages.${system};
-      };
       overlay-unstable = final: prev: {
         unstable = import nixpkgs-unstable.legacyPackages.${system};
       };
@@ -86,11 +69,9 @@
           config.allowUnfree = true;
         };
       };
-      overlay-master-unfree = final: prev: {
-        master.unfree = import nixpkgs-master {
-          inherit system;
-          config.allowUnfree = true;
-        };
+      # See nixpkgs-electron-pin input above for explanation.
+      overlay-electron-pin = final: prev: {
+        electron_41 = inputs.nixpkgs-electron-pin.legacyPackages.${system}.electron_41;
       };
     in
     rec {
@@ -104,10 +85,9 @@
 
             nixpkgs.overlays = [
               overlay-unfree
-              overlay-master
-              overlay-master-unfree
               overlay-unstable
               overlay-unstable-unfree
+              overlay-electron-pin
               (final: prev: {
                 sddm-sugar-dark = prev.sddm-sugar-dark.overrideAttrs {
                   src = inputs.patched-sddm-sugar-dark;
@@ -131,7 +111,7 @@
           
           ({ config, pkgs, ... }: {
             nixpkgs.config.allowUnfree = true;
-            nixpkgs.overlays = [ overlay-unfree overlay-unstable overlay-unstable-unfree overlay-master overlay-master-unfree ];
+            nixpkgs.overlays = [ overlay-unfree overlay-unstable overlay-unstable-unfree overlay-electron-pin ];
           })
 	  ./hosts/XiaNix/home.nix
         ];
@@ -139,7 +119,7 @@
       nixosConfigurations.nixos = nixpkgs.lib.nixosSystem rec {
         specialArgs = { inherit inputs secrets; };
         modules = [
-          ({ config, pkgs, ... }: { nixpkgs.overlays = [ overlay-unfree overlay-master overlay-master-unfree overlay-unstable overlay-unstable-unfree ]; })
+          ({ config, pkgs, ... }: { nixpkgs.overlays = [ overlay-unfree overlay-unstable overlay-unstable-unfree ]; })
           ./hosts/phantomServ/configuration.nix
         ];
       };
@@ -149,7 +129,7 @@
         modules = [
           ({ config, pkgs, ... }: {
             nixpkgs.config.allowUnfree = true;
-            nixpkgs.overlays = [ overlay-unfree overlay-unstable overlay-unstable-unfree overlay-master overlay-master-unfree ];
+            nixpkgs.overlays = [ overlay-unfree overlay-unstable overlay-unstable-unfree ];
           })
           ./hosts/phantomServ/home.nix
         ];

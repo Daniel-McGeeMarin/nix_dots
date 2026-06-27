@@ -1,9 +1,8 @@
-{ config, inputs, pkgs, ... }:
+{ config, pkgs, ... }:
 {
   environment.systemPackages = with pkgs; lib.mkIf config.services.displayManager.sddm.enable [
     (pkgs.sddm-sugar-dark.override {
       themeConfig = {
-        Background = "${inputs.gruvbox-wallpapers}/wallpapers/mix/xavier-cuenca-w4-3.jpg";
         FontWeight = "DemiBold";
         MainColor = "#ebdbb2";
         AccentColor = "#d65d0e";
@@ -18,14 +17,16 @@
       };
     })
   ];
-  services.displayManager.sddm = {
-    wayland.enable = true;
-    theme = "sugar-dark";
-    extraPackages = [ pkgs.sddm-sugar-dark pkgs.noto-fonts-cjk-sans];
-
-    autoLogin.enable = true;
-    autoLogin.user = "xia";
+  services.displayManager = {
+    defaultSession = "hyprland";
+    autoLogin = {
+      enable = true;
+      user = "xia";
+    };
+    sddm = {
+      wayland.enable = true;
+      theme = "sugar-dark";
+      extraPackages = [ pkgs.sddm-sugar-dark pkgs.noto-fonts-cjk-sans ];
+    };
   };
-
-  services.displayManager.defaultSession = "hyprland";
 }

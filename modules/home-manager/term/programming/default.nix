@@ -12,7 +12,8 @@
   config = lib.mkIf config.programming.enable {
     programming = {
       python.enable = lib.mkDefault true;
-      R.enable = lib.mkDefault true;
+      # R pulls ~1G; install on-demand with `nix-shell -p R` when needed.
+      R.enable = lib.mkDefault false;
     };
 
 
