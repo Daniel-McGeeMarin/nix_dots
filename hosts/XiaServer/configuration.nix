@@ -35,7 +35,6 @@
     package = config.boot.kernelPackages.nvidiaPackages.stable;
   };
 
-  nixpkgs.config.cudaSupport = true;
   environment.systemPackages = with pkgs; [
     unfree.cudatoolkit
     unfree.cudaPackages.cuda_cudart
