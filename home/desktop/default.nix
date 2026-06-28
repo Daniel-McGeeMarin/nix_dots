@@ -34,6 +34,7 @@
       gimp
       inkscape
       sxiv
+      mokuro                                   # manga OCR → HTML with text overlay
 
       # ── Office & productivity ─────────────────────────────────────────────────
       speedcrunch
