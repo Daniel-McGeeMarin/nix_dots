@@ -1,63 +1,26 @@
 { config, lib, pkgs, inputs, osConfig, ... }:
 
-let
-  patched-caelestia = import ../../home/desktop/env/caelestia/patches {
-    caelestia-shell = inputs.caelestia-shell.packages.${pkgs.stdenv.hostPlatform.system}.with-cli;
-  };
-in
 {
   imports = [
-    #this disables my entire local homemanager config
     ../../home
-
-    inputs.caelestia-shell.homeManagerModules.default
   ];
+
   programs.home-manager.enable = true;
   home.username = "xia";
   home.homeDirectory = "/home/xia";
-
-
-
-  # IMPORTANT: disable your existing desktop module to avoid conflicts (hyprland, hypridle, waybar, etc.)
 
   sync.enable = false;
   programming.enable = true;
   ai.enable = false;
   ai.claudeCode.enable = true;
-  
+
   desktop = {
     enable = true;
     gaming.enable = true;
     japanese.enable = false;
   };
 
-
-  
-  programs.caelestia = {
-  enable = true;
-  package = patched-caelestia;
-  systemd = {
-    enable = true; # if you prefer starting from your compositor
-    target = "graphical-session.target";
-    environment = [];
-  };
-    #settings = {
-    #paths.wallpaperDir = "~/Images";
-    #};
-  cli = {
-    enable = true; # Also add caelestia-cli to path
-      #settings = {
-      #  theme.enableGtk = false;
-      #};
-  };
-};
-
   home.packages = [
-    #pkgs.papirus-icon-theme
-
-    
-    # pkgs.unfree.android-studio
-    # pkgs.mullvad-vpn
     pkgs.nix-output-monitor
     (pkgs.calibre.overrideAttrs
       (attrs: {
@@ -79,13 +42,11 @@ in
       }))
   ];
 
-
   programs = {
     password-store.enable = true;
     rbw.enable = true;
   };
 
-
-  systemd.user.sessionVariables.SSH_AUTH_SOCK = "/run/user/1000/keyring/ssh"; # Makes ssh-agent work
+  systemd.user.sessionVariables.SSH_AUTH_SOCK = "/run/user/1000/keyring/ssh";
   home.stateVersion = "23.11"; # Do not change
 }

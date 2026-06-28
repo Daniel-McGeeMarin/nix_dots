@@ -1,9 +1,27 @@
-{ config, lib, ... }:
+{ config, lib, pkgs, inputs, ... }:
+
+let
+  patched-caelestia = import ./patches {
+    caelestia-shell = inputs.caelestia-shell.packages.${pkgs.stdenv.hostPlatform.system}.with-cli;
+  };
+in
 {
-  # Keep caelestia's user settings (shell.json) inside this repo so a fresh
-  # `git pull` brings them along. An out-of-store symlink is used (same pattern
-  # as nvim) so caelestia's control-center can still write to the file live.
-  config = lib.mkIf (config.programs.caelestia.enable or false) {
+  imports = [
+    inputs.caelestia-shell.homeManagerModules.default
+  ];
+
+  config = lib.mkIf config.desktop.enable {
+    programs.caelestia = {
+      enable = true;
+      package = patched-caelestia;
+      systemd = {
+        enable = true;
+        target = "graphical-session.target";
+        environment = [];
+      };
+      cli.enable = true;
+    };
+
     xdg.configFile."caelestia/shell.json".source =
       config.lib.file.mkOutOfStoreSymlink
         "${config.home.homeDirectory}/nixos/home/desktop/env/caelestia/confs/shell.json";
