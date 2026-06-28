@@ -28,9 +28,14 @@
       wlsunset                               # blue light filter (any Wayland compositor)
       networkmanagerapplet                   # network manager system tray
 
+      # ── Audio ─────────────────────────────────────────────────────────────────
+      (lib.mkIf ((osConfig.services or { }).pipewire.enable or false) helvum)       # PipeWire patchbay GUI
+      (lib.mkIf ((osConfig.services or { }).pipewire.pulse.enable or false) pavucontrol) # PulseAudio volume control
+
       # ── Notifications & media control ─────────────────────────────────────────
       swaynotificationcenter                 # notification daemon (swaync)
       playerctl                              # MPRIS media player control
+      syncplay                               # synchronized media playback
 
       # ── Communications ────────────────────────────────────────────────────────
       signal-desktop
