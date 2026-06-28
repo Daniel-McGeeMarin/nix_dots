@@ -1,0 +1,7 @@
+{ ... }:
+{
+  imports = [
+    ./ai.nix
+    ./programming
+  ];
+}

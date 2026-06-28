@@ -1,19 +1,25 @@
-{ config, lib, pkgs, inputs, osConfig, ... }:
+{ pkgs, lib, ... }:
 {
   imports = [
-    ./programming
-    ./tui
-    ./ai.nix
-    ./zsh.nix
-    ./media.nix
+    ./apps
+    ./modules
   ];
-  config = {
-    tui.enable = lib.mkDefault true;
-    home.packages = with pkgs; [
-      fastfetch
-      libnotify
-      jq
-    ];
-    programs.gpg.enable = true;
-  };
+
+  home.packages = with pkgs; [
+    # ── Shell utilities ───────────────────────────────────────────────────────
+    fastfetch                              # system info display
+    jq                                    # JSON processor
+    libnotify                             # send desktop notifications from terminal
+
+    # ── TUI monitors ──────────────────────────────────────────────────────────
+    btop                                  # resource/process monitor
+
+    # ── Media (CLI) ───────────────────────────────────────────────────────────
+    yt-dlp                                # video downloader (YouTube etc.)
+    mpc                                   # MPD client for terminal playback control
+    unfree.ffmpeg-full                    # media encoding/conversion
+    imagemagick                           # image manipulation
+  ];
+
+  programs.gpg.enable = true;
 }

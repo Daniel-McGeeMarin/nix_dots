@@ -98,7 +98,7 @@
       nixosConfigurations.nixos = nixpkgs.lib.nixosSystem rec {
         specialArgs = { inherit inputs secrets; };
         modules = [
-          ({ config, pkgs, ... }: { nixpkgs.overlays = [ overlay-unfree overlay-unstable overlay-unstable-unfree ]; })
+          ({ config, pkgs, ... }: { nixpkgs.overlays = [ overlay-unfree overlay-unstable overlay-unstable-unfree overlay-electron-pin ]; })
           ./hosts/XiaServer/configuration.nix
         ];
       };
@@ -108,7 +108,7 @@
         modules = [
           ({ config, pkgs, ... }: {
             nixpkgs.config.allowUnfree = true;
-            nixpkgs.overlays = [ overlay-unfree overlay-unstable overlay-unstable-unfree ];
+            nixpkgs.overlays = [ overlay-unfree overlay-unstable overlay-unstable-unfree overlay-electron-pin ];
           })
           ./hosts/XiaServer/home.nix
         ];
