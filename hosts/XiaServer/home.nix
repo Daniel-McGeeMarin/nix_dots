@@ -2,7 +2,7 @@
 
 {
   imports = [
-    ../../modules/home-manager
+    ../../home-manager
   ];
 
   programs.home-manager.enable = true;

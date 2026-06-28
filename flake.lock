@@ -360,22 +360,6 @@
         "type": "github"
       }
     },
-    "patched-sddm-sugar-dark": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1741366900,
-        "narHash": "sha256-17PiH5kUEZzm8Me0Sa90dxnbooWOw0vGj4M0isV+kGE=",
-        "owner": "BenMac31",
-        "repo": "sddm-sugar-dark",
-        "rev": "42f7965b15cbb42edd3d2ae8d57264c3c3b6e703",
-        "type": "github"
-      },
-      "original": {
-        "owner": "BenMac31",
-        "repo": "sddm-sugar-dark",
-        "type": "github"
-      }
-    },
     "quickshell": {
       "inputs": {
         "nixpkgs": [
@@ -410,7 +394,6 @@
         "nixpkgs-electron-pin": "nixpkgs-electron-pin",
         "nixpkgs-unstable": "nixpkgs-unstable",
         "nixvim": "nixvim",
-        "patched-sddm-sugar-dark": "patched-sddm-sugar-dark",
         "zen-browser": "zen-browser"
       }
     },
