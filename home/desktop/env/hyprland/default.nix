@@ -11,8 +11,6 @@ in
   imports = [
     ./base.nix
     ./binds.nix
-    ./hypridle.nix
-    ./hyprpaper.nix
     ./rules.nix
   ];
 
