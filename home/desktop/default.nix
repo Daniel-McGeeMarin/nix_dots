@@ -9,7 +9,6 @@
     ./apps
     ./env
     ./gaming.nix
-    ./japanese.nix
     ./comms.nix
     ./sync.nix
     ./office.nix

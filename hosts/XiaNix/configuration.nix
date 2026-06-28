@@ -4,11 +4,11 @@ let
   upkgs = pkgs.unstable;
 in
 {
-  imports =
-    [
-      ../../system
-      ./hardware-configuration.nix
-    ];
+  imports = [
+    ../../system
+    ./hardware-configuration.nix
+    ./gram.nix
+  ];
 
 
   # new fix for sound error
@@ -23,7 +23,6 @@ in
   head = {
     enable = true;
     gaming = true;
-    gram = true;
   };
 
   services.displayManager.autoLogin = {

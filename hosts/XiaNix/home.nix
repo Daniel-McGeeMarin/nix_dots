@@ -17,7 +17,6 @@
   desktop = {
     enable = true;
     gaming.enable = true;
-    japanese.enable = false;
   };
 
   home.packages = [
@@ -45,6 +44,7 @@
   programs = {
     password-store.enable = true;
     rbw.enable = true;
+    zsh.shellAliases.fixaudio = "sudo ~/nixos/hosts/XiaNix/lg-gram-audio.sh";
   };
 
   systemd.user.sessionVariables.SSH_AUTH_SOCK = "/run/user/1000/keyring/ssh";

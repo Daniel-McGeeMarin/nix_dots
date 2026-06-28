@@ -223,20 +223,18 @@ in
           no_hardware_cursors = 1; # don’t use HW cursors
         };
 
-        general = with config.colorScheme.palette; {
+        general = {
           gaps_in = 6; # 8
           gaps_out = 10; # 16
           border_size = 2;
-          
-          "col.active_border" = "rgba(e6e6e6cc) rgba(d0d0d0aa) 45deg";
 
-          #"col.active_border" = "rgba(${base08}ee) rgba(${base0A}ee) 45deg";
-          "col.inactive_border" = "rgba(${base03}aa)";
+          "col.active_border" = "rgba(e6e6e6cc) rgba(d0d0d0aa) 45deg";
+          "col.inactive_border" = "rgba(595959aa)";
           layout = "master";
           allow_tearing = false;
         };
 
-        decoration = with config.colorScheme.palette; {
+        decoration = {
 
           rounding = 10;
 
@@ -263,7 +261,7 @@ in
             enabled = true;
             range = 4;
             render_power = 3;
-            color = "rgba(${base01}ee)";
+            color = "rgba(1a1a1aee)";
           };
         };
 

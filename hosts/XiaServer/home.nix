@@ -12,7 +12,6 @@
   desktop = {
     enable = true;
     gaming.enable = true;
-    japanese.enable = false;
   };
 
   programming.enable = true;

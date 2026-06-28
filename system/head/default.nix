@@ -7,13 +7,11 @@ in
   imports = [
     ./plymouth.nix
     ./grub-theme.nix
-    ./gram.nix
   ];
 
   options.head = {
     enable = lib.mkEnableOption "Set if headed system";
     gaming = lib.mkEnableOption "Enable gaming";
-    gram = lib.mkEnableOption "LG Gram hardware quirks";
   };
 
   config = lib.mkIf config.head.enable {

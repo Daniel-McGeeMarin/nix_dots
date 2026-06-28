@@ -28,16 +28,16 @@
           inherit (config.lib.formats.rasi) mkLiteral;
         in
         {
-          "*" = with config.colorScheme.palette; {
-            bg = lib.mkForce (mkLiteral "#${base00}");
-            bg-alt = lib.mkForce (mkLiteral "#${base09}");
-            foreground = lib.mkForce (mkLiteral "#${base01}");
-            selected = lib.mkForce (mkLiteral "#${base08}");
-            active = lib.mkForce (mkLiteral "#${base0B}");
-            text-selected = lib.mkForce (mkLiteral "#${base00}");
-            text-color = lib.mkForce (mkLiteral "#${base05}");
-            border-color = lib.mkForce (mkLiteral "#${base0F}");
-            urgent = lib.mkForce (mkLiteral "#${base0E}");
+          "*" = {
+            bg = lib.mkForce (mkLiteral "#1e1e1e");
+            bg-alt = lib.mkForce (mkLiteral "#3a3a3a");
+            foreground = lib.mkForce (mkLiteral "#999999");
+            selected = lib.mkForce (mkLiteral "#5294e2");
+            active = lib.mkForce (mkLiteral "#79b754");
+            text-selected = lib.mkForce (mkLiteral "#ffffff");
+            text-color = lib.mkForce (mkLiteral "#dddddd");
+            border-color = lib.mkForce (mkLiteral "#666666");
+            urgent = lib.mkForce (mkLiteral "#d35858");
           };
           "window" = {
             width = mkLiteral "50%";
