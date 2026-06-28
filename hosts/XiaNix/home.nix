@@ -1,14 +1,14 @@
 { config, lib, pkgs, inputs, osConfig, ... }:
 
 let
-  patched-caelestia = import ../../home-manager/desktop/env/caelestia/patches {
+  patched-caelestia = import ../../home/desktop/env/caelestia/patches {
     caelestia-shell = inputs.caelestia-shell.packages.${pkgs.stdenv.hostPlatform.system}.with-cli;
   };
 in
 {
   imports = [
     #this disables my entire local homemanager config
-    ../../home-manager
+    ../../home
 
     inputs.caelestia-shell.homeManagerModules.default
   ];

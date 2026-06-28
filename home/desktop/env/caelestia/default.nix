@@ -6,9 +6,9 @@
   config = lib.mkIf (config.programs.caelestia.enable or false) {
     xdg.configFile."caelestia/shell.json".source =
       config.lib.file.mkOutOfStoreSymlink
-        "${config.home.homeDirectory}/nixos/home-manager/desktop/env/caelestia/confs/shell.json";
+        "${config.home.homeDirectory}/nixos/home/desktop/env/caelestia/confs/shell.json";
     xdg.configFile."caelestia/shell-tokens.json".source =
       config.lib.file.mkOutOfStoreSymlink
-        "${config.home.homeDirectory}/nixos/home-manager/desktop/env/caelestia/confs/shell-tokens.json";
+        "${config.home.homeDirectory}/nixos/home/desktop/env/caelestia/confs/shell-tokens.json";
   };
 }
