@@ -1,4 +1,4 @@
-{ lib, config, inputs, pkgs, ... }:
+{ lib, inputs, pkgs, ... }:
 let
   # caelestia-nvim ships its module at the repo root instead of under lua/,
   # which breaks lazy-loading. We fix the directory layout here so
@@ -20,8 +20,7 @@ in
 {
   imports = [ inputs.nixvim.homeModules.nixvim ];
 
-  config = lib.mkIf config.tui.enable {
-    programs.nixvim = {
+  config.programs.nixvim = {
       enable = true;
       package = inputs.nixpkgs-unstable.legacyPackages.${pkgs.stdenv.hostPlatform.system}.neovim-unwrapped;
       defaultEditor = true;
@@ -375,5 +374,4 @@ in
 
       };
     };
-  };
 }

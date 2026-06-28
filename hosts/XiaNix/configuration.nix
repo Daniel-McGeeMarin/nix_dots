@@ -1,8 +1,4 @@
 { config, lib, pkgs, inputs, ... }:
-
-let
-  upkgs = pkgs.unstable;
-in
 {
   imports = [
     ../../system
@@ -10,37 +6,41 @@ in
     ./gram.nix
   ];
 
-
-  # new fix for sound error
-
   boot.extraModprobeConfig = ''
     options snd-hda-intel model=alc298-samsung-amp2
   '';
-
+  boot.extraModulePackages = with config.boot.kernelPackages; [ v4l2loopback ];
+  boot.kernelModules = [ "binder_linux" ];
 
   networking.hostName = "XiaNix";
-  #networking.networkmanager.enable = true;
+
   head = {
     enable = true;
     gaming = true;
   };
 
-  services.displayManager.autoLogin = {
-    enable = true;
-    user = "xia";
+  services = {
+    flatpak.enable = true;
+    mullvad-vpn.enable = true;
+    printing.enable = true;
+    fwupd.enable = true;
+    fprintd.enable = true;
+    thermald.enable = true;
+    geoclue2.enable = true;
+    upower.enable = true;
+    desktopManager.gnome.enable = true;
+    xserver.enable = true;
+    displayManager.autoLogin = {
+      enable = true;
+      user = "xia";
+    };
   };
-  programs = {
 
+  programs = {
     hyprland.enable = true;
     adb.enable = true;
     nix-ld.enable = true;
-    nix-ld.libraries = with pkgs; [
-
-      # Add any missing dynamic libraries for unpackaged programs
-
-      # here, NOT in environment.systemPackages
-
-    ];
+    nix-ld.libraries = [];
     kdeconnect.enable = true;
     noisetorch.enable = true;
   };
@@ -48,13 +48,8 @@ in
   virtualisation.docker = {
     enable = true;
     package = pkgs.docker_29;
-    # optional: allow your user to use Docker without sudo
-    #enableOnBoot = true;
   };
-
   virtualisation.waydroid.enable = true;
-
-
 
   fonts.packages = with pkgs; [
     rubik
@@ -68,32 +63,9 @@ in
     source-han-serif
     source-han-sans-vf-ttf
     source-han-sans-vf-otf
-
   ];
 
-
-  time.timeZone = "America/Los_Angeles";
-  services = {
-    flatpak.enable = true;
-    mullvad-vpn.enable = true;
-
-    printing.enable = true;
-    fwupd.enable = true;
-    fprintd.enable = true;
-    thermald.enable = true;
-    geoclue2.enable = true;
-    upower.enable = true;
-
-
-    desktopManager.gnome.enable = true;
-
-    xserver = {
-      enable = true;
-    };
-  };
-
   environment.systemPackages = with pkgs; [
-    
     wireguard-tools
     libusb1
     powertop
@@ -101,38 +73,22 @@ in
     blueman
     alsa-utils
     kdePackages.breeze-icons
-    kdePackages.breeze-icons
-
-
   ];
 
+  time.timeZone = "America/Los_Angeles";
 
   users.users.xia = {
     isNormalUser = true;
     shell = pkgs.zsh;
-    extraGroups = [ "adbusers" "docker" "wheel" "uinput" "input" "video" "lxc"]; # Enable ‘sudo’ for the user.
+    extraGroups = [ "adbusers" "docker" "wheel" "uinput" "input" "video" "lxc" ];
   };
-  boot.extraModulePackages = with config.boot.kernelPackages; [
-    v4l2loopback
-  ];
-
-  boot.kernelModules = [ "binder_linux" ];
-
-  
-  home-manager.backupFileExtension = "backup2";
-
-
-
-
 
   home-manager = {
+    backupFileExtension = "backup2";
     users."xia" = import ./home.nix;
   };
 
-
   nix.package = pkgs.lix;
-
- 
 
   system.stateVersion = "23.11"; # DO NOT CHANGE
 }

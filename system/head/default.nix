@@ -1,8 +1,4 @@
 { config, lib, pkgs, inputs, ... }:
-
-let
-  upkgs = pkgs.unstable;
-in
 {
   options.head = {
     enable = lib.mkEnableOption "Set if headed system";
@@ -32,7 +28,6 @@ in
       gamescope.enable = true;
     };
 
-    fonts.fontDir.enable = true;
     hardware.uinput.enable = lib.mkIf config.head.gaming true;
   };
 }

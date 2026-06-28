@@ -1,5 +1,4 @@
 { config, lib, pkgs, inputs, ... }:
-
 {
   imports = [
     ../../system
@@ -15,12 +14,12 @@
     gaming = true;
   };
 
+  serv.enable = true;
+
   services.displayManager.autoLogin = {
     enable = true;
     user = "XiaServer";
   };
-
-  serv.enable = true;
 
   # NVIDIA 1080 Ti — standalone GPU, no PRIME
   services.xserver.videoDrivers = [ "nvidia" ];
@@ -35,11 +34,12 @@
     nvidiaSettings = true;
     package = config.boot.kernelPackages.nvidiaPackages.stable;
   };
-  environment.systemPackages = with pkgs; [
-    pkgs.unfree.cudatoolkit
-    pkgs.unfree.cudaPackages.cuda_cudart
-  ];
+
   nixpkgs.config.cudaSupport = true;
+  environment.systemPackages = with pkgs; [
+    unfree.cudatoolkit
+    unfree.cudaPackages.cuda_cudart
+  ];
 
   programs = {
     hyprland.enable = true;
@@ -72,8 +72,10 @@
     extraGroups = [ "docker" "wheel" "video" "input" ];
   };
 
-  home-manager.backupFileExtension = "backup";
-  home-manager.users."XiaServer" = import ./home.nix;
+  home-manager = {
+    backupFileExtension = "backup";
+    users."XiaServer" = import ./home.nix;
+  };
 
   nix.package = pkgs.lix;
 
