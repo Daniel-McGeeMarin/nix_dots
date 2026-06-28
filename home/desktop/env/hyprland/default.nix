@@ -36,15 +36,9 @@ in
     hyprWorkspaceNext
     hyprWorkspacePrev
     inputs.nixpkgs-unstable.legacyPackages.${pkgs.system}.nwg-drawer
-    pkgs.jq
     pkgs.wtype
-    pkgs.wlsunset
-    pkgs.swaynotificationcenter
     pkgs.grimblast
     pkgs.ydotool
-    pkgs.wlr-randr
-    pkgs.networkmanagerapplet
-    pkgs.playerctl
     pkgs.grim
     pkgs.slurp
     (pkgs.writeShellScriptBin "devbright" ''

@@ -24,6 +24,13 @@
       brightnessctl
       wl-clipboard
       blueberry                              # bluetooth manager GUI
+      wlr-randr                              # display management (wlroots)
+      wlsunset                               # blue light filter (any Wayland compositor)
+      networkmanagerapplet                   # network manager system tray
+
+      # ── Notifications & media control ─────────────────────────────────────────
+      swaynotificationcenter                 # notification daemon (swaync)
+      playerctl                              # MPRIS media player control
 
       # ── Communications ────────────────────────────────────────────────────────
       signal-desktop
