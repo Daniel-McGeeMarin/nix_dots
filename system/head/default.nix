@@ -4,11 +4,6 @@ let
   upkgs = pkgs.unstable;
 in
 {
-  imports = [
-    ./plymouth.nix
-    ./grub-theme.nix
-  ];
-
   options.head = {
     enable = lib.mkEnableOption "Set if headed system";
     gaming = lib.mkEnableOption "Enable gaming";
@@ -16,6 +11,7 @@ in
 
   config = lib.mkIf config.head.enable {
     boot.plymouth.enable = lib.mkDefault true;
+    boot.initrd.systemd.enable = lib.mkDefault true;
 
     services = {
       pulseaudio.enable = false;
