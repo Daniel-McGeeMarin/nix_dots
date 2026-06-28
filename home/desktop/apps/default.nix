@@ -10,10 +10,6 @@
   ];
 
   config = lib.mkIf config.desktop.enable {
-    home.packages = with pkgs; [
-      brave
-      vscodium
-    ];
 
     programs = {
       foot.enable = lib.mkDefault true;

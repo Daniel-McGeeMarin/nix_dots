@@ -20,6 +20,10 @@
     ];
 
     home.packages = with pkgs; [
+      # ── Browsers & editors ────────────────────────────────────────────────────
+      brave
+      vscodium
+
       # ── System & desktop ──────────────────────────────────────────────────────
       brightnessctl
       wl-clipboard
