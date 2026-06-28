@@ -11,11 +11,7 @@
     nix-flatpak = {
       url = "github:gmodena/nix-flatpak";
     };
-    nix-colors.url = "github:misterio77/nix-colors";
-
     firefox-css-hacks = { url = "github:MrOtherGuy/firefox-csshacks"; flake = false; };
-    fcitx5-gruvbox = { url = "github:ayamir/fcitx5-gruvbox"; flake = false; };
-    gruvbox-kvantum = { url = "github:isouravgope/Gruvbox-Kvantum"; flake = false; };
     caelestia-shell = {
       url = "github:caelestia-dots/shell";
       # Share the single unstable nixpkgs so caelestia only builds its own

@@ -25,43 +25,50 @@ Use `nom` (`nix-output-monitor`) as a drop-in prefix for verbose, readable build
 
 ## Architecture
 
+### Directory layout
+
+```
+hosts/        per-host configuration (XiaNix, XiaServer)
+system/       NixOS modules (kernel, hardware, services)
+home/         Home Manager modules (user environment, apps, desktop)
+flake.nix     inputs + host outputs
+```
+
 ### Flake structure
 
 `flake.nix` defines two hosts:
 - **XiaNix** — main desktop (LG Gram laptop)
-- **nixos** — server (`phantomServ`)
+- **XiaServer** — server (NVIDIA 1080 Ti, Jellyfin stack)
 
-Each host has `nixosConfigurations.<name>` and `homeConfigurations.<name>`. The NixOS build at `hosts/XiaNix/configuration.nix` already inlines Home Manager via `home-manager.users."xia" = import ./home.nix`, so `nixos-rebuild switch` updates both system and user environment in one shot. The `homeConfigurations` output is a standalone alternative.
+Each host has `nixosConfigurations.<name>` and `homeConfigurations.<name>`. The NixOS build at `hosts/XiaNix/configuration.nix` inlines Home Manager via `home-manager.users."xia" = import ./home.nix`, so `nixos-rebuild switch` updates both system and user environment in one shot.
 
 ### Overlays
 
-Four overlays are wired up in `flake.nix` and passed to every NixOS and Home Manager module:
+Four overlays in `flake.nix`, available in every module:
 - `pkgs.unstable.*` — nixpkgs unstable
 - `pkgs.unfree.*` — stable nixpkgs with `allowUnfree`
 - `pkgs.unstable.unfree.*` — unstable + unfree
-- `electron_41` pin — see the comment in `flake.nix`; unpin when the Hydra cache catch up
+- `electron_41` pin — see comment in `flake.nix`; unpin when Hydra cache catches up
 
 ### Module options
 
-The shared modules expose boolean options that hosts toggle:
-
-| Option | Where set | Effect |
-|--------|-----------|--------|
-| `head.enable` | NixOS module | SDDM, PipeWire, Plymouth |
-| `head.gaming` | NixOS module | gamemode, gamescope, uinput |
-| `desktop.enable` | HM module | Hyprland env, apps, comms, office, media |
-| `desktop.gaming.enable` | HM module | Flatpak Steam, Lutris, Prism |
-| `desktop.japanese.enable` | HM module | Japanese fonts/input |
-| `programming.enable` | HM module | Dev tools, Python, R |
-| `ai.enable` | HM module | aichat, aiclip script |
-| `ai.claudeCode.enable` | HM module | claude-code CLI |
-| `sync.enable` | HM module | KDE Connect / Bluetooth |
-| `media.enable` | HM module | media CLI tools |
-| `tui.enable` | HM module | btop, ncmpcpp, ytfzf (default: true) |
+| Option | Layer | Effect |
+|--------|-------|--------|
+| `head.enable` | system | GDM, PipeWire, Plymouth, gaming |
+| `head.gaming` | system | gamemode, gamescope, uinput |
+| `desktop.enable` | home | Hyprland, caelestia, apps, comms, office, media |
+| `desktop.gaming.enable` | home | Flatpak Steam, Lutris, Prism |
+| `desktop.japanese.enable` | home | Japanese fonts/input |
+| `programming.enable` | home | Dev tools, Python, R |
+| `ai.enable` | home | aichat, aiclip script |
+| `ai.claudeCode.enable` | home | claude-code CLI |
+| `sync.enable` | home | KDE Connect / Bluetooth |
+| `media.enable` | home | media CLI tools |
+| `tui.enable` | home | btop, ncmpcpp, ytfzf (default: true) |
 
 ### Secrets
 
-`secrets.nix` is git-ignored and injected as a flake input (`path:./secrets.nix`). It flows through `specialArgs`/`extraSpecialArgs` as `secrets` and is available in every module. Expected shape:
+`secrets.nix` is git-ignored, injected as a flake input, and available in every module as `secrets`. Expected shape:
 
 ```nix
 {
@@ -70,77 +77,66 @@ The shared modules expose boolean options that hosts toggle:
 }
 ```
 
-Modules that consume secrets take it as a function argument (e.g. `{ secrets, ... }:`). Never commit the real file.
+Never commit the real file.
 
-### Caelestia shell patches
+### LG Gram hardware
 
-`caelestiapatches/` is a small Nix overlay that applies local `.patch` files to the upstream `caelestia-shell` package before it builds. To add a patch: generate a unified diff, drop it in the directory, and list it in `caelestiapatches/default.nix`. The patched package is instantiated in `hosts/XiaNix/home.nix` and passed to `programs.caelestia.package`.
+All LG Gram-specific config lives in `hosts/XiaNix/` and is only loaded by that host:
+- `hosts/XiaNix/gram.nix` — audio systemd service, input-remapper, iio-hyprland, fcitx5, IME session vars, waydroid sudo rules
+- `hosts/XiaNix/lg-gram-audio.sh` — speaker amp init script (referenced by gram.nix)
+
+### Caelestia
+
+Everything caelestia lives under `home/desktop/env/caelestia/`:
+- `default.nix` — HM module; enables and configures `programs.caelestia` for any host with `desktop.enable`
+- `patches/` — patch overlay applied to caelestia-shell at build time
+- `confs/` — live-editable shell.json and shell-tokens.json, symlinked out of store so the control-centre can write to them
+- `CAELESTIA.md` — caelestia-specific documentation
 
 ### Key module locations
 
-- `modules/nixos/head/gram.nix` — LG Gram hardware quirks (audio script, fcitx5, input-remapper, session env vars)
-- `modules/home-manager/desktop/env/hyprland.nix` — Hyprland keybinds; uses `secrets.hypr.*`
-- `modules/home-manager/term/tui/vim.nix` — Full declarative Nixvim config; all plugins, LSP servers, keymaps, and options live here. No lazy.nvim, no runtime downloads, no mason. Plugins are from nixpkgs `vimPlugins` or built via `buildVimPlugin` (caelestia-nvim has a lua/ path fix applied at build time).
-- `modules/home-manager/term/tui/newsboat.nix` — Newsboat; uses `secrets.feeds.*`
-- `confs/nvim/` — **archived / dead code** after the nixvim migration. Previously the AstroNvim + lazy.nvim config, now superseded by `vim.nix`. Safe to delete once verified.
-- `confs/caelestia/shell.json` — Caelestia shell settings, symlinked into `~/.config/caelestia/` via an out-of-store symlink so the control-centre can write to it live.
+- `home/desktop/env/hyprland.nix` — Hyprland keybinds; uses `secrets.hypr.*`
+- `home/term/tui/vim.nix` — Full declarative Nixvim config; all plugins, LSP servers, keymaps, and options live here. No lazy.nvim, no runtime downloads, no mason.
+- `home/term/tui/newsboat.nix` — Newsboat; uses `secrets.feeds.*`
 
 ---
 
 ## Git Commit Guidelines
 
-These rules apply to all commits in this repository. AI assistants working here must follow them exactly.
-
 ### When to commit
 
-Commit after every **major change** to the codebase. A major change is anything that:
-- Adds, removes, or substantially rewrites a module (NixOS or Home Manager)
-- Changes `flake.nix` inputs or overlays
-- Migrates a tool or workflow to a new approach (e.g. AstroNvim → Nixvim)
-- Fixes a build error or system breakage
-- Adds or updates a significant package or service
-
-Minor reformats or one-line tweaks can be batched with the surrounding change. Do not let unrelated changes accumulate across multiple features — keep commits focused.
+Commit after every **major change**: adding/removing/rewriting a module, changing flake inputs, migrating a tool, fixing a build error, or adding a significant package. Batch minor tweaks with the surrounding change; don't let unrelated changes accumulate.
 
 ### Commit message format
 
-Use a short **imperative subject line** (50 chars or under), then a **blank line**, then a **detailed body** explaining:
+**Match verbosity to the size of the change.**
 
-1. **What** was changed and in which files/modules
-2. **Why** — the motivation or problem being solved
-3. **How** — any non-obvious implementation details, trade-offs, or workarounds
-4. **Side effects** — anything else that changes as a result (e.g. a file becoming dead code, a dependency being dropped)
+Small changes (a single alias, a one-line fix, a renamed option) get a single concise sentence — no body needed:
+```
+restore fixaudio alias to shared zsh config with updated path
+```
 
-Example of a good commit:
-
+Large changes (module migrations, architecture refactors, multi-file deletions) get a subject line plus a body covering what changed, why, and any non-obvious details:
 ```
 migrate neovim from AstroNvim+lazy.nvim to nixvim
 
-Replaced the AstroNvim/lazy.nvim setup (confs/nvim/ + vim.nix symlink
-approach) with a fully declarative nixvim configuration in vim.nix.
+Replaced confs/nvim/ + symlink approach with a fully declarative nixvim
+config in vim.nix. lazy.nvim downloaded plugins at runtime and required
+a manual lua/ path fix after every update; nixvim handles all of this at
+build time via nix.
 
-Why: lazy.nvim downloaded plugins at runtime and required a manual
-directory fix for caelestia-nvim (lua/ path issue) after every install
-or update. Nixvim fetches all plugins through nix, applies the caelestia
-path fix at build time, and provides LSP servers via nix packages instead
-of mason.
-
-Changes:
-- flake.nix: added nix-community/nixvim input (nixos-25.11 branch)
-- vim.nix: full rewrite — programs.nixvim replaces programs.neovim;
-  20+ plugins declared declaratively; LSP servers (lua_ls, clangd,
-  rust-analyzer, pyright, nixd) provided via extraPackages; all
-  VS Code-style keymaps, VimTeX autocmds, and polish.lua options
-  ported to nix
-- tui/default.nix: removed programs.neovim.enable (nixvim manages it)
-- confs/nvim/: now dead code; safe to delete after verification
+- flake.nix: added nix-community/nixvim input
+- vim.nix: full rewrite — 20+ plugins, LSP servers via extraPackages,
+  all keymaps and options ported
+- tui/default.nix: removed programs.neovim.enable
+- confs/nvim/: now dead code, deleted
 ```
 
 ### Rules
 
-- **Never** add `Co-Authored-By: Claude` or any AI attribution to commit messages. Commits represent the owner's work.
-- Write messages as if explaining to a future developer (human or AI) who has no context — include file paths, before/after descriptions, and the reason for the change.
-- Use the present tense imperative for the subject line: "add", "remove", "fix", "migrate", "update" — not "added" or "adding".
-- Do not use emoji in commit messages.
-- Do not commit `secrets.nix`, `result`, or `result-*` (these are gitignored).
-- Do not amend published commits (commits already pushed to origin/main). Create a new commit instead.
+- **Never** add `Co-Authored-By: Claude` or any AI attribution. Commits represent the owner's work.
+- Subject line: imperative, 50 chars or under ("add", "remove", "fix", "migrate" — not "added").
+- Body: explain file paths, before/after, and the reason. A future agent should be able to reconstruct what happened and why from the commit message alone.
+- No emoji in commit messages.
+- Never commit `secrets.nix`, `result`, or `result-*`.
+- Never amend published commits — create a new one instead.
