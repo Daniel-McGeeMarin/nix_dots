@@ -9,7 +9,6 @@
   home.username = "xia";
   home.homeDirectory = "/home/xia";
 
-  sync.enable = false;
   programming.enable = true;
   ai.enable = false;
   ai.claudeCode.enable = true;

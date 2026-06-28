@@ -1,31 +1,54 @@
-{ config, lib, pkgs, inputs, osConfig, ... }:
+{ config, lib, pkgs, osConfig, ... }:
 {
-  options = {
-    desktop = {
-      enable = lib.mkEnableOption "Enable desktop";
-    };
-  };
+  options.desktop.enable = lib.mkEnableOption "Enable desktop";
+
   imports = [
     ./apps
     ./env
-    ./gaming.nix
-    ./comms.nix
-    ./sync.nix
-    ./office.nix
-    ./media.nix
+    ./modules
   ];
+
   config = lib.mkIf config.desktop.enable {
-    comms.enable = lib.mkDefault true;
-    office.enable = lib.mkDefault true;
-    media.enable = lib.mkDefault true;
+
     services.flatpak.packages = [
-      "com.github.tchx84.Flatseal"
-      "io.missioncenter.MissionCenter"
-      "net.cozic.joplin_desktop"
+      # ── Desktop tools ─────────────────────────────────────────────────────────
+      "com.github.tchx84.Flatseal"          # flatpak permissions manager
+      "io.missioncenter.MissionCenter"       # system monitor
+      "net.cozic.joplin_desktop"             # notes
+      # ── Media ─────────────────────────────────────────────────────────────────
+      "org.qbittorrent.qBittorrent"
     ];
+
     home.packages = with pkgs; [
+      # ── System & desktop ──────────────────────────────────────────────────────
       brightnessctl
       wl-clipboard
+      blueberry                              # bluetooth manager GUI
+
+      # ── Communications ────────────────────────────────────────────────────────
+      signal-desktop
+
+      # ── Media creation & viewing ──────────────────────────────────────────────
+      obs-studio
+      audacity
+      gimp
+      inkscape
+      sxiv
+
+      # ── Office & productivity ─────────────────────────────────────────────────
+      speedcrunch
+      (texlive.combine {
+        inherit (texlive)
+          scheme-small
+          collection-latexrecommended
+          collection-latexextra
+          collection-fontsrecommended
+          collection-mathscience
+          collection-bibtexextra;
+      })
+      libreoffice-qt
+      hunspell
+      anki-bin
     ];
   };
 }

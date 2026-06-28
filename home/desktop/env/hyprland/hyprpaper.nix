@@ -1,6 +1,6 @@
-{ lib, pkgs, config, ... }:
-
+{ lib, config, ... }:
 {
+  # Disabled: caelestia handles wallpaper. Enable and update paths when needed.
   services.hyprpaper = {
     enable = false;
     settings = {
@@ -16,6 +16,4 @@
     lib.mkIf config.services.hyprpaper.enable [
       "systemctl --user restart hyprpaper.service"
     ];
-
 }
-

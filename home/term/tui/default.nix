@@ -13,8 +13,7 @@
     programs.newsboat.enable = lib.mkIf config.desktop.enable (lib.mkDefault true);
     home.packages = with pkgs; [
       btop
-      (lib.mkIf config.media.enable ncmpcpp)
-      (lib.mkIf config.media.enable unfree.ytfzf)
+      unfree.ytfzf
     ];
   };
 }

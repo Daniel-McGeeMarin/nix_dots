@@ -5,6 +5,7 @@
     ./foot.nix
     ./kitty.nix
     ./mpv.nix
+    ./ncmpcpp.nix
     ./zathura.nix
   ];
   config = lib.mkIf config.desktop.enable {
@@ -24,7 +25,7 @@
       foot.enable = lib.mkDefault true;
       kitty.enable = lib.mkDefault true;
       zathura.enable = lib.mkDefault true;
-      mpv.enable = lib.mkIf config.media.enable (lib.mkDefault true);
+      mpv.enable = lib.mkDefault true;
     };
 
     xdg.mimeApps.defaultApplications = {

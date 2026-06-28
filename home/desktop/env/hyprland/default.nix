@@ -7,27 +7,14 @@ let
   socat = "${pkgs.socat}/bin/socat";
   hyprctl = "${pkgs.hyprland}/bin/hyprctl";
   jq = "${pkgs.jq}/bin/jq";
-  # Modular isolated workspace cycle — see wm/hypr-workspace-cycle.sh
-  hyprWorkspaceCycle = pkgs.writeShellScriptBin "hypr-workspace-cycle" (builtins.readFile ./wm/hypr-workspace-cycle.sh);
+  hyprWorkspaceCycle = pkgs.writeShellScriptBin "hypr-workspace-cycle" (builtins.readFile ./hypr-workspace-cycle.sh);
   hyprWorkspaceNext = pkgs.writeShellScriptBin "hypr-workspace-next" ''exec "${hyprWorkspaceCycle}/bin/hypr-workspace-cycle" next'';
   hyprWorkspacePrev = pkgs.writeShellScriptBin "hypr-workspace-prev" ''exec "${hyprWorkspaceCycle}/bin/hypr-workspace-cycle" prev'';
 in
 {
-  imports = [
-    wm/rofi
-    wm/hyprpaper.nix
-    wm/waybar
-    wm/hypridle.nix
-  ];
-
-
   #config = lib.mkIf osConfig.programs.hyprland.enable {
   config = {
   programs.rofi.enable = true;
-    
-    # not needed with caelestia
-    services.hyprpaper.enable = false;
-    programs.waybar.enable = true;
     xdg = {
       desktopEntries."org.gnome.Settings" = {
         name = "Settings";
@@ -420,7 +407,6 @@ in
         ];
         layerrule = [
           "animation slide top, ^(rofi)$"
-          "animation slide top, ^(waybar)$"
         ];
 
         "$mainMod" = "SUPER";
@@ -521,7 +507,6 @@ in
           "CTRL$mainMod,F11,fullscreenstate,2"
           "$mainMod,p,pin,"
           "$mainMod SHIFT ,Z,exec,grimblast copy area"
-          "$mainMod,b,exec,pkill waybar || waybar"
           "$mainMod,G,togglegroup"
           "$mainMod,f1,exec,hyprperf"
           "$mainMod,f2,exec,swapcaps"

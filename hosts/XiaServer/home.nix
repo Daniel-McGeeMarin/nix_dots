@@ -17,7 +17,6 @@
   programming.enable = true;
   ai.enable = false;
   ai.claudeCode.enable = true;
-  sync.enable = false;
 
   home.packages = with pkgs; [
     nix-output-monitor
