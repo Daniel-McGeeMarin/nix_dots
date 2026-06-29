@@ -9,6 +9,7 @@
   nixpkgs.config.allowUnfree = true;
 
   networking.hostName = "XiaServer";
+  networking.hostId = "9933a4ba";
 
   head = {
     enable = true;

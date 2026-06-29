@@ -21,11 +21,11 @@
     services.logind = {
       lidSwitch = "ignore";
       lidSwitchExternalPower = "ignore";
-      extraConfig = ''
-        HandleSuspendKey=ignore
-        HandleHibernateKey=ignore
-        IdleAction=ignore
-      '';
+      settings.Login = {
+        HandleSuspendKey = "ignore";
+        HandleHibernateKey = "ignore";
+        IdleAction = "ignore";
+      };
     };
   };
 }
