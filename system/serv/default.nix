@@ -3,6 +3,8 @@
   imports = [
     ./home-assistant.nix
     ./media.nix
+    ./minecraft.nix
+    ./wireguard.nix
   ];
 
   options.serv.enable = lib.mkEnableOption "Enable the serv module";
@@ -11,7 +13,7 @@
     services.openssh = {
       enable = true;
       settings = {
-        PasswordAuthentication = true;
+        PasswordAuthentication = lib.mkDefault false;
         UseDns = true;
         PermitRootLogin = "no";
       };

@@ -94,14 +94,14 @@
 	  ./hosts/XiaNix/home.nix
         ];
       };
-      nixosConfigurations.nixos = nixpkgs.lib.nixosSystem rec {
+      nixosConfigurations.XiaServer = nixpkgs.lib.nixosSystem rec {
         specialArgs = { inherit inputs secrets; };
         modules = [
           ({ config, pkgs, ... }: { nixpkgs.overlays = [ overlay-unfree overlay-unstable overlay-unstable-unfree overlay-electron-pin ]; })
           ./hosts/XiaServer/configuration.nix
         ];
       };
-      homeConfigurations.nixos = home-manager.lib.homeManagerConfiguration {
+      homeConfigurations.XiaServer = home-manager.lib.homeManagerConfiguration {
         extraSpecialArgs = { inherit inputs secrets; };
         inherit pkgs;
         modules = [

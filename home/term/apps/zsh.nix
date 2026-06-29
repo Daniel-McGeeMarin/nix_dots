@@ -1,4 +1,4 @@
-{ pkgs, config, inputs, lib, osConfig, ... }:
+{ pkgs, config, inputs, lib, osConfig, flakeAttr, ... }:
 
 {
   # To escape bashisms use ''${}
@@ -52,9 +52,9 @@ pys = "source ./venv/bin/activate";
 
       #Bens
 
-      nixswitch = "st=\"$(date +%s)\"; sudo HOME=$HOME nixos-rebuild switch --flake $HOME/nixos/#XiaNix --cores 8 --impure && notify-send 'updated' \"Took: $(($(date +%s)-$st))s\"";
-      homeswitch = "st=\"$(date +%s)\"; home-manager switch --flake $HOME/nixos/#XiaNix --cores 8 --impure && notify-send 'updated' \"Took: $(($(date +%s)-$st))s\"";
-      nixtest = "st=\"$(date +%s)\"; sudo HOME=$HOME nixos-rebuild test --fast --flake $HOME/nixos/#XiaNix --cores 8 --impure && notify-send 'updated' \"Took: $(($(date +%s)-$st))s\"";
+      nixswitch = "st=\"$(date +%s)\"; sudo HOME=$HOME nixos-rebuild switch --flake $HOME/nixos/#${flakeAttr} --cores 8 --impure && notify-send 'updated' \"Took: $(($(date +%s)-$st))s\"";
+      homeswitch = "st=\"$(date +%s)\"; home-manager switch --flake $HOME/nixos/#${flakeAttr} --cores 8 --impure && notify-send 'updated' \"Took: $(($(date +%s)-$st))s\"";
+      nixtest = "st=\"$(date +%s)\"; sudo HOME=$HOME nixos-rebuild test --fast --flake $HOME/nixos/#${flakeAttr} --cores 8 --impure && notify-send 'updated' \"Took: $(($(date +%s)-$st))s\"";
       nixwatch = "cd ~/nixos && dirwatch nixtest";
       homewatch = "cd ~/nixos && dirwatch homeswitch";
       powerinfo = "upower -i /org/freedesktop/UPower/devices/battery_BAT1";

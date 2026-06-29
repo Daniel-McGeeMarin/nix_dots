@@ -1,6 +1,6 @@
 { config, lib, pkgs, inputs, ... }:
 {
-  imports = [ inputs.zen-browser.homeManagerModules.default ];
+  imports = [ inputs.zen-browser.homeModules.default ];
 
   config = lib.mkIf config.desktop.enable {
 
@@ -33,10 +33,6 @@
       };
 
       profiles.default = {
-        # Point at the existing profile so no data migration is needed
-        id = 0;
-        name = "Default (release)";
-        path = "543mgzlr.Default (release)";
         isDefault = true;
 
         settings = {

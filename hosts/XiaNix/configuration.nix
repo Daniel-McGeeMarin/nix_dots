@@ -85,6 +85,7 @@
 
   home-manager = {
     backupFileExtension = "backup2";
+    extraSpecialArgs = { flakeAttr = "XiaNix"; };
     users."xia" = import ./home.nix;
   };
 

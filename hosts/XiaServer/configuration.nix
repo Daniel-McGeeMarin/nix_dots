@@ -15,6 +15,7 @@
   };
 
   serv.enable = true;
+  services.openssh.settings.PasswordAuthentication = true;
 
   services.displayManager.autoLogin = {
     enable = true;
@@ -73,6 +74,7 @@
 
   home-manager = {
     backupFileExtension = "backup";
+    extraSpecialArgs = { flakeAttr = "XiaServer"; };
     users."XiaServer" = import ./home.nix;
   };
 
