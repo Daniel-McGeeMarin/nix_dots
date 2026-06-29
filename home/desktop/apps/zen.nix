@@ -1,9 +1,16 @@
 { config, lib, pkgs, inputs, ... }:
+let
+  # zen-beta (current) reads profiles from ~/.zen/, not ~/.config/zen/ which the
+  # HM module targets. Manage profile-specific files directly via home.file.
+  profile = ".zen/543mgzlr.Default (release)";
+in
 {
   imports = [ inputs.zen-browser.homeModules.default ];
 
   config = lib.mkIf config.desktop.enable {
 
+    # Package + policies only — these work because policies go into the binary
+    # wrapper (distribution/policies.json), not the profile directory.
     programs.zen-browser = {
       enable = true;
 
@@ -26,125 +33,62 @@
             (extension "video-downloadhelper"       "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}")
             (extension "libredirect"                "7esoorv3@alefvanoon.anonaddy.me")
             (extension "darkreader"                 "addon@darkreader.org")
-            # WebToEpub@Baka-tsuki.org, sabre@simplify.jobs, and
-            # {91aa3897-2634-4a8a-9092-279db23a7689} (Zen Internet / @sameerasw)
-            # persist from the existing profile — add here if you want them force-reinstalled
           ];
       };
+    };
 
-      profiles.default = {
-        isDefault = true;
+    home.file = {
+      "${profile}/user.js".text = ''
+        user_pref("browser.tabs.allow_transparent_browser", true);
+        user_pref("zen.widget.linux.transparency", true);
+        user_pref("zen.theme.acrylic-elements", true);
+        user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);
+        user_pref("browser.contentblocking.category", "strict");
+        user_pref("network.dns.disablePrefetch", true);
+        user_pref("network.http.referer.disallowCrossSiteRelaxingDefault.top_navigation", true);
+        user_pref("network.http.speculative-parallel-limit", 0);
+        user_pref("network.lna.blocking", true);
+        user_pref("doh-rollout.mode", 2);
+        user_pref("doh-rollout.self-enabled", true);
+        user_pref("doh-rollout.uri", "https://mozilla.cloudflare-dns.com/dns-query");
+        user_pref("browser.download.dir", "${config.home.homeDirectory}/Downloads/browserDownloads");
+        user_pref("browser.download.folderList", 2);
+        user_pref("browser.sessionstore.restore_pinned_tabs_on_demand", false);
+        user_pref("browser.tabs.loadInBackground", false);
+        user_pref("browser.aboutConfig.showWarning", false);
+        user_pref("browser.theme.toolbar-theme", 0);
+        user_pref("devtools.chrome.enabled", true);
+        user_pref("sidebar.visibility", "hide-sidebar");
+        user_pref("zen.view.compact.enable-at-startup", false);
+        user_pref("zen.view.grey-out-inactive-windows", false);
+        user_pref("zen.view.window.scheme", 0);
+        user_pref("zen.workspaces.continue-where-left-off", true);
+        user_pref("mod.sameerasw.zen_bg_blur", "3px");
+        user_pref("mod.sameerasw.zen_bg_color_enabled", true);
+        user_pref("mod.sameerasw.zen_bg_img", "url('https://github.com/sameerasw/my-internet/blob/main/wallpapers/zen-coral-01.jpeg?raw=true')");
+        user_pref("mod.sameerasw.zen_bg_img_enabled", false);
+        user_pref("mod.sameerasw.zen_bg_img_not_fullscreen", false);
+        user_pref("mod.sameerasw.zen_bg_opacity", "0.8");
+        user_pref("mod.sameerasw.zen_compact_sidebar_width", "165px");
+        user_pref("mod.sameerasw.zen_no_shadow", false);
+        user_pref("mod.sameerasw.zen_notab_img", "url('https://github.com/sameerasw/my-internet/blob/main/wave-light.png?raw=true')");
+        user_pref("mod.sameerasw.zen_notab_img_opacity", "1");
+        user_pref("mod.sameerasw.zen_notab_img_size", "150px");
+        user_pref("mod.sameerasw.zen_tab_switch_anim", true);
+        user_pref("mod.sameerasw.zen_trackpad_anim", false);
+        user_pref("mod.sameerasw.zen_transparency_color", "#000000B8");
+        user_pref("mod.sameerasw.zen_transparent_glance_enabled", false);
+        user_pref("mod.sameerasw.zen_transparent_sidebar_enabled", true);
+        user_pref("mod.sameerasw.zen_urlbar_zoom_anim", false);
+        user_pref("mod.sameerasw_zen_animations", "1");
+        user_pref("mod.sameerasw_zen_compact_sidebar_type", "0");
+        user_pref("mod.sameerasw_zen_empty_tab_logo", "1");
+        user_pref("mod.sameerasw_zen_light_tint", "");
+      '';
 
-        settings = {
-          # ── Transparency (critical — both required on Linux) ────────────────────
-          "browser.tabs.allow_transparent_browser" = true;
-          "zen.widget.linux.transparency"          = true;
-          "zen.theme.acrylic-elements"             = true;
-
-          # ── Enable userChrome.css ───────────────────────────────────────────────
-          "toolkit.legacyUserProfileCustomizations.stylesheets" = true;
-
-          # ── Privacy ────────────────────────────────────────────────────────────
-          "browser.contentblocking.category"                              = "strict";
-          "network.dns.disablePrefetch"                                   = true;
-          "network.http.referer.disallowCrossSiteRelaxingDefault.top_navigation" = true;
-          "network.http.speculative-parallel-limit"                       = 0;
-          "network.lna.blocking"                                          = true;
-
-          # ── DNS over HTTPS (Cloudflare) ─────────────────────────────────────────
-          "doh-rollout.mode"         = 2;
-          "doh-rollout.self-enabled" = true;
-          "doh-rollout.uri"          = "https://mozilla.cloudflare-dns.com/dns-query";
-
-          # ── Downloads ──────────────────────────────────────────────────────────
-          "browser.download.dir"        = "${config.home.homeDirectory}/Downloads/browserDownloads";
-          "browser.download.folderList" = 2;
-
-          # ── Session / tabs ─────────────────────────────────────────────────────
-          # Load pinned tabs immediately (false = don't wait for demand)
-          "browser.sessionstore.restore_pinned_tabs_on_demand" = false;
-          # Open links in foreground instead of background
-          "browser.tabs.loadInBackground" = false;
-
-          # ── UI / devtools ──────────────────────────────────────────────────────
-          "browser.aboutConfig.showWarning" = false;
-          "browser.theme.toolbar-theme"     = 0;
-          "devtools.chrome.enabled"         = true;
-
-          # ── Sidebar ────────────────────────────────────────────────────────────
-          "sidebar.visibility" = "hide-sidebar";
-
-          # ── Zen view ───────────────────────────────────────────────────────────
-          "zen.view.compact.enable-at-startup"  = false;
-          "zen.view.grey-out-inactive-windows"  = false;
-          "zen.view.window.scheme"              = 0;
-          "zen.workspaces.continue-where-left-off" = true;
-
-          # ── Transparent Zen mod settings (@sameerasw) ──────────────────────────
-          "mod.sameerasw.zen_bg_blur"                  = "3px";
-          "mod.sameerasw.zen_bg_color_enabled"         = true;
-          "mod.sameerasw.zen_bg_img"                   = "url('https://github.com/sameerasw/my-internet/blob/main/wallpapers/zen-coral-01.jpeg?raw=true')";
-          "mod.sameerasw.zen_bg_img_enabled"           = false;
-          "mod.sameerasw.zen_bg_img_not_fullscreen"    = false;
-          "mod.sameerasw.zen_bg_opacity"               = "0.8";
-          "mod.sameerasw.zen_compact_sidebar_width"    = "165px";
-          "mod.sameerasw.zen_no_shadow"                = false;
-          "mod.sameerasw.zen_notab_img"                = "url('https://github.com/sameerasw/my-internet/blob/main/wave-light.png?raw=true')";
-          "mod.sameerasw.zen_notab_img_opacity"        = "1";
-          "mod.sameerasw.zen_notab_img_size"           = "150px";
-          "mod.sameerasw.zen_tab_switch_anim"          = true;
-          "mod.sameerasw.zen_trackpad_anim"            = false;
-          "mod.sameerasw.zen_transparency_color"       = "#000000B8";
-          "mod.sameerasw.zen_transparent_glance_enabled" = false;
-          "mod.sameerasw.zen_transparent_sidebar_enabled" = true;
-          "mod.sameerasw.zen_urlbar_zoom_anim"         = false;
-          "mod.sameerasw_zen_animations"               = "1";
-          "mod.sameerasw_zen_compact_sidebar_type"     = "0";
-          "mod.sameerasw_zen_empty_tab_logo"           = "1";
-          "mod.sameerasw_zen_light_tint"               = "";
-        };
-
-        search = {
-          default = "brave";
-          force = true;
-          engines = {
-            "brave" = {
-              urls = [{
-                template = "https://search.brave.com/search";
-                params = [{ name = "q"; value = "{searchTerms}"; }];
-              }];
-              definedAliases = [ "!br" ];
-              iconUpdateURL = "https://brave.com/favicon.ico";
-              updateInterval = 7 * 24 * 60 * 60 * 1000;
-            };
-            "nyaa" = {
-              urls = [{
-                template = "https://nyaa.si/";
-                params = [
-                  { name = "f"; value = "0"; }
-                  { name = "c"; value = "0_0"; }
-                  { name = "q"; value = "{searchTerms}"; }
-                ];
-              }];
-              definedAliases = [ "!ny" ];
-            };
-            "PirateBay" = {
-              urls = [{
-                template = "https://thepiratebay.org/search.php";
-                params = [{ name = "q"; value = "{searchTerms}"; }];
-              }];
-              iconUpdateURL = "https://thepiratebay.org/favicon.ico";
-              definedAliases = [ "!tpb" ];
-              updateInterval = 7 * 24 * 60 * 60 * 1000;
-            };
-          };
-        };
-
-        mods = [
-          "642854b5-88b4-4c40-b256-e035532109df"  # Transparent Zen by @sameerasw
-        ];
-
-        userChrome = ''
+      "${profile}/chrome/userChrome.css" = {
+        force = true;
+        text = ''
           /* Center url bar text when not focused */
           #urlbar:not([focused]) .urlbar-input {
               text-align: center !important;
@@ -177,7 +121,7 @@
               margin-right: 0px !important;
           }
 
-          /* Prevent border/outline flashes during transitions */
+          /* Prevent border/outline flashes */
           * {
               border: 0px solid transparent;
               outline: 0px solid transparent;
@@ -226,7 +170,6 @@
       };
     };
 
-    # Helper: copy the AMO extension ID for a given addon URL → paste into ExtensionSettings
     home.packages = [
       (pkgs.writeShellScriptBin "nixffext" ''
         wl-copy "(extension \"$(printf "$1" | awk -F '/' '{printf $7 }')\" \"$(curl -s "$1" | tr ',' '\n' | grep byGUID | tail -n 1 | awk -F '"' '{printf $4}')\")" && notify-send "ext copied"

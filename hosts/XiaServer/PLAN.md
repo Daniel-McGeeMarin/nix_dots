@@ -3,7 +3,8 @@
 ## Goal
 
 Fully declarative NixOS home server, open to the internet via a custom domain. All services managed
-by the flake — rebuilding on a new machine should restore everything except raw data files.
+by the flake — rebuilding on a new machine restores everything except raw data files. Adding a new
+webapp is a Nix config change + container image; no manual server work.
 
 ---
 
@@ -15,122 +16,267 @@ by the flake — rebuilding on a new machine should restore everything except ra
 | Reverse proxy | Caddy | Auto HTTPS/Let's Encrypt, clean config, NixOS module |
 | Auth middleware | Authelia | SSO in front of all services, single login for the whole server |
 | Secrets | agenix | Encrypted in git with host SSH key, decrypted to `/run/agenix/` (tmpfs) at boot |
-| Containers | Podman via `virtualisation.oci-containers` | Rootless, declarative, OCI-compatible — replaces current Docker setup |
-| Persistent data | `/srv/data/<service>/` bind mounts | Lives outside containers; survives rebuilds and image updates |
+| Containers | Podman via `virtualisation.oci-containers` | Rootless, declarative, OCI-compatible — replaces Docker |
+| Persistent data | `/srv/data/<service>/` on 1TB data drive | Lives outside containers; survives rebuilds and image updates |
 
 ### Docker → Podman migration note
 
 `configuration.nix` currently enables `virtualisation.docker`. Once Podman covers all services,
-remove `virtualisation.docker` and the `docker` group from the XiaServer user. Existing services
-(Jellyfin, Prowlarr, etc.) are NixOS-native and unaffected.
+remove `virtualisation.docker` and the `docker` group from the XiaServer user.
 
 ---
 
-## Services
+## Storage architecture
+
+### Current hardware
+
+- **256GB SSD** — NixOS root (`/`): OS, Nix store, container images, service config. Already
+  LUKS-encrypted (declared in `hardware-configuration.nix`).
+- **1TB HDD** — Data (`/srv/`): all persistent service data, user files, backups. Not yet declared
+  in NixOS — requires one-time setup below.
+
+The OS drive can be wiped and rebuilt from the flake. Only the data drive needs to be preserved.
+
+### Filesystem: ZFS with native encryption
+
+ZFS native encryption — **not** LUKS under ZFS. Reasons:
+- One layer manages both storage and encryption; LUKS underneath adds complexity for no gain
+- `zfs send` works correctly with native encryption for encrypted cloud backup; LUKS-on-ZFS breaks
+  incremental sends
+- Per-dataset encryption policies possible in the future
+- Adding drives later is a single command; no repartitioning ever needed
+
+### Disk layout — full drive, no partitioning
+
+ZFS does not pre-allocate space. Use the full 1TB for one pool; datasets grow as data is added.
+Windows backup files get their own dataset (`data/windows-import`) — no need to leave space
+unformatted. All 1TB is addressable from day one.
+
+**One-time setup on the physical server** (shell commands run once, then managed by Nix forever):
+
+```bash
+# Identify the 1TB drive — verify before running
+lsblk
+
+# Create encrypted ZFS pool on the full drive
+# Use /dev/disk/by-id/ — survives drive bay changes
+zpool create \
+  -O encryption=aes-256-gcm \
+  -O keyformat=raw \
+  -O keylocation=file:///run/agenix/zfs-data-key \
+  -O compression=lz4 \
+  -O atime=off \
+  -O xattr=sa \
+  data /dev/disk/by-id/ata-YOUR_DRIVE_ID
+
+# Create datasets
+zfs create data/srv
+zfs create data/srv/data
+zfs create data/srv/www
+zfs create data/windows-import   # staging area for Windows backup migration
+```
+
+### Encryption key management
+
+The pool key is a 32-byte random file managed by agenix:
+
+```
+secrets/zfs-data-key.age   ← random binary key, encrypted with host SSH key, committed to git
+  → agenix decrypts to /run/agenix/zfs-data-key at boot (tmpfs, never touches disk unencrypted)
+  → systemd unit runs: zfs load-key data && zfs mount -a
+  → /srv becomes available
+  → container services start (After= the ZFS mount unit)
+```
+
+The server reboots fully unattended — no passphrase prompt required.
+Loss of the key = loss of pool access. The key is in git (encrypted) — that IS the backup of it.
+
+### NixOS declaration
+
+Goes in a new `storage.nix` (not `hardware-configuration.nix`, which is auto-generated):
+
+```nix
+# hosts/XiaServer/storage.nix
+{ config, ... }:
+{
+  boot.supportedFilesystems = [ "zfs" ];
+  boot.zfs.extraPools = [ "data" ];
+
+  fileSystems."/srv" = {
+    device = "data/srv";
+    fsType = "zfs";
+  };
+
+  systemd.tmpfiles.rules = [
+    "d /srv/data              0755 root root"
+    "d /srv/data/authelia     0750 authelia authelia"
+    "d /srv/data/homarr       0750 root root"
+    "d /srv/data/ghost-public 0750 root root"
+    "d /srv/data/ghost-private 0750 root root"
+    "d /srv/www               0755 root root"
+  ];
+}
+```
+
+### Data layout
+
+```
+ZFS pool "data"
+  data/srv              → mounted at /srv
+    /srv/data/
+      authelia/         # Authelia user DB, TOTP secrets
+      homarr/           # dashboard config
+      ghost-public/     # public blog: posts, images, SQLite DB
+      ghost-private/    # private blog: posts, images, SQLite DB
+      ocis/             # OCIS user files (deferred)
+    /srv/www/
+      demo/             # built React demo app static files
+  data/windows-import   → mounted at /mnt/windows-import (staging, not under /srv)
+```
+
+### Future multi-drive expansion
+
+```bash
+zpool add data /dev/disk/by-id/ata-NEW_DRIVE_ID   # stripe (more space)
+# or
+zpool attach data existing-drive new-drive          # mirror (redundancy)
+```
+
+No Nix config change needed for existing services. New drives are immediately usable.
+
+---
+
+## Encrypted cloud backup (planned, not immediate)
+
+```
+zfs snapshot data/srv@YYYYMMDD
+  → zfs send -i (incremental — only changes since last snapshot)
+  → age encrypt (client-side; cloud provider sees only ciphertext)
+  → rclone upload to Backblaze B2
+```
+
+Implemented as a systemd timer in a future `backup.nix` module.
+**Backup target**: Backblaze B2 — $6/TB/month, S3-compatible, rclone native support.
+The ZFS choice is made now specifically to make this trivial later.
+
+---
+
+## Phase 1 services (what we are building now)
 
 ### 1. Dashboard — Homarr
 
 - **Image**: `ghcr.io/ajnart/homarr:latest` (Podman)
 - **Purpose**: Unified launcher and status overview for all self-hosted services
 - **Auth**: Behind Authelia — require login
-- **Data**: `/srv/data/homarr/` for config (bookmarks, layout, icon cache)
-- **NixOS prior art**: `virtualisation.oci-containers.containers.homarr` pattern, straightforward
-- **Notes**: Configured via its web UI; config persists in the bind mount
+- **Data**: `/srv/data/homarr/`
+- **Domain**: `dash.yourdomain.com`
 
-### 2. Public website
-
-- **Approach**: Static files served directly by Caddy — no container needed
-- **Build**: Hugo or Astro site, output committed to repo or built as a Nix derivation and served
-  from the store path
-- **Auth**: None — fully public
-- **Domain**: `yourdomain.com` / `www.yourdomain.com`
-- **Notes**: Caddy's `file_server` directive handles this in a single block; no extra process
-
-### 3. Blog — Ghost
+### 2. Public blog — Ghost
 
 - **Image**: `ghost:5-alpine` (Podman)
-- **Purpose**: Personal blog for friends and family; Ghost's native membership/subscription system
-  gates content (readers register with email, you approve) — no need for Authelia here
-- **Auth**: Ghost membership for content access; Authelia guards `/ghost` admin path
-- **Data**: `/srv/data/ghost/content/` bind mount (themes, images, database)
-- **DB**: SQLite (Ghost default) — adequate for personal traffic, zero extra containers
+- **Purpose**: Public-facing blog; anyone can read, you write from `/ghost` admin panel
+- **Auth**: Ghost admin path (`/ghost`) behind Authelia; public posts fully open
+- **Data**: `/srv/data/ghost-public/content/`
+- **DB**: SQLite (Ghost default)
 - **Domain**: `blog.yourdomain.com`
-- **NixOS prior art**: Well-documented `oci-containers` setup; Ghost's official Docker image is
-  production-quality
 
-### 4. ownCloud Infinite Scale (OCIS)
+### 3. Private blog — Ghost (second instance)
 
-- **Image**: `owncloud/ocis:latest` (Podman)
-- **Purpose**: File storage and sync (replaces Nextcloud; lighter, faster)
-- **Auth**: OCIS ships its own IdP (LibreGraph); Authelia sits in front at the Caddy layer for the
-  web UI; sync clients authenticate directly to OCIS
-- **Data**: `/srv/data/ocis/` bind mount — this is the big one, all user files live here
-- **Domain**: `cloud.yourdomain.com`
-- **NixOS prior art**: No official NixOS module; `oci-containers` is the right path. The
-  [owncloud/ocis Docker docs](https://doc.owncloud.com/ocis/next/deployment/container/container-setup.html)
-  provide a well-maintained reference `docker-compose.yml` that maps cleanly to `oci-containers`
-  options
-- **Notes**: OCIS requires several env vars (admin password, JWT secret, etc.) — all via agenix
-  env file
+- **Image**: `ghost:5-alpine` (Podman, separate container, different port)
+- **Purpose**: Blog for friends and family; Ghost's native membership system gates all content —
+  readers sign up, you approve them manually in the Ghost admin panel
+- **Auth**: Ghost membership gates content; Authelia guards the `/ghost` admin path
+- **Data**: `/srv/data/ghost-private/content/`
+- **DB**: SQLite
+- **Domain**: `journal.yourdomain.com`
 
-### 5. Office editor — ONLYOFFICE Document Server
+### 4. Demo React webapp
 
-- **Image**: `onlyoffice/documentserver:latest` (Podman)
-- **Purpose**: In-browser editing of `.docx`, `.xlsx`, `.pptx` files — integrated with OCIS
-- **Why ONLYOFFICE over Collabora**: ONLYOFFICE is React/Node-based; Collabora is LibreOffice
-  wrapped in a browser — significantly slower. ONLYOFFICE is the recommended choice when snappiness
-  matters and the user has had bad experiences with Collabora's latency
-- **Integration**: OCIS has a built-in ONLYOFFICE app that uses the WOPI protocol. Both services
-  share a JWT secret for secure API communication
-- **Auth**: Not directly exposed; traffic comes only from OCIS app provider calls. Caddy proxies
-  `office.yourdomain.com` but only OCIS backend talks to it — no user-facing login needed here
-- **Data**: Stateless (no persistent data needed beyond the JWT secret)
-- **NixOS prior art**: Official Docker image; OCIS ↔ ONLYOFFICE integration is well-documented by
-  ownCloud
+- **Purpose**: Validates the full CI → Podman → Caddy deploy pipeline; template for all future
+  custom webapps (poker games, tools, etc.)
+- **Stack**: Vite + React, served via nginx:alpine container
+- **CI**: GitHub Actions builds image → pushes to GHCR → server pulls on timer (pull-based)
+- **Domain**: `demo.yourdomain.com`
+- **Auth**: None for now
+
+---
+
+## Deferred services (later phases)
+
+- **OCIS + ONLYOFFICE** — file storage and in-browser office editing
+- **Additional webapps** — each follows the same pattern as the demo
 
 ---
 
 ## Module structure
 
-New modules live in `system/serv/` following the existing pattern:
+Inherited dead-code modules (`home-assistant.nix`, `media.nix`, `minecraft.nix`, `wireguard.nix`)
+are removed — they were never enabled and came from the upstream fork.
 
 ```
 system/serv/
-  default.nix          # existing — add imports for new modules
-  home-assistant.nix   # existing
-  media.nix            # existing
-  minecraft.nix        # existing
-  wireguard.nix        # existing
-  network.nix          # NEW: Caddy + cloudflared — the ingress layer
-  auth.nix             # NEW: Authelia
-  dashboard.nix        # NEW: Homarr
-  website.nix          # NEW: static site via Caddy file_server
-  blog.nix             # NEW: Ghost container
-  ocis.nix             # NEW: OCIS + ONLYOFFICE (tightly coupled, one file)
+  default.nix     # base SSH config + imports
+  network.nix     # Caddy + cloudflared
+  auth.nix        # Authelia
+  dashboard.nix   # Homarr
+  blogs.nix       # both Ghost instances
+  apps.nix        # custom webapps (demo + future)
 ```
 
-Each new module exposes an option:
-
-```nix
-options.serv.network.enable   = lib.mkEnableOption "Caddy + Cloudflare Tunnel";
-options.serv.auth.enable      = lib.mkEnableOption "Authelia SSO";
-options.serv.dashboard.enable = lib.mkEnableOption "Homarr dashboard";
-options.serv.website.enable   = lib.mkEnableOption "Public static website";
-options.serv.blog.enable      = lib.mkEnableOption "Ghost blog";
-options.serv.ocis.enable      = lib.mkEnableOption "OCIS + ONLYOFFICE";
-```
-
-Enabled in `hosts/XiaServer/configuration.nix`:
+Enabled in `configuration.nix`:
 
 ```nix
 serv = {
-  enable        = true;
+  enable           = true;
   network.enable   = true;
   auth.enable      = true;
   dashboard.enable = true;
-  website.enable   = true;
-  blog.enable      = true;
-  ocis.enable      = true;
+  blogs.enable     = true;
+  apps.demo.enable = true;
+};
+```
+
+Adding a new webapp later:
+
+```nix
+# apps.nix — add one block:
+options.serv.apps.poker.enable = lib.mkEnableOption "Poker webapp";
+config = lib.mkIf config.serv.apps.poker.enable {
+  virtualisation.oci-containers.containers.poker = {
+    image  = "ghcr.io/youruser/poker:latest";
+    ports  = [ "127.0.0.1:3002:3000" ];
+    labels."io.containers.autoupdate" = "registry";
+  };
+};
+# Then: serv.apps.poker.enable = true; → nixos-rebuild switch → live
+```
+
+---
+
+## Deploy model — pull-based, GitHub has zero server access
+
+GitHub Actions pushes images to GHCR only. No SSH key, no server access.
+
+```
+you push code
+  → Actions: build image → push ghcr.io/youruser/app:latest + :sha-abc1234
+  → GitHub's involvement ends here
+
+server (systemd timer, every 5 min)
+  → podman auto-update checks GHCR for new image digest
+  → pulls and restarts changed containers
+  → new version is live
+```
+
+Blast radius of a compromised GitHub: one container gets a bad image. Host, secrets, other
+services, and data are untouched. Each container only receives the specific agenix secret it needs.
+
+```nix
+labels."io.containers.autoupdate" = "registry";   # on each app container
+
+systemd.timers.podman-auto-update = {
+  wantedBy     = [ "timers.target" ];
+  timerConfig.OnCalendar = "*:0/5";
 };
 ```
 
@@ -138,86 +284,53 @@ serv = {
 
 ## Secrets
 
-All secrets live in `secrets/` as `.age` files, encrypted with XiaServer's SSH host public key.
-Decrypted paths are referenced via `config.age.secrets.<name>.path`.
-
 | Secret file | Used by | Notes |
 |---|---|---|
-| `cloudflare-tunnel.age` | cloudflared | Tunnel credentials JSON from Cloudflare dashboard |
-| `authelia-jwt.age` | Authelia | JWT signing secret (random 64-char string) |
+| `zfs-data-key.age` | ZFS pool unlock | 32-byte random key; loss = data loss |
+| `cloudflare-tunnel.age` | cloudflared | Tunnel credentials JSON |
+| `authelia-jwt.age` | Authelia | JWT signing secret |
 | `authelia-session.age` | Authelia | Session encryption secret |
 | `authelia-storage.age` | Authelia | Storage encryption key |
-| `ocis-env.age` | OCIS | Admin password, JWT secret, OCIS_URL, etc. as env file |
-| `onlyoffice-jwt.age` | ONLYOFFICE + OCIS | Shared JWT secret for WOPI API trust |
-| `ghost-env.age` | Ghost | `url`, `mail__*` settings if email configured |
-
-agenix setup: add `github:ryantm/agenix` to `flake.nix` inputs, add the agenix NixOS module to
-XiaServer's imports, add `secrets.nix` at the repo root defining which host key decrypts which file.
+| `ghost-public-env.age` | Ghost (public) | url, admin config |
+| `ghost-private-env.age` | Ghost (private) | url, admin config |
 
 ---
 
 ## Network routing
 
-Cloudflare Tunnel receives all traffic and hands it to Caddy on localhost. Caddy routes by hostname.
-
 ```
-yourdomain.com          → Caddy: file_server /srv/www/site/   (no auth)
-blog.yourdomain.com     → Caddy: reverse_proxy localhost:2368  (Ghost, no Authelia — Ghost gates internally)
-dash.yourdomain.com     → Caddy: Authelia forward_auth → reverse_proxy localhost:3000 (Homarr)
-cloud.yourdomain.com    → Caddy: Authelia forward_auth → reverse_proxy localhost:9200 (OCIS web)
-office.yourdomain.com   → Caddy: reverse_proxy localhost:8080 (ONLYOFFICE, OCIS-internal only)
+yourdomain.com          → Caddy: demo React app (placeholder until main site exists)
+dash.yourdomain.com     → Caddy: Authelia → Homarr :3000
+blog.yourdomain.com     → Caddy: Ghost public :2368 (public; admin behind Authelia)
+journal.yourdomain.com  → Caddy: Ghost private :2369 (Ghost membership gates content)
+demo.yourdomain.com     → Caddy: React demo :3001
 ```
 
-Authelia runs on `localhost:9091`. Caddy's `forward_auth` snippet is defined once and reused across
-all protected hosts.
-
----
-
-## Data layout and portability
-
-```
-/srv/data/
-  homarr/          # dashboard config
-  ghost/content/   # blog posts, images, DB (sqlite)
-  ocis/            # ALL user files — largest volume, back this up
-  authelia/        # user DB, TOTP secrets
-/srv/www/
-  site/            # static website files (or symlink to Nix store derivation output)
-```
-
-To migrate to new hardware:
-1. `rsync -av /srv/ newserver:/srv/` (data)
-2. Re-encrypt agenix secrets with new host key OR copy old host key to new server
-3. `nixos-rebuild switch --flake .#XiaServer` on new server
-4. Everything comes back up — no manual service config
+Authelia on `localhost:9091`. `forward_auth` snippet defined once in Caddy, reused per host.
 
 ---
 
 ## Implementation order
 
-Build in this sequence so each layer can be tested before adding the next:
-
-1. **agenix** — add to flake, set up `secrets.nix`, create first secret, verify decryption at boot
-2. **Caddy + cloudflared** (`network.nix`) — get a test page live at your domain with HTTPS working
-3. **Authelia** (`auth.nix`) — wire up SSO, verify login flow with Caddy forward_auth
-4. **Homarr** (`dashboard.nix`) — first container behind Authelia, validates the full Podman + auth pattern
-5. **Static website** (`website.nix`) — Caddy file_server, public, no auth
-6. **Ghost** (`blog.nix`) — container, verify membership gating works
-7. **OCIS** (`ocis.nix`) — file storage, test desktop sync client
-8. **ONLYOFFICE** (same file as OCIS) — connect to OCIS, test opening and editing a document
-
-Each step is independently testable and independently revertable.
+1. **Cleanup** — remove inherited dead-code modules; rebuild to confirm nothing breaks
+2. **Storage** — run `zpool create` on server, add `storage.nix`, generate ZFS key secret
+3. **agenix** — add to flake, `secrets.nix`, verify `/run/agenix/` decryption at boot
+4. **Caddy + cloudflared** (`network.nix`) — placeholder page live at domain over HTTPS
+5. **Authelia** (`auth.nix`) — SSO working, login flow tested
+6. **Homarr** (`dashboard.nix`) — first container, validates full Podman + Authelia path
+7. **Ghost public** (`blogs.nix`) — public blog live
+8. **Ghost private** — second instance, test membership gating
+9. **React demo** (`apps.nix`) — hello-world app, full CI pipeline, confirm auto-update works
+10. **Backup** — ZFS snapshot timer + encrypted upload (any time after step 2)
 
 ---
 
-## Open questions / decisions to make before implementing
+## Portability guarantee
 
-- **Domain structure**: confirm subdomains (`cloud.`, `blog.`, etc.) vs. paths (`yourdomain.com/cloud`)
-  — subdomains are strongly preferred, easier to route and cert
-- **Website tech**: Hugo, Astro, or raw HTML? If Hugo/Astro, build in CI or as a Nix derivation?
-- **Ghost email**: do you want Ghost to send membership confirmation emails? Requires SMTP config
-  (Mailgun/Resend work well with Ghost, free tiers are fine)
-- **OCIS storage backend**: default local FS on `/srv/data/ocis/` is fine to start; can add S3
-  backend later if you want offsite object storage
-- **Authelia user store**: file-based (a single YAML of users) is simplest for a personal server;
-  LDAP is overkill here
+To migrate to new hardware:
+1. `zfs send data/srv | ssh newserver zfs receive data/srv`
+2. Copy or re-encrypt agenix secrets for the new host key
+3. `nixos-rebuild switch --flake .#XiaServer`
+4. Services come back up pointing to the same data
+
+No manual config. No remembered state outside `/srv/` and git.

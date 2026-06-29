@@ -3,6 +3,7 @@
   imports = [
     ../../system
     ./hardware-configuration.nix
+    ./storage.nix
   ];
 
   nixpkgs.config.allowUnfree = true;
@@ -15,7 +16,7 @@
   };
 
   serv.enable = true;
-  services.openssh.settings.PasswordAuthentication = true;
+  services.openssh.settings.PasswordAuthentication = false;
 
   services.displayManager.autoLogin = {
     enable = true;
