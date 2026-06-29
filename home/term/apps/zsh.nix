@@ -35,7 +35,7 @@
     shellAliases = {
       
       #Mine
-      server = "ssh xiaserver@192.168.1.111";
+      server = "ssh XiaServer@192.168.1.111";
       fixaudio = "sudo ~/nixos/hosts/XiaNix/lg-gram-audio.sh";
 pys = "source ./venv/bin/activate";
       flvim = "nvim $(fzf)";
