@@ -57,7 +57,7 @@
           "doh-rollout.uri"          = "https://mozilla.cloudflare-dns.com/dns-query";
 
           # ── Downloads ──────────────────────────────────────────────────────────
-          "browser.download.dir"        = "/home/xia/Downloads/broswerDownloads";
+          "browser.download.dir"        = "${config.home.homeDirectory}/Downloads/browserDownloads";
           "browser.download.folderList" = 2;
 
           # ── Session / tabs ─────────────────────────────────────────────────────
