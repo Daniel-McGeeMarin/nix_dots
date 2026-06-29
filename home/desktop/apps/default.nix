@@ -1,7 +1,7 @@
 { config, lib, pkgs, inputs, osConfig, ... }:
 {
   imports = [
-    ./firefox.nix
+    ./zen.nix
     ./foot.nix
     ./kitty.nix
     ./mpv.nix
@@ -19,9 +19,9 @@
     };
 
     xdg.mimeApps.defaultApplications = {
-      "text/html" = "brave-browser.desktop";
-      "x-scheme-handler/http" = "brave-browser.desktop";
-      "x-scheme-handler/https" = "brave-browser.desktop";
+      "text/html" = "zen.desktop";
+      "x-scheme-handler/http" = "zen.desktop";
+      "x-scheme-handler/https" = "zen.desktop";
     };
   };
 }

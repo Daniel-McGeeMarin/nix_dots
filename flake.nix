@@ -11,7 +11,6 @@
     nix-flatpak = {
       url = "github:gmodena/nix-flatpak";
     };
-    firefox-css-hacks = { url = "github:MrOtherGuy/firefox-csshacks"; flake = false; };
     caelestia-shell = {
       url = "github:caelestia-dots/shell";
       # Share the single unstable nixpkgs so caelestia only builds its own
@@ -26,7 +25,7 @@
     };
 
     zen-browser = {
-      url = "github:youwen5/zen-browser-flake";
+      url = "github:0xc000022070/zen-browser-flake";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
