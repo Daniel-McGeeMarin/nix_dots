@@ -1,7 +1,7 @@
 { config, lib, pkgs, inputs, osConfig, ... }:
 {
   imports = [
-    ./zen.nix
+    ./firefox.nix
     ./foot.nix
     ./kitty.nix
     ./mpv.nix
@@ -19,9 +19,9 @@
     };
 
     xdg.mimeApps.defaultApplications = {
-      "text/html" = "zen-beta.desktop";
-      "x-scheme-handler/http" = "zen-beta.desktop";
-      "x-scheme-handler/https" = "zen-beta.desktop";
+      "text/html" = "firefox.desktop";
+      "x-scheme-handler/http" = "firefox.desktop";
+      "x-scheme-handler/https" = "firefox.desktop";
     };
   };
 }

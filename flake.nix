@@ -24,12 +24,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    zen-browser = {
-      url = "github:0xc000022070/zen-browser-flake";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.home-manager.follows = "home-manager";
-    };
-
     # Hello, electron was pinned manually because there was no build when you
     # used it before, remember to unpin eventually if things are not working there.
     # nixpkgs@03c7292 (2026-06-24) has a Hydra cache miss for electron-41.7.2.
