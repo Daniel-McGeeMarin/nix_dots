@@ -1,14 +1,19 @@
 { ... }:
 {
   boot.loader = {
-    grub = {
+    # grub = {
+    #   enable = true;
+    #   efiSupport = true;
+    #   useOSProber = true;
+    #   device = "nodev";
+    #   configurationLimit = 10;
+    #   default = 0;
+    #   theme = ./grub-theme/LORTheme;
+    # };
+
+    systemd-boot = {
       enable = true;
-      efiSupport = true;
-      useOSProber = true;
-      device = "nodev";
       configurationLimit = 10;
-      default = 0;
-      theme = ./grub-theme/LORTheme;
     };
 
     efi.canTouchEfiVariables = true;
