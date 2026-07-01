@@ -307,6 +307,20 @@
             },
             {
                 "command": [
+                    "foot",
+                    "-e",
+                    "bash",
+                    "-c",
+                    "sudo HOME=$HOME nixos-rebuild switch --flake $HOME/nixos/#XiaNix --cores 8 --impure && notify-send 'nixswitch done'; read -rp 'Done. Press Enter to close...'"
+                ],
+                "dangerous": false,
+                "description": "Rebuild and switch NixOS config",
+                "enabled": true,
+                "icon": "build",
+                "name": "Nixswitch"
+            },
+            {
+                "command": [
                     "systemctl",
                     "poweroff"
                 ],
@@ -399,7 +413,6 @@
             "calibre-ebook-edit",
             "calibre-ebook-viewer",
             "echomixer",
-            "element-desktop",
             "envy24control",
             "org.gnome.Extensions",
             "waydroid.org.fdroid.fdroid",

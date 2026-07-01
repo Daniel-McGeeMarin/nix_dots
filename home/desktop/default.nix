@@ -43,6 +43,7 @@
 
       # ── Communications ────────────────────────────────────────────────────────
       signal-desktop
+      element-desktop
 
       # ── Media creation & viewing ──────────────────────────────────────────────
       obs-studio

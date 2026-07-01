@@ -21,6 +21,9 @@ in
       "workspace 21 silent, class:^(Waydroid)$"
       "workspace 21 silent, class:^(waydroid\\..+)$"
 
+      ### Firefox transparency ###
+      "blur, class:^(firefox)$"
+
       ### Generic ###
       "suppressevent maximize, class:.*"
       "nofocus,class:^$,title:^$,xwayland:1,floating:1,fullscreen:0,pinned:0"

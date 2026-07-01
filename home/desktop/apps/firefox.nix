@@ -1,4 +1,38 @@
 { config, lib, pkgs, inputs, ... }:
+let
+  caelestiafoxNativeHost = pkgs.writeScript "caelestiafox-host" ''
+    #!${pkgs.python3}/bin/python3
+    import sys, json, struct, os, time
+
+    state_dir = os.path.join(
+        os.environ.get('XDG_STATE_HOME', os.path.expanduser('~/.local/state')),
+        'caelestia'
+    )
+    scheme = os.path.join(state_dir, 'scheme.json')
+
+    def send():
+        with open(scheme) as f:
+            msg = json.dumps(json.load(f), separators=(',', ':')).encode()
+        sys.stdout.buffer.write(struct.pack('<I', len(msg)) + msg)
+        sys.stdout.buffer.flush()
+
+    try:
+        send()
+    except Exception:
+        pass
+
+    last = 0
+    while True:
+        time.sleep(1)
+        try:
+            mtime = os.path.getmtime(scheme)
+            if mtime != last:
+                last = mtime
+                send()
+        except Exception:
+            pass
+  '';
+in
 {
   config = lib.mkIf config.desktop.enable {
 
@@ -115,9 +149,34 @@
               background: #FFFFFF28 !important;
           }
 
+          /* ── Caelestia: remove window controls (handled by Hyprland) ────────── */
+          .titlebar-buttonbox-container {
+              display: none !important;
+          }
+
           /* ── URL bar ───────────────────────────────────────────────────────── */
           #urlbar:not([focused]) .urlbar-input {
               text-align: center !important;
+          }
+
+          #urlbar-background,
+          #searchbar {
+              border-radius: 10px !important;
+          }
+
+          .urlbar-page-action,
+          #urlbar-go-button,
+          .search-go-button,
+          #tracking-protection-icon-container,
+          #identity-icon-box,
+          #identity-permission-box,
+          .notification-anchor-icon,
+          #userContext-icons,
+          #urlbar-zoom-button,
+          #page-action-buttons,
+          .search-one-offs,
+          #urlbar-search-mode-indicator {
+              border-radius: 10px !important;
           }
 
           @keyframes floating-urlbar-show {
@@ -190,6 +249,17 @@
               }
           }
         '';
+      };
+    };
+
+    home.file.".mozilla/native-messaging-hosts/caelestiafox.json" = {
+      force = true;
+      text = builtins.toJSON {
+        name = "caelestiafox";
+        description = "Native app for CaelestiaFox extension.";
+        path = "${caelestiafoxNativeHost}";
+        type = "stdio";
+        allowed_extensions = [ "caelestiafox@caelestia.org" ];
       };
     };
 
