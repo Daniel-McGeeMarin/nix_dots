@@ -3,7 +3,6 @@
   imports = [
     inputs.home-manager.nixosModules.default
     ./head
-    ./serv
     ./grub.nix
   ];
 

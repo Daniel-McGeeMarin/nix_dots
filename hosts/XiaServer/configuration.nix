@@ -2,6 +2,8 @@
 {
   imports = [
     ../../system
+    ../../system/serv
+    inputs.agenix.nixosModules.default
     ./hardware-configuration.nix
     ./storage.nix
   ];
