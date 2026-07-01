@@ -20,14 +20,12 @@
 
     services.displayManager.gdm.autoSuspend = false;
 
-    services.logind = {
-      lidSwitch = "ignore";
-      lidSwitchExternalPower = "ignore";
-      settings.Login = {
-        HandleSuspendKey = "ignore";
-        HandleHibernateKey = "ignore";
-        IdleAction = "ignore";
-      };
+    services.logind.settings.Login = {
+      HandleLidSwitch = "ignore";
+      HandleLidSwitchExternalPower = "ignore";
+      HandleSuspendKey = "ignore";
+      HandleHibernateKey = "ignore";
+      IdleAction = "ignore";
     };
   };
 }
