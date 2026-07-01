@@ -1,5 +1,13 @@
 { config, lib, pkgs, inputs, ... }:
 let
+  potatofox = pkgs.fetchFromGitea {
+    domain = "codeberg.org";
+    owner  = "da157";
+    repo   = "PotatoFox";
+    rev    = "80e926aeb20f61a927ec0be7a73835d5533227eb";
+    hash   = "sha256-WkUJytR6zPmq0vMCMlaEf3J8UM9XkY0IJa2Jn5OrO48=";
+  };
+
   caelestiafoxNativeHost = pkgs.writeScript "caelestiafox-host" ''
     #!${pkgs.python3}/bin/python3
     import sys, json, struct, os, time
@@ -65,6 +73,7 @@ in
             (extension "tridactyl-vim"              "tridactyl.vim@cmcaine.co.uk")
             (extension "zen-internet"               "{91aa3897-2634-4a8a-9092-279db23a7689}")
             (extension "caelestiafox"               "caelestiafox@caelestia.org")
+            (extension "sidebery"                   "{3c078156-979c-498b-8990-85f7987dd929}")
           ];
       };
 
@@ -103,6 +112,19 @@ in
 
           # ── Tridactyl: allow it on more pages ─────────────────────────────────
           "extensions.webextensions.restrictedDomains" = "";
+
+          # ── PotatoFox required ─────────────────────────────────────────────────
+          "svg.context-properties.content.enabled"    = true;
+          "layout.css.has-selector.enabled"           = true;
+          "browser.urlbar.suggest.calculator"         = true;
+          "browser.urlbar.unitConversion.enabled"     = true;
+          "browser.urlbar.trimHttps"                  = true;
+          "browser.urlbar.trimURLs"                   = true;
+          "widget.gtk.rounded-bottom-corners.enabled" = true;
+          "browser.compactmode.show"                  = true;
+          "widget.gtk.ignore-bogus-leave-notify"      = 1;
+          "browser.uidensity"                         = 1;
+          "uc.tweak.translucency"                     = true;
         };
 
         search = {
@@ -119,35 +141,28 @@ in
         };
 
         userChrome = ''
-          /* ── Transparency ──────────────────────────────────────────────────── */
-          /* CaelestiaFox sets frame/toolbar to opaque colours via browser.theme.update().
-             --lwt-accent-color is the window frame colour — must be transparent for
-             Firefox to request an alpha channel from the compositor. */
-          :root,
-          :root:-moz-lwtheme {
-              --lwt-accent-color: transparent !important;
-          }
+          @import url("pf/browser/main.css");
+          @import url("pf/vars.css");
 
-          #main-window,
-          #browser,
-          toolbar,
-          #nav-bar,
-          #navigator-toolbox,
-          #TabsToolbar {
-              background: transparent !important;
-              background-color: transparent !important;
-          }
+          /*
+           * PotatoFox on Linux sets --uc-bg-opaque = ActiveCaption, which is
+           * transparent when Hyprland owns the frame.  Override it to use
+           * --lwt-accent-color (set by CaelestiaFox's browser.theme.update),
+           * falling back to PotatoFox's built-in light/dark defaults so the
+           * toolbar is never invisible even before CaelestiaFox first connects.
+           */
+          :root {
+              --uc-bg-opaque: var(
+                  --lwt-accent-color,
+                  light-dark(rgb(239, 239, 242), rgb(27, 26, 32))
+              ) !important;
 
-          #urlbar-background {
-              background: rgba(0, 0, 0, 0.35) !important;
-          }
-
-          hbox#urlbar[open="true"] hbox#urlbar-background {
-              background: rgba(0, 0, 0, 0.85) !important;
-          }
-
-          tab.tabbrowser-tab[selected="true"] stack.tab-stack vbox.tab-background {
-              background: rgba(255, 255, 255, 0.15) !important;
+              /* 80 % opacity — CaelestiaFox tint strongly visible, desktop shows through */
+              --uc-bg-translucency: color-mix(
+                  in oklab,
+                  var(--uc-bg-opaque) 80%,
+                  transparent
+              ) !important;
           }
 
           /* ── Caelestia: remove window controls (handled by Hyprland) ────────── */
@@ -155,98 +170,50 @@ in
               display: none !important;
           }
 
-          /* ── URL bar ───────────────────────────────────────────────────────── */
-          #urlbar:not([focused]) .urlbar-input {
-              text-align: center !important;
-          }
-
-          #urlbar-background,
-          #searchbar {
-              border-radius: 10px !important;
-          }
-
-          .urlbar-page-action,
-          #urlbar-go-button,
-          .search-go-button,
-          #tracking-protection-icon-container,
-          #identity-icon-box,
-          #identity-permission-box,
-          .notification-anchor-icon,
-          #userContext-icons,
-          #urlbar-zoom-button,
-          #page-action-buttons,
-          .search-one-offs,
-          #urlbar-search-mode-indicator {
-              border-radius: 10px !important;
-          }
-
-          @keyframes floating-urlbar-show {
-              0%   { opacity: 0; scale: 0.8; }
-              70%  { scale: 1.02; }
-              100% { opacity: 1; scale: 1; }
-          }
-
-          #urlbar[breakout-extend] {
-              animation: 200ms floating-urlbar-show ease-out;
-          }
-
-          /* ── Search one-off buttons ────────────────────────────────────────── */
-          .search-one-offs {
-              border-top: none !important;
-              padding: 4px !important;
-              margin: 0px 0px 7px 0px !important;
-          }
-
-          .searchbar-engine-one-off-item {
-              border-radius: 8px !important;
-              margin-right: 3px !important;
-          }
-
-          #urlbar-anon-search-settings {
-              margin-right: 0px !important;
-          }
-
-          /* ── Misc fixes ────────────────────────────────────────────────────── */
+          /* ── Pending tabs greyed out ───────────────────────────────────────── */
           .tabbrowser-tab[pending] {
               filter: grayscale(1);
               opacity: 0.5;
           }
+        '';
 
-          /* ── Smooth animations ─────────────────────────────────────────────── */
-          :is(
-              .tab-background,
-              .toolbarbutton-icon,
-              .toolbarbutton-badge-stack,
-              .toolbarbutton-1,
-              .bookmark-item,
-              .download-state,
-              .urlbarView-row,
-              .urlbarView-action,
-              .searchbar-engine-one-off-item,
-              #urlbar-search-mode-indicator,
-              #tracking-protection-icon-container,
-              #page-action-buttons > *,
-              #identity-box > *,
-              toolbarbutton,
-              toolbaritem,
-              button,
-              menu,
-              menuitem,
-              tab
-          ):not(#urlbar-container, #personal-bookmarks) {
-              transition: all 0.15s ease !important;
-
-              &:is(tab) {
-                  transition: scale 0.15s ease !important;
-              }
-
-              &:is(:active) {
-                  scale: 0.95 !important;
-              }
-          }
+        userContent = ''
+          @import url("pf/userContent.css");
         '';
       };
     };
+
+    # PotatoFox: place all chrome sub-files under a pf/ subdirectory so our
+    # userChrome.css can @import them without clashing with HM-managed files.
+    home.file.".mozilla/firefox/default/chrome/pf" = {
+      source = "${potatofox}/chrome";
+      recursive = true;
+    };
+
+    # Sidebery: managed storage seeds the settings key declaratively.
+    # Panels/CSS are configured once manually in Sidebery's UI (they persist).
+    home.file.".mozilla/managed-storage/{3c078156-979c-498b-8990-85f7987dd929}.json".text =
+      builtins.toJSON {
+        name        = "{3c078156-979c-498b-8990-85f7987dd929}";
+        description = "Sidebery declarative settings";
+        type        = "storage";
+        data = {
+          settings = {
+            tabsTree                                = true;
+            discardFolded                           = true;
+            discardFoldedDelay                      = 30;
+            discardFoldedDelayUnit                  = "sec";
+            hideInact                               = true;
+            activateLastTabOnPanelSwitching         = true;
+            activateLastTabOnPanelSwitchingLoadedOnly = true;
+            nativeScrollbars                        = false;
+            skipEmptyPanels                         = true;
+            hideEmptyPanels                         = true;
+            colorScheme                             = "dark";
+            animations                              = true;
+          };
+        };
+      };
 
     home.file.".mozilla/native-messaging-hosts/caelestiafox.json" = {
       force = true;
