@@ -21,13 +21,10 @@ in
       "workspace 21 silent, class:^(Waydroid)$"
       "workspace 21 silent, class:^(waydroid\\..+)$"
 
-      ### Firefox transparency ###
-      "blur, class:^(firefox)$"
-
       ### Nixswitch terminal ###
       "float, class:^(nixswitch-term)$"
       "size 700 380, class:^(nixswitch-term)$"
-      "move 2170 50, class:^(nixswitch-term)$"
+      "move 1210 50, class:^(nixswitch-term)$"
       "pin, class:^(nixswitch-term)$"
       "noinitialfocus, class:^(nixswitch-term)$"
 
