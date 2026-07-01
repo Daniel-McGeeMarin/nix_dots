@@ -17,6 +17,7 @@
   };
 
   serv.enable = true;
+  serv.network.enable = true;
   services.openssh.settings.PasswordAuthentication = false;
 
   services.displayManager.autoLogin = {
