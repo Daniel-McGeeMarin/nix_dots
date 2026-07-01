@@ -1,7 +1,6 @@
-{ pkgs, config, ... }:
+{ pkgs, ... }:
 {
+  boot.kernelPackages = pkgs.linuxPackages_6_6;
   boot.supportedFilesystems = [ "zfs" ];
-  boot.extraModulePackages = [ config.boot.kernelPackages.zfs_unstable ];
-  boot.kernelModules = [ "zfs" ];
   boot.zfs.requestEncryptionCredentials = false;
 }
