@@ -40,71 +40,6 @@ let
         except Exception:
             pass
   '';
-
-  # Sidebery theming via browser.storage.managed "sidebarCSS".
-  #
-  # userContent.css with @-moz-document does NOT apply to moz-extension://
-  # pages — Firefox blocks it for security.  Sidebery reads "sidebarCSS"
-  # from managed storage and injects it as a <style> tag inside its own
-  # sidebar page.  This is the only reliable declarative path.
-  #
-  # Sidebery's CSS hook variables live on <div id="root">, NOT <html>/:root.
-  # They are --s-* prefixed; Sidebery derives working vars from them:
-  #   --frame-bg: var(--s-frame-bg, #282828)
-  # so we must set --s-* — setting --frame-bg directly loses to that rule.
-  #
-  # Firefox injects LWT sidebar vars onto the extension page's <html> element
-  # when CaelestiaFox calls browser.theme.update().  They are inherited by
-  # #root so var() refs inside sidebarCSS can reference them:
-  #   --sidebar-background-color    (CaelestiaFox: surfaceContainerHigh)
-  #   --sidebar-text-color          (CaelestiaFox: onSurface)
-  #   --sidebar-highlight-background-color  (CaelestiaFox: secondaryContainer)
-  #   --sidebar-highlight-text-color        (CaelestiaFox: onSecondaryContainer)
-  #   --icons-attention             (CaelestiaFox: primary/accent)
-  sidebarCSS = ''
-    /* transparency — body behind shows PotatoFox glass tint */
-    :root, .root, #root {
-      background-color: transparent !important;
-    }
-
-    /* colour theme via Sidebery's --s-* hook variables */
-    #root {
-      --s-frame-bg:        transparent !important;
-      --s-toolbar-bg:      transparent !important;
-      --s-popup-bg:        color-mix(in oklab, var(--sidebar-background-color, #322828) 90%, transparent) !important;
-
-      --s-frame-fg:        var(--sidebar-text-color,               #f0dede) !important;
-      --s-toolbar-fg:      var(--sidebar-text-color,               #f0dede) !important;
-      --s-popup-fg:        var(--sidebar-text-color,               #f0dede) !important;
-      --s-toolbar-border:  color-mix(in oklab, var(--sidebar-text-color, #f0dede) 15%, transparent) !important;
-
-      --s-act-el-bg:       color-mix(in oklab, var(--sidebar-highlight-background-color, #5d3f40) 70%, transparent) !important;
-      --s-act-el-fg:       var(--sidebar-highlight-text-color,     #ffdada) !important;
-      --s-act-el-border:   transparent !important;
-
-      --s-accent:          var(--icons-attention,                  #ffb3b5) !important;
-
-      --s-popup-border:    color-mix(in oklab, var(--sidebar-text-color, #f0dede) 20%, transparent) !important;
-    }
-
-    /* layout sizing matching PotatoFox values */
-    :root, .root, #root {
-      --general-border-radius: 5px !important;
-      --tabs-margin:        1.5px !important;
-      --tabs-pinned-height: 30px !important;
-      --tabs-pinned-width:  30px !important;
-      --tabs-height:        30px !important;
-      --nav-btn-width:      30px !important;
-      --nav-btn-height:     28px !important;
-    }
-
-    /* collapsed sidebar: hide indentation */
-    @media (max-width: 40px) {
-      .TabsPanel      { --tabs-indent:      0px !important; }
-      .bookmarks-tree { --bookmarks-indent: 0px !important; }
-      .Tab:not([data-active="true"]) .close { display: none !important; }
-    }
-  '';
 in
 {
   config = lib.mkIf config.desktop.enable {
@@ -138,7 +73,6 @@ in
             (extension "tridactyl-vim"              "tridactyl.vim@cmcaine.co.uk")
             (extension "zen-internet"               "{91aa3897-2634-4a8a-9092-279db23a7689}")
             (extension "caelestiafox"               "caelestiafox@caelestia.org")
-            (extension "sidebery"                   "{3c078156-979c-498b-8990-85f7987dd929}")
           ];
       };
 
@@ -206,20 +140,12 @@ in
         };
 
         userChrome = ''
-          /*
-           * Import PotatoFox's own userChrome.css — this defines ALL colour
-           * variables (--uc-bg-opaque, --uc-bg, --uc-bg-tran, --uc-bg-translucency)
-           * and internally imports browser/main.css + vars.css.  Importing only
-           * those sub-files leaves the colour vars undefined → 100% transparent.
-           */
           @import url("pf/userChrome.css");
 
           /*
            * PotatoFox on Linux sets --uc-bg-opaque = ActiveCaption, which is
-           * transparent when Hyprland owns the frame.  Override it to use
-           * --lwt-accent-color (CaelestiaFox's browser.theme.update colour),
-           * falling back to PotatoFox's built-in light/dark defaults so the
-           * toolbar is never invisible before CaelestiaFox first connects.
+           * transparent under Hyprland.  Override to use --lwt-accent-color
+           * (set by CaelestiaFox) with an opaque fallback.
            */
           :root {
               --uc-bg-opaque: var(
@@ -227,7 +153,6 @@ in
                   light-dark(rgb(239, 239, 242), rgb(27, 26, 32))
               ) !important;
 
-              /* 80 % opacity — Caelestia tint visible, desktop shows through */
               --uc-bg-translucency: color-mix(
                   in oklab,
                   var(--uc-bg-opaque) 80%,
@@ -235,12 +160,10 @@ in
               ) !important;
           }
 
-          /* ── Caelestia: remove window controls (handled by Hyprland) ────────── */
           .titlebar-buttonbox-container {
               display: none !important;
           }
 
-          /* ── Pending tabs greyed out ───────────────────────────────────────── */
           .tabbrowser-tab[pending] {
               filter: grayscale(1);
               opacity: 0.5;
@@ -253,39 +176,10 @@ in
       };
     };
 
-    # PotatoFox: place all chrome sub-files under a pf/ subdirectory so our
-    # userChrome.css can @import them without clashing with HM-managed files.
     home.file.".mozilla/firefox/default/chrome/pf" = {
       source = "${potatofox}/chrome";
       recursive = true;
     };
-
-    # Sidebery: managed storage injects settings + sidebarCSS directly into
-    # the extension.  This is the only way to theme Sidebery declaratively —
-    # userContent.css does not apply to moz-extension:// pages.
-    home.file.".mozilla/managed-storage/{3c078156-979c-498b-8990-85f7987dd929}.json".text =
-      builtins.toJSON {
-        name        = "{3c078156-979c-498b-8990-85f7987dd929}";
-        description = "Sidebery declarative settings + CSS";
-        type        = "storage";
-        data = {
-          settings = {
-            tabsTree                                  = true;
-            discardFolded                             = true;
-            discardFoldedDelay                        = 30;
-            discardFoldedDelayUnit                    = "sec";
-            hideInact                                 = true;
-            activateLastTabOnPanelSwitching           = true;
-            activateLastTabOnPanelSwitchingLoadedOnly = true;
-            nativeScrollbars                          = false;
-            skipEmptyPanels                           = true;
-            hideEmptyPanels                           = true;
-            colorScheme                               = "dark";
-            animations                                = true;
-          };
-          inherit sidebarCSS;
-        };
-      };
 
     home.file.".mozilla/native-messaging-hosts/caelestiafox.json" = {
       force = true;
