@@ -1,6 +1,6 @@
 { config, lib, ... }:
 {
-  imports = [ ./network.nix ];
+  imports = [ ./network.nix ./auth.nix ];
 
   options.serv.enable = lib.mkEnableOption "Enable the serv module";
 
