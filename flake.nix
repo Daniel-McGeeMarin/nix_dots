@@ -24,6 +24,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    agenix = {
+      url = "github:ryantm/agenix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Hello, electron was pinned manually because there was no build when you
     # used it before, remember to unpin eventually if things are not working there.
     # nixpkgs@03c7292 (2026-06-24) has a Hydra cache miss for electron-41.7.2.
@@ -93,6 +98,7 @@
         specialArgs = { inherit inputs secrets; };
         modules = [
           ({ config, pkgs, ... }: { nixpkgs.overlays = [ overlay-unfree overlay-unstable overlay-unstable-unfree overlay-electron-pin ]; })
+          inputs.agenix.nixosModules.default
           ./hosts/XiaServer/configuration.nix
         ];
       };
