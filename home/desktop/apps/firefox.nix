@@ -141,15 +141,22 @@ in
         };
 
         userChrome = ''
-          @import url("pf/browser/main.css");
-          @import url("pf/vars.css");
+          /*
+           * Import PotatoFox's own userChrome.css (which internally imports
+           * browser/main.css and vars.css and defines ALL color variables:
+           * --uc-bg-opaque, --uc-bg, --uc-bg-tran, --uc-bg-translucency).
+           * Importing only browser/main.css + vars.css left these undefined,
+           * making body { background-color: var(--uc-bg) } fall back to
+           * transparent → 100 % clear window.
+           */
+          @import url("pf/userChrome.css");
 
           /*
            * PotatoFox on Linux sets --uc-bg-opaque = ActiveCaption, which is
            * transparent when Hyprland owns the frame.  Override it to use
-           * --lwt-accent-color (set by CaelestiaFox's browser.theme.update),
+           * --lwt-accent-color (CaelestiaFox's browser.theme.update colour),
            * falling back to PotatoFox's built-in light/dark defaults so the
-           * toolbar is never invisible even before CaelestiaFox first connects.
+           * toolbar is never invisible before CaelestiaFox first connects.
            */
           :root {
               --uc-bg-opaque: var(
@@ -157,7 +164,7 @@ in
                   light-dark(rgb(239, 239, 242), rgb(27, 26, 32))
               ) !important;
 
-              /* 80 % opacity — CaelestiaFox tint strongly visible, desktop shows through */
+              /* 80 % opacity — Caelestia tint visible, desktop shows through */
               --uc-bg-translucency: color-mix(
                   in oklab,
                   var(--uc-bg-opaque) 80%,
