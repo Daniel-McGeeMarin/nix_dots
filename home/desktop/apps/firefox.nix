@@ -186,6 +186,53 @@ in
 
         userContent = ''
           @import url("pf/userContent.css");
+
+          /*
+           * Sidebery colour theming — runs inside the extension sidebar page.
+           * PotatoFox sidebery.css already makes the frame background transparent
+           * so the PotatoFox body (CaelestiaFox-tinted) shows through; here we
+           * wire Sidebery's internal CSS variables to the Firefox LWT sidebar
+           * colours that CaelestiaFox sets via browser.theme.update().
+           *
+           * CaelestiaFox maps:
+           *   sidebar              → surfaceContainerHigh  (--sidebar-background-color)
+           *   sidebar_text         → onSurface             (--sidebar-text-color)
+           *   sidebar_highlight    → secondaryContainer    (--sidebar-highlight-background-color)
+           *   sidebar_highlight_text → onSecondaryContainer (--sidebar-highlight-text-color)
+           *   icons_attention      → primary               (--icons-attention)
+           */
+          @-moz-document regexp("^moz-extension://.*?/sidebar/sidebar.html") {
+            :root {
+              /* Frame + individual tab rows: transparent, body bg shows through */
+              --frame-bg:          transparent !important;
+              --tabs-normal-bg:    transparent !important;
+              --nav-btn-bg:        transparent !important;
+
+              /* Text / icon colours from CaelestiaFox */
+              --frame-fg:          var(--sidebar-text-color,                  #f0dede) !important;
+              --tabs-normal-fg:    var(--sidebar-text-color,                  #f0dede) !important;
+              --nav-btn-fg:        var(--sidebar-text-color,                  #f0dede) !important;
+
+              /* Active tab — highlight pill */
+              --tabs-activated-bg: color-mix(
+                in oklab,
+                var(--sidebar-highlight-background-color, #5d3f40) 70%,
+                transparent
+              ) !important;
+              --tabs-activated-fg: var(--sidebar-highlight-text-color,        #ffdada) !important;
+
+              /* Hovered / selected tab — subtler tint */
+              --tabs-selected-bg:  color-mix(
+                in oklab,
+                var(--sidebar-background-color, #322828) 55%,
+                transparent
+              ) !important;
+              --tabs-selected-fg:  var(--sidebar-text-color,                  #f0dede) !important;
+
+              /* Accent: panel badges, focus rings */
+              --color-accent:      var(--icons-attention,                     #ffb3b5) !important;
+            }
+          }
         '';
       };
     };
