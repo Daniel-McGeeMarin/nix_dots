@@ -188,49 +188,81 @@ in
           @import url("pf/userContent.css");
 
           /*
-           * Sidebery colour theming — runs inside the extension sidebar page.
-           * PotatoFox sidebery.css already makes the frame background transparent
-           * so the PotatoFox body (CaelestiaFox-tinted) shows through; here we
-           * wire Sidebery's internal CSS variables to the Firefox LWT sidebar
-           * colours that CaelestiaFox sets via browser.theme.update().
+           * Sidebery colour theming.
            *
-           * CaelestiaFox maps:
-           *   sidebar              → surfaceContainerHigh  (--sidebar-background-color)
-           *   sidebar_text         → onSurface             (--sidebar-text-color)
-           *   sidebar_highlight    → secondaryContainer    (--sidebar-highlight-background-color)
-           *   sidebar_highlight_text → onSecondaryContainer (--sidebar-highlight-text-color)
-           *   icons_attention      → primary               (--icons-attention)
+           * HOW SIDEBERY'S CSS WORKS (learned the hard way):
+           *   - Sidebery renders inside a <div id="root"> NOT <html>/:root
+           *   - Its styles/sidebar.css sets colour variables on #root[data-*-color-scheme=dark]
+           *   - The actual customisation hooks are --s-* prefixed variables:
+           *       --s-frame-bg, --s-frame-fg         → sidebar body
+           *       --s-toolbar-bg, --s-toolbar-fg     → nav/panel bar
+           *       --s-toolbar-border                 → nav bar border
+           *       --s-accent                         → focus rings, badges
+           *       --s-act-el-bg, --s-act-el-fg       → active element highlight
+           *       --s-act-el-border                  → active element border
+           *       --s-popup-bg, --s-popup-fg, --s-popup-border → dropdowns
+           *   - Sidebery derives its working vars as: --frame-bg: var(--s-frame-bg, #282828)
+           *     so you must set --s-* not --frame-bg directly, and target #root not :root
+           *   - PotatoFox's sidebery.css already overrides --frame-bg and background-color
+           *     on :root; that works but only because Sidebery's :root IS a separate selector
+           *     from #root — here we target #root for the actual theme colours.
+           *
+           * FIREFOX LWT VARIABLES IN EXTENSION SIDEBARS:
+           *   Firefox injects CaelestiaFox's sidebar theme colours as CSS variables onto
+           *   the extension sidebar's <html> element (accessible as :root in the page).
+           *   CaelestiaFox maps:
+           *     sidebar              → surfaceContainerHigh  → --sidebar-background-color
+           *     sidebar_text         → onSurface             → --sidebar-text-color
+           *     sidebar_highlight    → secondaryContainer    → --sidebar-highlight-background-color
+           *     sidebar_highlight_text → onSecondaryContainer→ --sidebar-highlight-text-color
+           *     icons_attention      → primary               → --icons-attention
+           *   These are inherited by #root so we can use them in var() refs there.
+           *
+           * REGEXP TARGET:
+           *   Extension URLs use an internal UUID, NOT the add-on ID.
+           *   Sidebery's ID  = {3c078156-979c-498b-8990-85f7987dd929}
+           *   Sidebery's UUID (current install) = fd13e888-8567-4072-aa4d-90a3b8a6c2d9
+           *   The .*? wildcard covers any install's UUID — safe to keep as-is.
            */
           @-moz-document regexp("^moz-extension://.*?/sidebar/sidebar.html") {
-            :root {
-              /* Frame + individual tab rows: transparent, body bg shows through */
-              --frame-bg:          transparent !important;
-              --tabs-normal-bg:    transparent !important;
-              --nav-btn-bg:        transparent !important;
+            #root {
+              /* Transparent frame so PotatoFox body (CaelestiaFox tint) shows through */
+              --s-frame-bg:      transparent !important;
+              --s-toolbar-bg:    transparent !important;
+              --s-popup-bg:      color-mix(
+                in oklab,
+                var(--sidebar-background-color, #322828) 90%,
+                transparent
+              ) !important;
 
-              /* Text / icon colours from CaelestiaFox */
-              --frame-fg:          var(--sidebar-text-color,                  #f0dede) !important;
-              --tabs-normal-fg:    var(--sidebar-text-color,                  #f0dede) !important;
-              --nav-btn-fg:        var(--sidebar-text-color,                  #f0dede) !important;
+              /* Text / icon colours from CaelestiaFox LWT sidebar vars */
+              --s-frame-fg:      var(--sidebar-text-color,                 #f0dede) !important;
+              --s-toolbar-fg:    var(--sidebar-text-color,                 #f0dede) !important;
+              --s-popup-fg:      var(--sidebar-text-color,                 #f0dede) !important;
+              --s-toolbar-border: color-mix(
+                in oklab,
+                var(--sidebar-text-color, #f0dede) 15%,
+                transparent
+              ) !important;
 
-              /* Active tab — highlight pill */
-              --tabs-activated-bg: color-mix(
+              /* Active element highlight (selected tab pill) */
+              --s-act-el-bg:     color-mix(
                 in oklab,
                 var(--sidebar-highlight-background-color, #5d3f40) 70%,
                 transparent
               ) !important;
-              --tabs-activated-fg: var(--sidebar-highlight-text-color,        #ffdada) !important;
+              --s-act-el-fg:     var(--sidebar-highlight-text-color,       #ffdada) !important;
+              --s-act-el-border: transparent !important;
 
-              /* Hovered / selected tab — subtler tint */
-              --tabs-selected-bg:  color-mix(
+              /* Accent colour (panel badges, focus rings) */
+              --s-accent:        var(--icons-attention,                    #ffb3b5) !important;
+
+              /* Popup border */
+              --s-popup-border:  color-mix(
                 in oklab,
-                var(--sidebar-background-color, #322828) 55%,
+                var(--sidebar-background-color, #322828) 60%,
                 transparent
               ) !important;
-              --tabs-selected-fg:  var(--sidebar-text-color,                  #f0dede) !important;
-
-              /* Accent: panel badges, focus rings */
-              --color-accent:      var(--icons-attention,                     #ffb3b5) !important;
             }
           }
         '';
