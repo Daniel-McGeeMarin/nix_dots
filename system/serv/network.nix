@@ -35,8 +35,13 @@
       };
     };
 
-    # Caddy — virtual hosts are declared in each service module alongside
-    # the container they front.  Nothing to put here until the first service lands.
-    services.caddy.enable = true;
+    services.caddy = {
+      enable = true;
+      # Catch-all so Caddy binds to :80 before any service virtual hosts exist.
+      # Replaced service-by-service as real routes are added.
+      virtualHosts."http://:80".extraConfig = ''
+        respond "XiaServer" 200
+      '';
+    };
   };
 }
