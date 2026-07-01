@@ -18,6 +18,8 @@
     systemd.targets.hibernate.enable = false;
     systemd.targets.hybrid-sleep.enable = false;
 
+    services.displayManager.gdm.autoSuspend = false;
+
     services.logind = {
       lidSwitch = "ignore";
       lidSwitchExternalPower = "ignore";
