@@ -1,5 +1,7 @@
 { config, lib, ... }:
 {
+  imports = [ ./network.nix ];
+
   options.serv.enable = lib.mkEnableOption "Enable the serv module";
 
   config = lib.mkIf config.serv.enable {
