@@ -20,6 +20,7 @@
 
   serv.enable = true;
   serv.network.enable = true;
+  serv.auth.enable = true;
   services.openssh.settings.PasswordAuthentication = false;
 
   services.displayManager.autoLogin = {
