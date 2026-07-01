@@ -23,8 +23,8 @@ in
 
       ### Nixswitch terminal ###
       "float, class:^(nixswitch-term)$"
-      "size 700 380, class:^(nixswitch-term)$"
-      "move 1210 50, class:^(nixswitch-term)$"
+      "size 700 90, class:^(nixswitch-term)$"
+      "move 1200 10, class:^(nixswitch-term)$"
       "pin, class:^(nixswitch-term)$"
       "noinitialfocus, class:^(nixswitch-term)$"
 

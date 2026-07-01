@@ -120,33 +120,34 @@ in
 
         userChrome = ''
           /* ── Transparency ──────────────────────────────────────────────────── */
-          :root {
-              --bg: #00000066;
+          /* CaelestiaFox sets frame/toolbar to opaque colours via browser.theme.update().
+             --lwt-accent-color is the window frame colour — must be transparent for
+             Firefox to request an alpha channel from the compositor. */
+          :root,
+          :root:-moz-lwtheme {
+              --lwt-accent-color: transparent !important;
           }
 
-          #main-window {
-              background: var(--bg) !important;
-          }
-
-          toolbar {
-              background: transparent !important;
-          }
-
+          #main-window,
+          #browser,
+          toolbar,
           #nav-bar,
-          #navigator-toolbox {
+          #navigator-toolbox,
+          #TabsToolbar {
               background: transparent !important;
+              background-color: transparent !important;
           }
 
           #urlbar-background {
-              background: transparent !important;
+              background: rgba(0, 0, 0, 0.35) !important;
           }
 
           hbox#urlbar[open="true"] hbox#urlbar-background {
-              background: #000000E0 !important;
+              background: rgba(0, 0, 0, 0.85) !important;
           }
 
           tab.tabbrowser-tab[selected="true"] stack.tab-stack vbox.tab-background {
-              background: #FFFFFF28 !important;
+              background: rgba(255, 255, 255, 0.15) !important;
           }
 
           /* ── Caelestia: remove window controls (handled by Hyprland) ────────── */
@@ -206,11 +207,6 @@ in
           }
 
           /* ── Misc fixes ────────────────────────────────────────────────────── */
-          * {
-              border: 0px solid transparent;
-              outline: 0px solid transparent;
-          }
-
           .tabbrowser-tab[pending] {
               filter: grayscale(1);
               opacity: 0.5;
@@ -244,7 +240,7 @@ in
                   transition: scale 0.15s ease !important;
               }
 
-              &:is(:active, :not(tab)[open]) {
+              &:is(:active) {
                   scale: 0.95 !important;
               }
           }
