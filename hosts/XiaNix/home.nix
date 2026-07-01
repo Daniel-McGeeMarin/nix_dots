@@ -20,6 +20,9 @@
 
   home.packages = [
     pkgs.nix-output-monitor
+    pkgs.cinny-desktop
+    pkgs.fractal
+    pkgs.fluffychat
     (pkgs.calibre.overrideAttrs
       (attrs: {
         preFixup = (

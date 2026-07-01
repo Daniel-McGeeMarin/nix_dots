@@ -307,7 +307,9 @@
             },
             {
                 "command": [
-                    "foot",
+                    "kitty",
+                    "--class",
+                    "nixswitch-term",
                     "-e",
                     "bash",
                     "-c",

@@ -24,6 +24,13 @@ in
       ### Firefox transparency ###
       "blur, class:^(firefox)$"
 
+      ### Nixswitch terminal ###
+      "float, class:^(nixswitch-term)$"
+      "size 700 380, class:^(nixswitch-term)$"
+      "move 2170 50, class:^(nixswitch-term)$"
+      "pin, class:^(nixswitch-term)$"
+      "noinitialfocus, class:^(nixswitch-term)$"
+
       ### Generic ###
       "suppressevent maximize, class:.*"
       "nofocus,class:^$,title:^$,xwayland:1,floating:1,fullscreen:0,pinned:0"

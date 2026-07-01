@@ -6,8 +6,32 @@
       "Bash(git clean *)",
       "Bash(sudo nixos-rebuild *)",
       "Bash(home-manager switch *)",
+
       "Bash(rm *)",
-      "Bash(rm)"
+      "Bash(rm)",
+      "Bash(sudo rm *)",
+      "Bash(rmdir *)",
+
+      "Bash(ssh *)",
+      "Bash(scp *)",
+      "Bash(sftp *)",
+      "Bash(rsync *)",
+
+      "Bash(dd *)",
+      "Bash(mkfs *)",
+      "Bash(fdisk *)",
+      "Bash(parted *)",
+      "Bash(wipefs *)",
+
+      "Bash(poweroff)",
+      "Bash(reboot)",
+      "Bash(shutdown *)",
+
+      "Bash(systemctl stop *)",
+      "Bash(systemctl disable *)",
+      "Bash(systemctl mask *)",
+
+      "Bash(nix-collect-garbage)"
     ]
   }
 }
