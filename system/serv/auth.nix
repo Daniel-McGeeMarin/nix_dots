@@ -20,6 +20,7 @@
         theme     = "dark";
         log.level = "info";
         server.address = "tcp://0.0.0.0:9091";
+        server.trusted_proxies = [ "127.0.0.1" ];
 
         authentication_backend.file = {
           path  = "/srv/data/authelia/users.yml";
@@ -58,6 +59,7 @@
         (require_auth) {
           forward_auth 127.0.0.1:9091 {
             uri /api/authz/forward-auth
+            header_up X-Forwarded-Proto https
             copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
           }
         }
