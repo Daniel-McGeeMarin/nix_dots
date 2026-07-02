@@ -56,14 +56,14 @@
       # Reusable snippet — add `import require_auth` to any protected virtual host
       extraConfig = ''
         (require_auth) {
-          forward_auth localhost:9091 {
+          forward_auth 127.0.0.1:9091 {
             uri /api/authz/forward-auth
             copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
           }
         }
       '';
       virtualHosts."http://auth.mcgeedan.com".extraConfig = ''
-        reverse_proxy localhost:9091
+        reverse_proxy 127.0.0.1:9091
       '';
     };
   };

@@ -41,20 +41,20 @@
     services.caddy.virtualHosts = {
       "http://blog.mcgeedan.com".extraConfig = ''
         @admin path_regexp ^/ghost(/.*)?$
-        forward_auth @admin localhost:9091 {
+        forward_auth @admin 127.0.0.1:9091 {
           uri /api/authz/forward-auth
           copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
         }
-        reverse_proxy localhost:2368
+        reverse_proxy 127.0.0.1:2368
       '';
 
       "http://journal.mcgeedan.com".extraConfig = ''
         @admin path_regexp ^/ghost(/.*)?$
-        forward_auth @admin localhost:9091 {
+        forward_auth @admin 127.0.0.1:9091 {
           uri /api/authz/forward-auth
           copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
         }
-        reverse_proxy localhost:2369
+        reverse_proxy 127.0.0.1:2369
       '';
     };
 

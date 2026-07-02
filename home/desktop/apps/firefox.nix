@@ -87,8 +87,9 @@ in
           "browser.display.background_color"                    = "#00000000";
           "browser.display.background_color.dark"               = "#00000000";
           "toolkit.legacyUserProfileCustomizations.stylesheets" = true;
-          "gfx.webrender.all"                                   = true;
-          "layers.acceleration.force-enabled"                   = true;
+          # Removed gfx.webrender.all + layers.acceleration.force-enabled:
+          # WebRender's native compositor EGL path on Wayland may not output alpha
+          # for the content layer, blocking allow_transparent_browser from working.
 
           # ── Privacy ────────────────────────────────────────────────────────────
           "browser.contentblocking.category"                                      = "strict";

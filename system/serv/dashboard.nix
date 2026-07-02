@@ -16,7 +16,7 @@
 
     services.caddy.virtualHosts."http://hq.mcgeedan.com".extraConfig = ''
       import require_auth
-      reverse_proxy localhost:7575
+      reverse_proxy 127.0.0.1:7575
     '';
   };
 }
