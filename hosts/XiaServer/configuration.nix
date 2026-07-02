@@ -21,6 +21,8 @@
   serv.enable = true;
   serv.network.enable = true;
   serv.auth.enable = true;
+  serv.dashboard.enable = true;
+  # serv.blogs.enable = true;  # enable after creating ghost secrets on server
   services.openssh.settings.PasswordAuthentication = false;
 
   services.displayManager.autoLogin = {
@@ -57,6 +59,8 @@
     enable = true;
     package = pkgs.docker_29;
   };
+
+  virtualisation.oci-containers.backend = "docker";
 
   fonts.packages = with pkgs; [
     rubik
