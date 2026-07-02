@@ -50,6 +50,8 @@
       };
     };
 
+    systemd.services.authelia-main.serviceConfig.ReadWritePaths = [ "/srv/data/authelia" ];
+
     services.caddy = {
       # Reusable snippet — add `import require_auth` to any protected virtual host
       extraConfig = ''
