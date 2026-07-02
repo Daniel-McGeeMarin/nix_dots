@@ -6,9 +6,6 @@ confs/nvim/.secrets.lua
 # Local Nix secrets (not for git)
 secrets.nix
 
-# Encrypted server secrets — live on the server only, regenerated on rebuild
-secrets/*.age
-
 # Nix build output symlinks
 result
 result-*
