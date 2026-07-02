@@ -1,0 +1,23 @@
+[0;1;32m●[0m cloudflared.service - Cloudflare Tunnel
+     Loaded: loaded (]8;;file://XiaServer/etc/systemd/system/cloudflared.service\/etc/systemd/system/cloudflared.service]8;;\; [0;1;32menabled[0m; preset: ignored)
+     Active: [0;1;32mactive (running)[0m since Wed 2026-07-01 14:35:08 PDT; 11min ago
+ Invocation: 35138ab513bf4a29961d55a5dc87cd20
+   Main PID: 12150 (cloudflared)
+         IP: 181.7K in, 236.2K out
+         IO: 0B read, 0B written
+      Tasks: 16[0;38:5:245m (limit: 37755)[0m
+     Memory: 15.9M (peak: 20.9M)
+        CPU: 2.733s
+     CGroup: /system.slice/cloudflared.service
+             └─[0;38:5:245m12150 /nix/store/x75lk8i9hjyf79zcf3c6srhz576b1wz7-cloudflared-2025.11.1/bin/cloudflared tunnel --no-autoupdate run[0m
+
+Jul 01 14:35:08 XiaServer cloudflared[12150]: 2026-07-01T21:35:08Z INF Starting metrics server on 127.0.0.1:20241/metrics
+Jul 01 14:35:08 XiaServer cloudflared[12150]: 2026-07-01T21:35:08Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveP256] connIndex=0 event=0 ip=198.41.192.47
+Jul 01 14:35:08 XiaServer cloudflared[12150]: 2026/07/01 14:35:08 failed to sufficiently increase receive buffer size (was: 208 kiB, wanted: 7168 kiB, got: 4882 kiB). See https://github.com/quic-go/quic-go/wiki/UDP-Buffer-Sizes for details.
+Jul 01 14:35:08 XiaServer cloudflared[12150]: 2026-07-01T21:35:08Z INF Registered tunnel connection connIndex=0 connection=b88b88bd-1cd4-479a-8bb7-136bf3768887 event=0 ip=198.41.192.47 location=sjc01 protocol=quic
+Jul 01 14:35:08 XiaServer cloudflared[12150]: 2026-07-01T21:35:08Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveP256] connIndex=1 event=0 ip=198.41.200.193
+Jul 01 14:35:08 XiaServer cloudflared[12150]: 2026-07-01T21:35:08Z INF Registered tunnel connection connIndex=1 connection=d01ee217-1803-422d-aa57-c457b449d4f5 event=0 ip=198.41.200.193 location=sjc11 protocol=quic
+Jul 01 14:35:09 XiaServer cloudflared[12150]: 2026-07-01T21:35:09Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveP256] connIndex=2 event=0 ip=198.41.200.233
+Jul 01 14:35:09 XiaServer cloudflared[12150]: 2026-07-01T21:35:09Z INF Registered tunnel connection connIndex=2 connection=183e2ea7-91b0-4a38-b17e-765b0c5b294d event=0 ip=198.41.200.233 location=sjc10 protocol=quic
+Jul 01 14:35:10 XiaServer cloudflared[12150]: 2026-07-01T21:35:10Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveP256] connIndex=3 event=0 ip=198.41.192.37
+Jul 01 14:35:10 XiaServer cloudflared[12150]: 2026-07-01T21:35:10Z INF Registered tunnel connection connIndex=3 connection=2a3a04b9-c983-4ecf-8ddf-3edf97ac41da event=0 ip=198.41.192.37 location=sjc06 protocol=quic
