@@ -79,6 +79,7 @@
               overlay-electron-pin
             ];
           })
+          inputs.agenix.nixosModules.default
           ./hosts/XiaNix/configuration.nix
         ];
       };
