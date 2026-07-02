@@ -4,9 +4,9 @@
 
   config = lib.mkIf config.serv.auth.enable {
     age.secrets = {
-      authelia-jwt     = { file = ../../secrets/authelia-jwt.age;     owner = "authelia"; };
-      authelia-session = { file = ../../secrets/authelia-session.age; owner = "authelia"; };
-      authelia-storage = { file = ../../secrets/authelia-storage.age; owner = "authelia"; };
+      authelia-jwt     = { file = ../../secrets/authelia-jwt.age;     mode = "0444"; };
+      authelia-session = { file = ../../secrets/authelia-session.age; mode = "0444"; };
+      authelia-storage = { file = ../../secrets/authelia-storage.age; mode = "0444"; };
     };
 
     services.authelia.instances.main = {
