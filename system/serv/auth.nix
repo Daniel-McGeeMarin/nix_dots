@@ -20,7 +20,6 @@
         theme     = "dark";
         log.level = "info";
         server.address = "tcp://0.0.0.0:9091";
-        server.trusted_proxies = [ "127.0.0.1" ];
 
         authentication_backend.file = {
           path  = "/srv/data/authelia/users.yml";
