@@ -82,6 +82,10 @@ in
         settings = {
           # ── Transparency ───────────────────────────────────────────────────────
           "browser.tabs.allow_transparent_browser"              = true;
+          # Renderer canvas default — transparent so web content with no/transparent
+          # CSS background shows the XUL glass layer beneath instead of solid white.
+          "browser.display.background_color"                    = "#00000000";
+          "browser.display.background_color.dark"               = "#00000000";
           "toolkit.legacyUserProfileCustomizations.stylesheets" = true;
           "gfx.webrender.all"                                   = true;
           "layers.acceleration.force-enabled"                   = true;
@@ -172,6 +176,15 @@ in
 
         userContent = ''
           @import url("pf/userContent.css");
+
+          /* PotatoFox only clears `body`; the React wrapper is still opaque */
+          @-moz-document url-prefix("about:newtab"), url-prefix("about:home") {
+            #root, .outer-wrapper, .activity-stream {
+              background: transparent !important;
+              background-color: transparent !important;
+              background-image: none !important;
+            }
+          }
         '';
       };
     };
