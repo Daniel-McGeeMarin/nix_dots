@@ -14,7 +14,7 @@
       labels  = { "io.containers.autoupdate" = "registry"; };
     };
 
-    services.caddy.virtualHosts."http://dash.mcgeedan.com".extraConfig = ''
+    services.caddy.virtualHosts."http://hq.mcgeedan.com".extraConfig = ''
       import require_auth
       reverse_proxy localhost:7575
     '';
