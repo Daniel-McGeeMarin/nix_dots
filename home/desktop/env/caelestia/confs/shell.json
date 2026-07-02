@@ -544,7 +544,7 @@
     "paths": {
         "mediaGif": "root:/assets/bongocat.gif",
         "sessionGif": "root:/assets/kurukuru.gif",
-        "wallpaperDir": "/home/xia/Pictures/Wallpapers"
+        "wallpaperDir": "/home/XiaServer/Pictures/Wallpapers"
     },
     "services": {
         "audioIncrement": 0.1,
