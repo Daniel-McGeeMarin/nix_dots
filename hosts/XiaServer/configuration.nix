@@ -23,7 +23,7 @@
   serv.auth.enable = true;
   serv.dashboard.enable = true;
   # serv.blogs.enable = true;  # enable after creating ghost secrets on server
-  # serv.ocis.enable = true;   # enable after creating ocis-admin-password secret on server
+  serv.ocis.enable = true;
   services.openssh.settings.PasswordAuthentication = false;
 
   services.displayManager.autoLogin = {
