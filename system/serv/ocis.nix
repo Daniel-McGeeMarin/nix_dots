@@ -24,7 +24,6 @@
         PROXY_TLS       = "false";
       };
       environmentFiles = [ config.age.secrets.ocis-admin-password.path ];
-      cmd    = [ "ocis" "server" ];
       labels = { "io.containers.autoupdate" = "registry"; };
     };
 
