@@ -13,7 +13,7 @@
     ];
 
     virtualisation.oci-containers.containers.ocis = {
-      image   = "owncloud/ocis:latest";
+      image   = "docker.io/owncloud/ocis:latest";
       ports   = [ "127.0.0.1:9200:9200" ];
       volumes = [ "/srv/data/ocis:/var/lib/ocis" ];
       environment = {

@@ -10,7 +10,7 @@
 
     virtualisation.oci-containers.containers = {
       ghost-public = {
-        image = "ghost:5-alpine";
+        image = "docker.io/library/ghost:5-alpine";
         ports = [ "127.0.0.1:2368:2368" ];
         volumes = [ "/srv/data/ghost-public/content:/var/lib/ghost/content" ];
         environment = {
@@ -24,7 +24,7 @@
       };
 
       ghost-private = {
-        image = "ghost:5-alpine";
+        image = "docker.io/library/ghost:5-alpine";
         ports = [ "127.0.0.1:2369:2368" ];
         volumes = [ "/srv/data/ghost-private/content:/var/lib/ghost/content" ];
         environment = {
