@@ -101,15 +101,18 @@
         ];
       };
       nixosConfigurations.XiaServer = nixpkgs.lib.nixosSystem rec {
-        specialArgs = { inherit inputs secrets; };
+        # XiaServer uses agenix for secrets, not secrets.nix — pass empty set so
+        # the flake builds cleanly under sudo (where HOME is unset).
+        specialArgs = { inherit inputs; secrets = {}; };
         modules = [
           ({ config, pkgs, ... }: { nixpkgs.overlays = [ overlay-unfree overlay-unstable overlay-unstable-unfree overlay-electron-pin ]; })
           inputs.agenix.nixosModules.default
+          { home-manager.sharedModules = [ inputs.zen-browser.homeModules.default ]; }
           ./hosts/XiaServer/configuration.nix
         ];
       };
       homeConfigurations.XiaServer = home-manager.lib.homeManagerConfiguration {
-        extraSpecialArgs = { inherit inputs secrets; };
+        extraSpecialArgs = { inherit inputs; secrets = {}; };
         inherit pkgs;
         modules = [
           ({ config, pkgs, ... }: {
