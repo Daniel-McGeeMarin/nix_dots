@@ -86,6 +86,7 @@
   home-manager = {
     backupFileExtension = "backup2";
     extraSpecialArgs = { flakeAttr = "XiaNix"; };
+    sharedModules = [ inputs.zen-browser.homeModules.default ];
     users."xia" = import ./home.nix;
   };
 

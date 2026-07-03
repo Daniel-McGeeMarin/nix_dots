@@ -7,44 +7,11 @@ let
     rev    = "80e926aeb20f61a927ec0be7a73835d5533227eb";
     hash   = "sha256-WkUJytR6zPmq0vMCMlaEf3J8UM9XkY0IJa2Jn5OrO48=";
   };
-
-  caelestiafoxNativeHost = pkgs.writeScript "caelestiafox-host" ''
-    #!${pkgs.python3}/bin/python3
-    import sys, json, struct, os, time
-
-    state_dir = os.path.join(
-        os.environ.get('XDG_STATE_HOME', os.path.expanduser('~/.local/state')),
-        'caelestia'
-    )
-    scheme = os.path.join(state_dir, 'scheme.json')
-
-    def send():
-        with open(scheme) as f:
-            msg = json.dumps(json.load(f), separators=(',', ':')).encode()
-        sys.stdout.buffer.write(struct.pack('<I', len(msg)) + msg)
-        sys.stdout.buffer.flush()
-
-    try:
-        send()
-    except Exception:
-        pass
-
-    last = 0
-    while True:
-        time.sleep(1)
-        try:
-            mtime = os.path.getmtime(scheme)
-            if mtime != last:
-                last = mtime
-                send()
-        except Exception:
-            pass
-  '';
 in
 {
   config = lib.mkIf config.desktop.enable {
 
-    programs.firefox = {
+    programs.zen-browser = {
       enable = true;
 
       nativeMessagingHosts = [ pkgs.tridactyl-native ];
@@ -80,10 +47,10 @@ in
         isDefault = true;
 
         settings = {
-          # ── Transparency ───────────────────────────────────────────────────────
+          # ── Zen transparency ──────────────────────────────────────────────────
+          # Built-in Zen glass effect for the chrome (toolbar/sidebar).
+          "zen.widget.linux.transparency"                       = true;
           "browser.tabs.allow_transparent_browser"              = true;
-          # Renderer canvas default — transparent so web content with no/transparent
-          # CSS background shows the XUL glass layer beneath instead of solid white.
           "browser.display.background_color"                    = "#00000000";
           "browser.display.background_color.dark"               = "#00000000";
           "toolkit.legacyUserProfileCustomizations.stylesheets" = true;
@@ -146,11 +113,6 @@ in
         userChrome = ''
           @import url("pf/userChrome.css");
 
-          /*
-           * PotatoFox on Linux sets --uc-bg-opaque = ActiveCaption, which is
-           * transparent under Hyprland.  Override to use --lwt-accent-color
-           * (set by CaelestiaFox) with an opaque fallback.
-           */
           :root {
               --uc-bg-opaque: var(
                   --lwt-accent-color,
@@ -177,7 +139,6 @@ in
         userContent = ''
           @import url("pf/userContent.css");
 
-          /* PotatoFox only clears `body`; the React wrapper is still opaque */
           @-moz-document url-prefix("about:newtab"), url-prefix("about:home") {
             #root, .outer-wrapper, .activity-stream {
               background: transparent !important;
@@ -189,62 +150,10 @@ in
       };
     };
 
-    home.file.".mozilla/firefox/default/chrome/pf" = {
+    # PotatoFox chrome assets for the Zen profile (profile path: ~/.config/zen/default/)
+    home.file.".config/zen/default/chrome/pf" = {
       source = "${potatofox}/chrome";
       recursive = true;
     };
-
-    home.file.".mozilla/native-messaging-hosts/caelestiafox.json" = {
-      force = true;
-      text = builtins.toJSON {
-        name = "caelestiafox";
-        description = "Native app for CaelestiaFox extension.";
-        path = "${caelestiafoxNativeHost}";
-        type = "stdio";
-        allowed_extensions = [ "caelestiafox@caelestia.org" ];
-      };
-    };
-
-    home.packages = [
-      (pkgs.writeShellScriptBin "nixffext" ''
-        wl-copy "(extension \"$(printf "$1" | awk -F '/' '{printf $7 }')\" \"$(curl -s "$1" | tr ',' '\n' | grep byGUID | tail -n 1 | awk -F '"' '{printf $4}')\")" && notify-send "ext copied"
-      '')
-    ];
-
-    xdg.configFile."tridactyl/tridactylrc".text = ''
-      bind ;c hint -Jc [class*="expand"],[class*="togg"],[class="comment_folder"]
-
-      bind d composite tabprev; tabclose #
-      bind D tabclose
-      bindurl reddit.com gu urlparent 4
-
-      bindurl www.google.com f hint -Jc #search a
-      bindurl www.google.com F hint -Jbc #search a
-
-      bind gd tabdetach
-      bind gD composite tabduplicate; tabdetach
-
-      bind gr reader
-      bind gR reader --tab
-
-      js tri.browserBg.runtime.getPlatformInfo().then(os=>{const editorcmd = os.os=="linux" ? "foot nvim" : "auto"; tri.config.set("editorcmd", editorcmd)})
-
-      set hintfiltermode vimperator-reflow
-      set hintdelay 100
-      xamo_quiet
-
-      jsb browser.webRequest.onHeadersReceived.addListener(tri.request.clobberCSP,{urls:["<all_urls>"],types:["main_frame"]},["blocking","responseHeaders"])
-
-      command translate js let googleTranslateCallback = document.createElement('script'); googleTranslateCallback.innerHTML = "function googleTranslateElementInit(){ new google.translate.TranslateElement(); }"; document.body.insertBefore(googleTranslateCallback, document.body.firstChild); let googleTranslateScript = document.createElement('script'); googleTranslateScript.charset="UTF-8"; googleTranslateScript.src = "https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit&tl=&sl=&hl="; document.body.insertBefore(googleTranslateScript, document.body.firstChild);
-
-      command nixext composite get_current_url | ! nixffext
-
-      set smoothscroll true
-      bind J tabnext
-      bind K tabprev
-
-      autocmd DocStart ^http(s?)://youtube.com js tri.excmds.urlmodify("-t", "youtube.com", "inv.nadeko.net")
-      autocmd DocStart ^http(s?):// js tri.excmds.urlmodify("-t", "youtube.com", "inv.nadeko.net")
-    '';
   };
 }
