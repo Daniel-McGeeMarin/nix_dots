@@ -5,6 +5,7 @@ in {
   "secrets/authelia-jwt.age".publicKeys        = [ xiaserver ];
   "secrets/authelia-session.age".publicKeys    = [ xiaserver ];
   "secrets/authelia-storage.age".publicKeys    = [ xiaserver ];
+  "secrets/homarr-env.age".publicKeys           = [ xiaserver ];
   "secrets/ghost-public-env.age".publicKeys     = [ xiaserver ];
   "secrets/ghost-private-env.age".publicKeys    = [ xiaserver ];
   "secrets/ocis-admin-password.age".publicKeys  = [ xiaserver ];
