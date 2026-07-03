@@ -1,0 +1,37 @@
+{ config, lib, ... }:
+{
+  options.serv.ocis.enable = lib.mkEnableOption "ownCloud Infinite Scale";
+
+  config = lib.mkIf config.serv.ocis.enable {
+    age.secrets.ocis-admin-password = {
+      file = ../../secrets/ocis-admin-password.age;
+      mode = "0444";
+    };
+
+    systemd.tmpfiles.rules = [
+      "d /srv/data/ocis 0750 root root"
+    ];
+
+    virtualisation.oci-containers.containers.ocis = {
+      image   = "owncloud/ocis:latest";
+      ports   = [ "127.0.0.1:9200:9200" ];
+      volumes = [ "/srv/data/ocis:/var/lib/ocis" ];
+      environment = {
+        OCIS_URL        = "https://cloud.mcgeedan.com";
+        # Caddy terminates TLS; tell OCIS not to do its own
+        OCIS_INSECURE   = "true";
+        PROXY_HTTP_ADDR = "0.0.0.0:9200";
+        PROXY_TLS       = "false";
+      };
+      environmentFiles = [ config.age.secrets.ocis-admin-password.path ];
+      cmd    = [ "ocis" "server" ];
+      labels = { "io.containers.autoupdate" = "registry"; };
+    };
+
+    # No require_auth — OCIS uses its own OIDC auth; Authelia here would break
+    # desktop/mobile sync clients that authenticate directly with OCIS.
+    services.caddy.virtualHosts."http://cloud.mcgeedan.com".extraConfig = ''
+      reverse_proxy 127.0.0.1:9200
+    '';
+  };
+}
