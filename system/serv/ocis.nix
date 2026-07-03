@@ -9,7 +9,7 @@
     };
 
     systemd.tmpfiles.rules = [
-      "d /srv/data/ocis 0750 root root"
+      "d /srv/data/ocis 0750 1000 1000"
     ];
 
     virtualisation.oci-containers.containers.ocis = {
