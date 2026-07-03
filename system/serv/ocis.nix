@@ -35,7 +35,9 @@
     # No require_auth — OCIS uses its own OIDC auth; Authelia here would break
     # desktop/mobile sync clients that authenticate directly with OCIS.
     services.caddy.virtualHosts."http://cloud.mcgeedan.com".extraConfig = ''
-      reverse_proxy 127.0.0.1:9200
+      reverse_proxy 127.0.0.1:9200 {
+        header_up X-Forwarded-Proto https
+      }
     '';
   };
 }
