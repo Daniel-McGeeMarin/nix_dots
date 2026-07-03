@@ -29,11 +29,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    zen-browser = {
-      url = "github:0xc000022070/zen-browser-flake";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
     # Hello, electron was pinned manually because there was no build when you
     # used it before, remember to unpin eventually if things are not working there.
     # nixpkgs@03c7292 (2026-06-24) has a Hydra cache miss for electron-41.7.2.
@@ -92,7 +87,6 @@
         extraSpecialArgs = { inherit inputs secrets; };
         inherit pkgs;
         modules = [
-          inputs.zen-browser.homeModules.default
           ({ config, pkgs, ... }: {
             nixpkgs.config.allowUnfree = true;
             nixpkgs.overlays = [ overlay-unfree overlay-unstable overlay-unstable-unfree overlay-electron-pin ];
@@ -107,7 +101,6 @@
         modules = [
           ({ config, pkgs, ... }: { nixpkgs.overlays = [ overlay-unfree overlay-unstable overlay-unstable-unfree overlay-electron-pin ]; })
           inputs.agenix.nixosModules.default
-          { home-manager.sharedModules = [ inputs.zen-browser.homeModules.default ]; }
           ./hosts/XiaServer/configuration.nix
         ];
       };

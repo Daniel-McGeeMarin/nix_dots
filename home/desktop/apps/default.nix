@@ -2,7 +2,6 @@
 {
   imports = [
     ./firefox.nix
-    ./zen.nix
     ./foot.nix
     ./kitty.nix
     ./mpv.nix
