@@ -56,12 +56,13 @@
     nix-ld.libraries = [];
   };
 
-  virtualisation.docker = {
+  virtualisation.podman = {
     enable = true;
-    package = pkgs.docker_29;
+    dockerCompat = true;
+    defaultNetwork.settings.dns_enabled = true;
   };
 
-  virtualisation.oci-containers.backend = "docker";
+  virtualisation.oci-containers.backend = "podman";
 
   fonts.packages = with pkgs; [
     rubik
@@ -80,7 +81,7 @@
   users.users.XiaServer = {
     isNormalUser = true;
     shell = pkgs.zsh;
-    extraGroups = [ "docker" "wheel" "video" "input" ];
+    extraGroups = [ "wheel" "video" "input" ];
   };
 
   home-manager = {
