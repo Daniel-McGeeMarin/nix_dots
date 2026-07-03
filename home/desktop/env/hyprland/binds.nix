@@ -42,7 +42,7 @@ in
         "$mainMod,C,killactive,"
         "CTRL$mainMod,M,exit,"
         "$mainMod,E,exec,xdg-open '/'"
-        "$mainMod,W,exec,zen"
+        "$mainMod,W,exec,firefox"
         "$mainMod,A,exec,pkill aiclip; aiclip"
         "$mainMod,V,togglefloating,"
         "$mainMod,n,exec,swaync-client --close-latest"

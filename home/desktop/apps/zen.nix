@@ -38,7 +38,6 @@ in
             (extension "libredirect"                "7esoorv3@alefvanoon.anonaddy.me")
             (extension "darkreader"                 "addon@darkreader.org")
             (extension "tridactyl-vim"              "tridactyl.vim@cmcaine.co.uk")
-            (extension "zen-internet"               "{91aa3897-2634-4a8a-9092-279db23a7689}")
             (extension "caelestiafox"               "caelestiafox@caelestia.org")
           ];
       };
@@ -48,7 +47,6 @@ in
 
         settings = {
           # ── Zen transparency ──────────────────────────────────────────────────
-          # Built-in Zen glass effect for the chrome (toolbar/sidebar).
           "zen.widget.linux.transparency"                       = true;
           "browser.tabs.allow_transparent_browser"              = true;
           "browser.display.background_color"                    = "#00000000";

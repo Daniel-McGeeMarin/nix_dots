@@ -36,7 +36,7 @@ in
 
       "sleep 4"
       "[workspace 22 silent; fullscreen] flatpak run com.github.xournalpp.xournalpp"
-      "zen"
+      "firefox"
 
       "${hyprWorkspaceCycle}/bin/hypr-workspace-cycle rotation-vertical"
       "waydroid show-full-ui &"
