@@ -23,6 +23,7 @@ in
       "nmcli radio wifi off && nmcli radio wifi on &"
       "bwfloat &"
       "nm-applet &"
+      "owncloud &"
       "squeekboard &"
       "signal-desktop &"
       "kitty --class StartupTerm &"
