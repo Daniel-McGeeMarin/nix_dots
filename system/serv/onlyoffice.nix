@@ -25,7 +25,10 @@
         image      = "docker.io/owncloud/ocis:latest";
         cmd        = [ "collaboration" "server" ];
         dependsOn  = [ "ocis" ];
+        # Share the main OCIS config volume so ocis-collab reads the same jwt_secret
+        volumes    = [ "/srv/data/ocis:/var/lib/ocis:ro" ];
         environment = {
+          OCIS_CONFIG_DIR = "/var/lib/ocis/config";
           COLLABORATION_GRPC_ADDR                   = "0.0.0.0:9301";
           COLLABORATION_HTTP_ADDR                   = "0.0.0.0:9300";
           # Reach OCIS's embedded NATS via Podman DNS (container name resolution)
