@@ -61,8 +61,13 @@
 
     # No require_auth — OnlyOffice iframes are opened directly by OCIS with a WOPI token in
     # the URL; inserting Authelia here would break the editor flow. WOPI tokens are the gate.
+    # X-Forwarded-Proto https is required so OnlyOffice generates https:// action URLs
+    # in its WOPI discovery endpoint — without it OCIS gets http:// URLs which the
+    # browser's CSP frame-src blocks and the browser warns about mixed content.
     services.caddy.virtualHosts."http://office.mcgeedan.com".extraConfig = ''
-      reverse_proxy 127.0.0.1:8090
+      reverse_proxy 127.0.0.1:8090 {
+        header_up X-Forwarded-Proto https
+      }
     '';
   };
 }

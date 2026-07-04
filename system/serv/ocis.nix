@@ -38,6 +38,8 @@
       reverse_proxy 127.0.0.1:9200 {
         header_up X-Forwarded-Proto https
       }
+      # Inject office.mcgeedan.com into OCIS's CSP frame-src so OnlyOffice iframes are allowed
+      header Content-Security-Policy "https://embed\.diagrams\.net/" "https://embed.diagrams.net/ https://office.mcgeedan.com"
     '';
   };
 }
