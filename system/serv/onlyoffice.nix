@@ -49,6 +49,16 @@
       };
     };
 
+    # ocis-collab fails on first boot if OCIS hasn't finished initializing NATS/gateway yet.
+    # Allow longer retry window with a pause between attempts so it recovers automatically.
+    systemd.services."podman-ocis-collab" = {
+      serviceConfig = {
+        RestartSec            = "15s";
+        StartLimitBurst       = 20;
+        StartLimitIntervalSec = 600;
+      };
+    };
+
     # No require_auth — OnlyOffice iframes are opened directly by OCIS with a WOPI token in
     # the URL; inserting Authelia here would break the editor flow. WOPI tokens are the gate.
     services.caddy.virtualHosts."http://office.mcgeedan.com".extraConfig = ''
