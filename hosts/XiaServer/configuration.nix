@@ -25,6 +25,7 @@
   serv.blogs.enable = true;
   serv.ocis.enable = true;
   serv.onlyoffice.enable = true;
+  serv.apps.site.enable = true;
   services.openssh.settings.PasswordAuthentication = false;
 
   services.displayManager.autoLogin = {
