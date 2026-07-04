@@ -15,6 +15,7 @@
       "com.github.tchx84.Flatseal"          # flatpak permissions manager
       "io.missioncenter.MissionCenter"       # system monitor
       "net.cozic.joplin_desktop"             # notes
+      "md.obsidian.Obsidian"                 # notes (sandboxed — use Flatseal to restrict to ~/Documents)
       # ── Media ─────────────────────────────────────────────────────────────────
       "org.qbittorrent.qBittorrent"
     ];
