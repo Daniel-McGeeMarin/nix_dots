@@ -101,6 +101,41 @@ Everything caelestia lives under `home/desktop/env/caelestia/`:
 
 ---
 
+## XiaServer container patterns
+
+Hard-won lessons from deploying services. Check these before debugging.
+
+### Caddy on Cloudflare Tunnel
+
+- **Never use `localhost`** in Caddy virtual host configs — Caddy resolves it to `::1` (IPv6) but most services only bind to `127.0.0.1`. Always use `127.0.0.1` explicitly.
+- **Always add `header_up X-Forwarded-Proto https`** in any `reverse_proxy` block for a TLS-aware app. Cloudflare terminates TLS; Caddy receives plain HTTP and must tell the upstream the original scheme was HTTPS. Without this, apps like Authelia and OCIS generate `http://` redirect URLs that they then reject.
+- The `(require_auth)` Caddy snippet already includes this header for Authelia `forward_auth`. Add it separately to individual `reverse_proxy` blocks for the backend services themselves.
+
+### Podman / oci-containers
+
+- **All `podman` management commands require `sudo`** — the systemd services run as root (rootful Podman). `podman ps -a` without sudo shows the user's rootless containers only.
+- **Always use fully-qualified image names** in any container that has `io.containers.autoupdate = registry`. Podman refuses short names for auto-update: `docker.io/library/ghost:5-alpine` not `ghost:5-alpine`, `docker.io/owncloud/ocis:latest` not `owncloud/ocis:latest`.
+- **Container-to-container networking via DNS works** (Podman default network with `dns_enabled = true` resolves container names), but services inside containers often bind to `127.0.0.1` by default, making them unreachable from other containers even though DNS resolves. To debug: `sudo podman exec <name> cat /proc/net/tcp | grep <hex-port>` — `0100007F` means `127.0.0.1` (loopback only), `00000000` means `0.0.0.0` (all interfaces).
+- **Sidecar pattern**: when a sidecar container needs to share `localhost` with a main container, use `extraOptions = [ "--network=container:<name>" ]`. The sidecar then shares the main container's full network namespace including loopback, Podman network IP, and all listening ports.
+- **Data directory ownership**: check what UID the container process runs as (`podman inspect` or docs) and set `systemd.tmpfiles.rules` accordingly. OCIS runs as UID 1000; Ghost runs as root.
+- **Env file changes don't restart containers**: NixOS only restarts a container when its *path* changes, not when file *content* changes. After updating a secret in an `.age` file, run `systemctl restart podman-<name>` manually.
+
+### Debugging failing containers
+
+Standard sequence:
+1. `sudo podman ps -a` — is it running or exiting?
+2. `sudo journalctl -u podman-<name> --no-pager | grep fatal | tail -3` — get the full error (journald truncates long lines; use `--no-pager` and grep)
+3. If the container exits too fast to log: `sudo systemctl reset-failed podman-<name>; sudo systemctl start podman-<name>; sudo journalctl -u podman-<name> --since "30 seconds ago" --no-pager`
+4. If the error is truncated even then: run the container manually with `sudo podman run --rm -e VAR=val ... image command 2>&1 | head -30`
+
+### agenix / secrets
+
+- **Server rebuild command**: `sudo HOME=$HOME nixos-rebuild switch --flake $HOME/nixos#XiaServer --impure` — the `--impure` is required because `secrets.nix` is loaded via `builtins.getEnv "HOME"`.
+- **Encrypt a new secret on the server**: `PUBKEY=$(awk '{print $1" "$2}' /etc/ssh/ssh_host_ed25519_key.pub)` then pipe content to `nix run nixpkgs#age -- -r "$PUBKEY" -o secrets/name.age`.
+- **Generating random hex without openssl**: `od -A n -t x1 -N 32 /dev/urandom | tr -d ' \n'` (32 bytes = 64 hex chars).
+
+---
+
 ## Git Commit Guidelines
 
 ### When to commit
