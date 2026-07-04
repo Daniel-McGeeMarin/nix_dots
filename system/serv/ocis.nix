@@ -24,8 +24,6 @@
         PROXY_TLS       = "false";
         # Store generated config inside the volume so it survives restarts
         OCIS_CONFIG_DIR = "/var/lib/ocis/config";
-        # Bind NATS to all interfaces so ocis-collab can reach it via Podman DNS
-        NATS_NATS_HOST  = "0.0.0.0";
       };
       environmentFiles = [ config.age.secrets.ocis-admin-password.path ];
       # ocis init generates jwt/signing secrets on first run; || true skips if already done
