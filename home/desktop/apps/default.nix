@@ -18,7 +18,7 @@
       mpv.enable = lib.mkDefault true;
     };
 
-    home.packages = with pkgs; [ owncloud-client ];
+    home.packages = with pkgs; [ owncloud-client unfree.obsidian ];
 
     xdg.mimeApps.defaultApplications = {
       "text/html" = "firefox.desktop";
