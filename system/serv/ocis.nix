@@ -24,6 +24,11 @@
         PROXY_TLS       = "false";
         # Store generated config inside the volume so it survives restarts
         OCIS_CONFIG_DIR = "/var/lib/ocis/config";
+        # activitylog can't keep up with its own NATS queue during bulk uploads,
+        # causing "slow consumer" message drops and failed upload postprocessing
+        # (ERR_UPLOAD_NOT_FOUND) -> client sees checksum mismatches and retries
+        # whole files. Known upstream bug: owncloud/ocis#10825
+        OCIS_EXCLUDE_RUN_SERVICES = "activitylog";
       };
       environmentFiles = [ config.age.secrets.ocis-admin-password.path ];
       # ocis init generates jwt/signing secrets on first run; || true skips if already done
