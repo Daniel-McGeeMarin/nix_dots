@@ -133,8 +133,10 @@ let
       sid="agent-$(date +%s%3N)"
       mkdir -p "${stateDir}"
       printf 'idle' > "${stateDir}/$sid.state"
+      title=$(basename "$cwd")
       CLAUDE_AGENT_CLASS="$sid" ${pkgs.kitty}/bin/kitty \
         --class "claude-agent-$sid" \
+        --title "$title" \
         --working-directory "$cwd" \
         -e sh -c "${pkgs.claude-code}/bin/claude" &
     '';
@@ -199,17 +201,28 @@ in {
     };
 
     wayland.windowManager.hyprland = {
+      plugins = [ pkgs.hyprlandPlugins.hyprbars ];
       settings = {
         windowrulev2 = [
-          # All claude CLI windows float and land in the overlay workspace
           "float, class:^claude-agent-.*$"
           "workspace special:claude-agents silent, class:^claude-agent-.*$"
+          # Title bar only for agent windows; all others are unaffected (bar_height=0 default)
+          "plugin:hyprbars:bar_height 24, class:^claude-agent-.*$"
+          "plugin:hyprbars:bar_color rgba(1e1e2ecc), class:^claude-agent-.*$"
+          "plugin:hyprbars:bar_text_size 11, class:^claude-agent-.*$"
         ];
         bind = [
           "SUPER, D, togglespecialworkspace, claude-agents"
           "SUPER, O, exec, ${smartO}/bin/claude-agents-smart-o"
           "SUPER, P, exec, ${smartP}/bin/claude-agents-smart-p"
         ];
+        # hyprbars global: height 0 = invisible everywhere except where overridden by windowrulev2
+        "plugin:hyprbars" = {
+          bar_height = 0;
+          bar_text_size = 11;
+          bar_text_font = "JetBrains Mono";
+          bar_part_of_window = true;
+        };
       };
     };
   };
