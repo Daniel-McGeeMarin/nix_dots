@@ -23,7 +23,12 @@ in
       "nmcli radio wifi off && nmcli radio wifi on &"
       "bwfloat &"
       "nm-applet &"
-      "owncloud &"
+      # OWNCLOUD_MAX_PARALLEL: default is 20 concurrent jobs over HTTP/2, 6 otherwise.
+      # Bumped for the Cloudflare Tunnel path, where per-request round-trip latency
+      # (not bandwidth) is the bottleneck for large numbers of small files — more
+      # in-flight requests amortizes that latency. Watch for a rise in 500/502s in
+      # the sync journal blacklist if this turns out to overload the server instead.
+      "OWNCLOUD_MAX_PARALLEL=100 owncloud &"
       "squeekboard &"
       "signal-desktop &"
       "kitty --class StartupTerm &"
