@@ -26,6 +26,7 @@
   serv.ocis.enable = true;
   serv.onlyoffice.enable = true;
   serv.apps.site.enable = true;
+  serv.forgejo.enable = true;
   services.openssh.settings.PasswordAuthentication = false;
 
   services.displayManager.autoLogin = {

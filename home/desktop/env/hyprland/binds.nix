@@ -49,7 +49,7 @@ in
 
         # Caelestia global binds
         "$mainMod,R,global,caelestia:launcher"
-        "$mainMod,A,global,caelestia:control-center"
+        "$mainMod,A,global,caelestia:sidebar"
 
         "$mainMod SHIFT, V, exec, mullvad reconnect"
         (lib.mkIf config.programs.rbw.enable "$mainMod,P,exec,pkill rofi || rofi-rbw -a copy")

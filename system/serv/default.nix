@@ -1,6 +1,6 @@
 { config, lib, ... }:
 {
-  imports = [ ./network.nix ./auth.nix ./dashboard.nix ./blogs.nix ./ocis.nix ./onlyoffice.nix ./apps.nix ];
+  imports = [ ./network.nix ./auth.nix ./dashboard.nix ./blogs.nix ./ocis.nix ./onlyoffice.nix ./apps.nix ./forgejo.nix ];
 
   options.serv.enable = lib.mkEnableOption "Enable the serv module";
 
