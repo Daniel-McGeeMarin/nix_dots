@@ -134,18 +134,14 @@ let
     '';
   };
 
-  # ── Smart SUPER+Q: spawns Claude agent when in the overlay, kitty otherwise ─
+  # ── SUPER+P: spawns a Claude agent only when inside the overlay ─────────────
 
-  smartQ = pkgs.writeShellApplication {
-    name = "claude-agents-smart-q";
+  smartP = pkgs.writeShellApplication {
+    name = "claude-agents-smart-p";
     runtimeInputs = [ pkgs.jq pkgs.hyprland spawner ];
     text = ''
       ws=$(hyprctl activewindow -j 2>/dev/null | jq -r '.workspace.name // ""')
-      if [ "$ws" = "special:claude-agents" ]; then
-        claude-agent-spawn "$HOME"
-      else
-        ${pkgs.kitty}/bin/kitty &
-      fi
+      [ "$ws" = "special:claude-agents" ] && claude-agent-spawn "$HOME"
     '';
   };
 
@@ -154,7 +150,7 @@ in {
     mkEnableOption "Claude Code agent management with Hyprland workspace integration";
 
   config = mkIf cfg.enable {
-    home.packages = [ watcher spawner smartQ ];
+    home.packages = [ watcher spawner smartP ];
 
     home.file.".claude/settings.json" = {
       force = true;
@@ -191,14 +187,10 @@ in {
           "workspace special:claude-agents silent, class:^claude-agent-.*$"
         ];
         bind = [
-          # SUPER+D toggles the overlay open/closed
-          "SUPER, D, togglespecialworkspace, claude-agents"
+          "SUPER, O, togglespecialworkspace, claude-agents"
+          "SUPER, P, exec, ${smartP}/bin/claude-agents-smart-p"
         ];
       };
-      # Override the global SUPER+Q bind (later in config = wins in Hyprland)
-      extraConfig = ''
-        bind = SUPER, Q, exec, ${smartQ}/bin/claude-agents-smart-q
-      '';
     };
   };
 }

@@ -18,20 +18,12 @@ in
       ];
 
       bind = [
-        "CTRL $mainMod,U,workspace,11"
-        "$mainMod SHIFT,U,movetoworkspace,11"
         "SUPER_SHIFT,C,exec,bash -c 'kill -9 $(hyprctl activewindow -j | jq .pid)'"
 
         # Bluetooth headset toggle
         ''
         $mainMod,M,exec,bash -c '[ "$(bluetoothctl info ${secrets.hypr.bluetoothHeadsetMac} | grep Connected | awk "{print \$2}")" = "yes" ] && bluetoothctl disconnect ${secrets.hypr.bluetoothHeadsetMac} || bluetoothctl connect ${secrets.hypr.bluetoothHeadsetMac}'
         ''
-
-        # Recruiting helpers
-        ''$mainMod,U,exec,bash -c "hyprctl dispatch workspace 11 && librewolf --new-window 'https://github.com/vanshb03/Summer2026-Internships?tab=readme-ov-file'"''
-
-        "$mainMod,I,exec,bash ~/MyApps/resume-pipeline/stage1.sh"
-        "$mainMod,O,exec,bash ~/MyApps/resume-pipeline/stage2.sh"
 
         # Quick paste helpers (work credentials)
         ''SUPER,bracketleft,exec,bash -c 'printf "${secrets.hypr.workEmail}" | wl-copy --trim-newline && hyprctl dispatch sendshortcut "CTRL,V,"' ''
@@ -52,7 +44,6 @@ in
         "$mainMod,A,global,caelestia:sidebar"
 
         "$mainMod SHIFT, V, exec, mullvad reconnect"
-        (lib.mkIf config.programs.rbw.enable "$mainMod,P,exec,pkill rofi || rofi-rbw -a copy")
 
         # Focus
         "$mainMod,H,movefocus,l"
