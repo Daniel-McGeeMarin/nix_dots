@@ -62,13 +62,19 @@ let
       mkdir -p "${stateDir}"
 
       reposition_all() {
-        local mon mw mh scale lw lh col_w
-        mon=$(hyprctl monitors -j | jq '.[0]')
+        local mon mw mh scale ox oy lw lh col_w
+        mon=$(hyprctl monitors -j | jq 'map(select(.focused))[0] // .[0]')
         mw=$(printf '%s' "$mon" | jq '.width')
         mh=$(printf '%s' "$mon" | jq '.height')
         scale=$(printf '%s' "$mon" | jq '.scale')
-        lw=$(awk "BEGIN{printf \"%d\", $mw/$scale}")
-        lh=$(awk "BEGIN{printf \"%d\", $mh/$scale}")
+        # reserved = [left, top, right, bottom] in logical pixels (already scaled)
+        ox=$(printf '%s' "$mon" | jq '.reserved[0]')
+        oy=$(printf '%s' "$mon" | jq '.reserved[1]')
+        local res_right res_bottom
+        res_right=$(printf '%s' "$mon" | jq '.reserved[2]')
+        res_bottom=$(printf '%s' "$mon" | jq '.reserved[3]')
+        lw=$(awk "BEGIN{printf \"%d\", $mw/$scale - $ox - $res_right}")
+        lh=$(awk "BEGIN{printf \"%d\", $mh/$scale - $oy - $res_bottom}")
         col_w=$(( lw / 3 ))
 
         local idle_addrs=() working_addrs=() approval_addrs=()
@@ -95,7 +101,7 @@ let
           local wh=$(( lh / n ))
           local i=0 addr
           for addr in "$@"; do
-            local wy=$(( i * wh ))
+            local wy=$(( oy + i * wh ))
             hyprctl dispatch movetoworkspacesilent "special:claude-agents,address:$addr" >/dev/null 2>&1 || true
             hyprctl dispatch movewindowpixel "exact $cx $wy,address:$addr" >/dev/null 2>&1 || true
             hyprctl dispatch resizewindowpixel "exact $col_w $wh,address:$addr" >/dev/null 2>&1 || true
@@ -103,9 +109,9 @@ let
           done
         }
 
-        [ "''${#idle_addrs[@]}"     -gt 0 ] && layout_col 0                "''${idle_addrs[@]}"
-        [ "''${#working_addrs[@]}"  -gt 0 ] && layout_col "$col_w"         "''${working_addrs[@]}"
-        [ "''${#approval_addrs[@]}" -gt 0 ] && layout_col "$(( col_w*2 ))" "''${approval_addrs[@]}"
+        [ "''${#idle_addrs[@]}"     -gt 0 ] && layout_col "$(( ox ))"             "''${idle_addrs[@]}"
+        [ "''${#working_addrs[@]}"  -gt 0 ] && layout_col "$(( ox + col_w ))"     "''${working_addrs[@]}"
+        [ "''${#approval_addrs[@]}" -gt 0 ] && layout_col "$(( ox + col_w*2 ))"   "''${approval_addrs[@]}"
       }
 
       reposition_all
@@ -136,18 +142,15 @@ let
 
   # ── SUPER+O: spawn — only fires inside the overlay ───────────────────────────
 
-  # Check if the claude-agents special workspace is currently visible on the focused monitor
-  overlayActive = ''
-    hyprctl monitors -j | jq -e \
-      'any(.[]; .focused == true and .specialWorkspace.name == "special:claude-agents")' \
-      >/dev/null 2>&1
-  '';
+  overlayCheck = "hyprctl monitors -j | jq -e 'any(.[]; .focused == true and .specialWorkspace.name == \"special:claude-agents\")' >/dev/null 2>&1";
 
   smartO = pkgs.writeShellApplication {
     name = "claude-agents-smart-o";
     runtimeInputs = [ pkgs.jq pkgs.hyprland spawner ];
     text = ''
-      ${overlayActive} && claude-agent-spawn "$HOME"
+      if ${overlayCheck}; then
+        claude-agent-spawn "$HOME"
+      fi
     '';
   };
 
@@ -155,7 +158,9 @@ let
     name = "claude-agents-smart-p";
     runtimeInputs = [ pkgs.jq pkgs.hyprland ];
     text = ''
-      ${overlayActive} && hyprctl dispatch fullscreen 1
+      if ${overlayCheck}; then
+        hyprctl dispatch fullscreen 1
+      fi
     '';
   };
 
