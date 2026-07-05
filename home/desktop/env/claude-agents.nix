@@ -325,7 +325,7 @@ in {
         ];
         bind = [
           "SUPER, D, togglespecialworkspace, claude-agents"
-          "SUPER, O, exec, ${pkgs.kitty}/bin/kitty --class claude-agents-picker -e ${smartO}/bin/claude-agents-smart-o"
+          "SUPER, O, exec, ${pkgs.kitty}/bin/kitty --class claude-agents-picker --override close_on_child_death=yes -e ${smartO}/bin/claude-agents-smart-o"
           "SUPER, P, exec, ${smartP}/bin/claude-agents-smart-p"
         ];
       };
