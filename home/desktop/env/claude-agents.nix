@@ -134,14 +134,25 @@ let
     '';
   };
 
-  # ── SUPER+P: spawns a Claude agent only when inside the overlay ─────────────
+  # ── SUPER+O: spawn — only fires inside the overlay ───────────────────────────
 
-  smartP = pkgs.writeShellApplication {
-    name = "claude-agents-smart-p";
+  smartO = pkgs.writeShellApplication {
+    name = "claude-agents-smart-o";
     runtimeInputs = [ pkgs.jq pkgs.hyprland spawner ];
     text = ''
       ws=$(hyprctl activewindow -j 2>/dev/null | jq -r '.workspace.name // ""')
       [ "$ws" = "special:claude-agents" ] && claude-agent-spawn "$HOME"
+    '';
+  };
+
+  # ── SUPER+P: focus — fullscreen-toggles the active CLI only inside overlay ──
+
+  smartP = pkgs.writeShellApplication {
+    name = "claude-agents-smart-p";
+    runtimeInputs = [ pkgs.jq pkgs.hyprland ];
+    text = ''
+      ws=$(hyprctl activewindow -j 2>/dev/null | jq -r '.workspace.name // ""')
+      [ "$ws" = "special:claude-agents" ] && hyprctl dispatch fullscreen 1
     '';
   };
 
@@ -150,7 +161,7 @@ in {
     mkEnableOption "Claude Code agent management with Hyprland workspace integration";
 
   config = mkIf cfg.enable {
-    home.packages = [ watcher spawner smartP ];
+    home.packages = [ watcher spawner smartO smartP ];
 
     home.file.".claude/settings.json" = {
       force = true;
@@ -187,7 +198,8 @@ in {
           "workspace special:claude-agents silent, class:^claude-agent-.*$"
         ];
         bind = [
-          "SUPER, O, togglespecialworkspace, claude-agents"
+          "SUPER, D, togglespecialworkspace, claude-agents"
+          "SUPER, O, exec, ${smartO}/bin/claude-agents-smart-o"
           "SUPER, P, exec, ${smartP}/bin/claude-agents-smart-p"
         ];
       };
