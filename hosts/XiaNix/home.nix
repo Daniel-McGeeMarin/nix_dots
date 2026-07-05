@@ -12,7 +12,7 @@
   programming.enable = true;
   ai.enable = false;
   ai.claudeCode.enable = true;
-  programs.claudeAgents.enable = false;
+  programs.claudeAgents.enable = true;
 
   desktop = {
     enable = true;

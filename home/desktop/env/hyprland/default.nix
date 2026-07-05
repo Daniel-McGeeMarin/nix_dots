@@ -107,7 +107,6 @@ in
     plugins = [
       pkgs.hyprlandPlugins.hyprgrass
       pkgs.hyprlandPlugins.hyprspace
-      pkgs.hyprlandPlugins.hyprexpo
     ];
   };
 }

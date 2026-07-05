@@ -4,6 +4,8 @@ let
   cfg = config.programs.claudeAgents;
   stateDir = "$XDG_RUNTIME_DIR/claude-agents";
 
+  # ── Hooks ────────────────────────────────────────────────────────────────────
+
   hookSessionStart = pkgs.writeShellApplication {
     name = "claude-agent-hook-session-start";
     runtimeInputs = [ pkgs.jq pkgs.coreutils ];
@@ -51,41 +53,71 @@ let
     '';
   };
 
+  # ── Watcher (repositions all windows whenever any state file changes) ────────
+
   watcher = pkgs.writeShellApplication {
     name = "claude-agents-watcher";
-    runtimeInputs = with pkgs; [ inotify-tools jq hyprland coreutils ];
+    runtimeInputs = with pkgs; [ inotify-tools jq hyprland gawk coreutils ];
     text = ''
       mkdir -p "${stateDir}"
 
-      move_window() {
-        local sid="$1" workspace="$2" addr
-        addr=$(hyprctl clients -j | jq -r --arg class "claude-agent-$sid" \
-          '.[] | select(.class == $class) | .address' | head -1)
-        [ -z "$addr" ] && return 0
-        hyprctl dispatch movetoworkspacesilent "name:$workspace,address:$addr" >/dev/null
+      reposition_all() {
+        local mon mw mh scale lw lh col_w
+        mon=$(hyprctl monitors -j | jq '.[0]')
+        mw=$(printf '%s' "$mon" | jq '.width')
+        mh=$(printf '%s' "$mon" | jq '.height')
+        scale=$(printf '%s' "$mon" | jq '.scale')
+        lw=$(awk "BEGIN{printf \"%d\", $mw/$scale}")
+        lh=$(awk "BEGIN{printf \"%d\", $mh/$scale}")
+        col_w=$(( lw / 3 ))
+
+        local idle_addrs=() working_addrs=() approval_addrs=()
+        local sf sid state addr
+        for sf in "${stateDir}"/*.state; do
+          [ -f "$sf" ] || continue
+          sid=$(basename "$sf" .state)
+          state=$(cat "$sf")
+          addr=$(hyprctl clients -j | jq -r --arg c "claude-agent-$sid" \
+            '.[] | select(.class == $c) | .address' | head -1)
+          [ -z "$addr" ] && continue
+          case "$state" in
+            idle)           idle_addrs+=("$addr") ;;
+            working)        working_addrs+=("$addr") ;;
+            needs-approval) approval_addrs+=("$addr") ;;
+          esac
+        done
+
+        # layout_col <col_x> [addr ...]
+        layout_col() {
+          local cx="$1"; shift
+          local n="$#"
+          [ "$n" -eq 0 ] && return 0
+          local wh=$(( lh / n ))
+          local i=0 addr
+          for addr in "$@"; do
+            local wy=$(( i * wh ))
+            hyprctl dispatch movetoworkspacesilent "special:claude-agents,address:$addr" >/dev/null 2>&1 || true
+            hyprctl dispatch movewindowpixel "exact $cx $wy,address:$addr" >/dev/null 2>&1 || true
+            hyprctl dispatch resizewindowpixel "exact $col_w $wh,address:$addr" >/dev/null 2>&1 || true
+            i=$(( i + 1 ))
+          done
+        }
+
+        [ "''${#idle_addrs[@]}"     -gt 0 ] && layout_col 0                "''${idle_addrs[@]}"
+        [ "''${#working_addrs[@]}"  -gt 0 ] && layout_col "$col_w"         "''${working_addrs[@]}"
+        [ "''${#approval_addrs[@]}" -gt 0 ] && layout_col "$(( col_w*2 ))" "''${approval_addrs[@]}"
       }
 
-      handle() {
-        local sf="$1" sid state
-        [[ "$sf" != *.state ]] && return 0
-        [ -f "$sf" ] || return 0
-        sid=$(basename "$sf" .state)
-        state=$(cat "$sf")
-        case "$state" in
-          idle|working|needs-approval) move_window "$sid" "$state" ;;
-        esac
-      }
-
-      for sf in "${stateDir}"/*.state; do
-        [ -f "$sf" ] && handle "$sf"
-      done
+      reposition_all
 
       inotifywait -m -e close_write,moved_to "${stateDir}" --format '%w%f' \
         | while read -r sf; do
-            handle "$sf"
+            [[ "$sf" == *.state ]] && reposition_all
           done
     '';
   };
+
+  # ── Spawner ──────────────────────────────────────────────────────────────────
 
   spawner = pkgs.writeShellApplication {
     name = "claude-agent-spawn";
@@ -102,34 +134,18 @@ let
     '';
   };
 
-  picker = pkgs.writeShellApplication {
-    name = "claude-agent-pick-and-spawn";
-    runtimeInputs = [ pkgs.fzf pkgs.jq pkgs.hyprland pkgs.coreutils spawner ];
+  # ── Smart SUPER+Q: spawns Claude agent when in the overlay, kitty otherwise ─
+
+  smartQ = pkgs.writeShellApplication {
+    name = "claude-agents-smart-q";
+    runtimeInputs = [ pkgs.jq pkgs.hyprland spawner ];
     text = ''
-      agents=$(hyprctl clients -j | jq -r \
-        '.[] | select(.class | startswith("claude-agent-"))
-        | .class + " [" + .workspace.name + "]"')
-
-      options="new agent"
-      [ -n "$agents" ] && options="$agents
-$options"
-
-      choice=$(printf '%s' "$options" | fzf --prompt="Agent: " \
-        --height=40% --reverse --no-sort) || true
-
-      case "$choice" in
-        "new agent")
-          claude-agent-spawn "$HOME"
-          ;;
-        "")
-          ;;
-        *)
-          cls=$(printf '%s' "$choice" | awk '{print $1}')
-          addr=$(hyprctl clients -j | jq -r \
-            --arg class "$cls" '.[] | select(.class == $class) | .address')
-          [ -n "$addr" ] && hyprctl dispatch focuswindow "address:$addr" >/dev/null
-          ;;
-      esac
+      ws=$(hyprctl activewindow -j 2>/dev/null | jq -r '.workspace.name // ""')
+      if [ "$ws" = "special:claude-agents" ]; then
+        claude-agent-spawn "$HOME"
+      else
+        ${pkgs.kitty}/bin/kitty &
+      fi
     '';
   };
 
@@ -138,28 +154,16 @@ in {
     mkEnableOption "Claude Code agent management with Hyprland workspace integration";
 
   config = mkIf cfg.enable {
-    home.packages = [ watcher spawner picker ];
+    home.packages = [ watcher spawner smartQ ];
 
     home.file.".claude/settings.json" = {
       force = true;
       text = builtins.toJSON {
         hooks = {
-          SessionStart = [{
-            matcher = "";
-            hooks = [{ type = "command"; command = "${hookSessionStart}/bin/claude-agent-hook-session-start"; }];
-          }];
-          PreToolUse = [{
-            matcher = "";
-            hooks = [{ type = "command"; command = "${hookPreToolUse}/bin/claude-agent-hook-pre-tool-use"; }];
-          }];
-          Notification = [{
-            matcher = "";
-            hooks = [{ type = "command"; command = "${hookNotification}/bin/claude-agent-hook-notification"; }];
-          }];
-          Stop = [{
-            matcher = "";
-            hooks = [{ type = "command"; command = "${hookStop}/bin/claude-agent-hook-stop"; }];
-          }];
+          SessionStart = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookSessionStart}/bin/claude-agent-hook-session-start"; }]; }];
+          PreToolUse   = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookPreToolUse}/bin/claude-agent-hook-pre-tool-use"; }]; }];
+          Notification = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookNotification}/bin/claude-agent-hook-notification"; }]; }];
+          Stop         = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookStop}/bin/claude-agent-hook-stop"; }]; }];
         };
       };
     };
@@ -180,46 +184,20 @@ in {
     };
 
     wayland.windowManager.hyprland = {
-      plugins = [ pkgs.hyprlandPlugins.hyprexpo ];
       settings = {
-        workspace = [
-          "name:idle, persistent:true"
-          "name:working, persistent:true"
-          "name:needs-approval, persistent:true"
-        ];
         windowrulev2 = [
+          # All claude CLI windows float and land in the overlay workspace
           "float, class:^claude-agent-.*$"
-          "size 80% 80%, class:^claude-agent-.*$"
-          "center, class:^claude-agent-.*$"
+          "workspace special:claude-agents silent, class:^claude-agent-.*$"
         ];
         bind = [
-          "SUPER, D, submap, claude-agents"
+          # SUPER+D toggles the overlay open/closed
+          "SUPER, D, togglespecialworkspace, claude-agents"
         ];
-        plugin.hyprexpo = {
-          columns = 3;
-          gap_size = 4;
-          bg_col = "rgba(111111ff)";
-          workspace_method = "center current";
-          enable_gesture = false;
-        };
       };
+      # Override the global SUPER+Q bind (later in config = wins in Hyprland)
       extraConfig = ''
-        submap = claude-agents
-        bind = , 1, workspace, name:idle
-        bind = , 2, workspace, name:working
-        bind = , 3, workspace, name:needs-approval
-        bind = SHIFT, 1, movetoworkspace, name:idle
-        bind = SHIFT, 2, movetoworkspace, name:working
-        bind = SHIFT, 3, movetoworkspace, name:needs-approval
-        bind = , T, exec, ${picker}/bin/claude-agent-pick-and-spawn
-        bind = , O, exec, hyprctl dispatch hyprexpo:expo toggle
-        bind = , F, fullscreen, 1
-        bind = , G, togglegroup
-        bind = SHIFT, G, moveoutofgroup
-        bind = , bracketleft, changegroupactive, b
-        bind = , bracketright, changegroupactive, f
-        bind = , escape, submap, reset
-        submap = reset
+        bind = SUPER, Q, exec, ${smartQ}/bin/claude-agents-smart-q
       '';
     };
   };

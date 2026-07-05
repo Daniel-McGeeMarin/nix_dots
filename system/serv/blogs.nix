@@ -52,12 +52,7 @@
       '';
 
       "http://journal.mcgeedan.com".extraConfig = ''
-        @admin path_regexp ^/ghost(/.*)?$
-        forward_auth @admin 127.0.0.1:9091 {
-          uri /api/authz/forward-auth
-          header_up X-Forwarded-Proto https
-          copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
-        }
+        import require_auth
         reverse_proxy 127.0.0.1:2369 {
           header_up X-Forwarded-Proto https
         }
