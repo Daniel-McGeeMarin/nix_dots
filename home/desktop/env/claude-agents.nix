@@ -11,10 +11,11 @@ let
     runtimeInputs = [ pkgs.jq pkgs.coreutils ];
     text = ''
       input=$(cat)
-      sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
-      [ -z "$sid" ] && exit 0
+      claude_sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
+      [ -z "$claude_sid" ] && exit 0
+      agent_sid="''${CLAUDE_AGENT_SID:-$claude_sid}"
       mkdir -p "${stateDir}"
-      printf 'idle' > "${stateDir}/$sid.state"
+      printf 'idle' > "${stateDir}/$agent_sid.state"
     '';
   };
 
@@ -23,9 +24,10 @@ let
     runtimeInputs = [ pkgs.jq pkgs.coreutils ];
     text = ''
       input=$(cat)
-      sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
-      [ -z "$sid" ] && exit 0
-      printf 'working' > "${stateDir}/$sid.state"
+      claude_sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
+      [ -z "$claude_sid" ] && exit 0
+      agent_sid="''${CLAUDE_AGENT_SID:-$claude_sid}"
+      printf 'working' > "${stateDir}/$agent_sid.state"
     '';
   };
 
@@ -34,10 +36,11 @@ let
     runtimeInputs = [ pkgs.jq pkgs.coreutils pkgs.libnotify ];
     text = ''
       input=$(cat)
-      sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
+      claude_sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
       msg=$(printf '%s' "$input" | jq -r '.message // "Agent needs attention"')
-      [ -z "$sid" ] && exit 0
-      printf 'needs-approval' > "${stateDir}/$sid.state"
+      [ -z "$claude_sid" ] && exit 0
+      agent_sid="''${CLAUDE_AGENT_SID:-$claude_sid}"
+      printf 'needs-approval' > "${stateDir}/$agent_sid.state"
       notify-send "Claude Agent" "$msg" --icon=terminal
     '';
   };
@@ -47,9 +50,10 @@ let
     runtimeInputs = [ pkgs.jq pkgs.coreutils ];
     text = ''
       input=$(cat)
-      sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
-      [ -z "$sid" ] && exit 0
-      printf 'idle' > "${stateDir}/$sid.state"
+      claude_sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
+      [ -z "$claude_sid" ] && exit 0
+      agent_sid="''${CLAUDE_AGENT_SID:-$claude_sid}"
+      printf 'idle' > "${stateDir}/$agent_sid.state"
     '';
   };
 
@@ -149,7 +153,7 @@ let
       printf 'idle' > "${stateDir}/$sid.state"
       printf '%s' "$cwd" > "${stateDir}/$sid.dir"
       title=$(basename "$cwd")
-      setsid --fork ${pkgs.kitty}/bin/kitty \
+      CLAUDE_AGENT_SID="$sid" setsid --fork ${pkgs.kitty}/bin/kitty \
         --class "claude-agent-$sid" \
         --title "$title" \
         --working-directory "$cwd" \
