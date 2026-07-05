@@ -128,7 +128,7 @@ pys = "source ./venv/bin/activate";
                       --preview='echo {1}' --preview-window=up:1) || return
               local name
               name=$(echo "$repo" | cut -f1)
-              git clone "git@github.com:${name}.git"
+              git clone "git@github.com:''${name}.git"
             }
 
             cursor() { appimage-run "$HOME/MyApps/Cursor/Cursor-2.4.35-x86_64.AppImage" >/dev/null 2>&1 &}
