@@ -224,7 +224,7 @@ let
         ensure_overlay_shown
       else
         # Record to history and spawn
-        { echo "$data"; cat "$history_file" 2>/dev/null; } \
+        { echo "$data"; cat "$history_file" 2>/dev/null || true; } \
           | awk '!seen[$0]++' | head -50 > "''${history_file}.tmp"
         mv "''${history_file}.tmp" "$history_file"
         claude-agent-spawn "$data"
