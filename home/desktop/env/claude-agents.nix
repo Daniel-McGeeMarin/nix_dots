@@ -138,6 +138,10 @@ let
         --class "claude-agent-$sid" \
         --title "$title" \
         --working-directory "$cwd" \
+        --override tab_bar_min_tabs=1 \
+        --override tab_bar_edge=top \
+        --override tab_bar_style=separator \
+        --override tab_title_template="{title}" \
         -e sh -c "${pkgs.claude-code}/bin/claude" &
     '';
   };
@@ -201,28 +205,16 @@ in {
     };
 
     wayland.windowManager.hyprland = {
-      plugins = [ pkgs.hyprlandPlugins.hyprbars ];
       settings = {
         windowrulev2 = [
           "float, class:^claude-agent-.*$"
           "workspace special:claude-agents silent, class:^claude-agent-.*$"
-          # Title bar only for agent windows; all others are unaffected (bar_height=0 default)
-          "plugin:hyprbars:bar_height 24, class:^claude-agent-.*$"
-          "plugin:hyprbars:bar_color rgba(1e1e2ecc), class:^claude-agent-.*$"
-          "plugin:hyprbars:bar_text_size 11, class:^claude-agent-.*$"
         ];
         bind = [
           "SUPER, D, togglespecialworkspace, claude-agents"
           "SUPER, O, exec, ${smartO}/bin/claude-agents-smart-o"
           "SUPER, P, exec, ${smartP}/bin/claude-agents-smart-p"
         ];
-        # hyprbars global: height 0 = invisible everywhere except where overridden by windowrulev2
-        "plugin:hyprbars" = {
-          bar_height = 0;
-          bar_text_size = 11;
-          bar_text_font = "JetBrains Mono";
-          bar_part_of_window = true;
-        };
       };
     };
   };
