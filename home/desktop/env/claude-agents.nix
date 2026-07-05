@@ -197,7 +197,7 @@ let
 
       choice=$(printf '%s' "$all" \
         | fzf --delimiter=$'\t' --with-nth=1,2 \
-              --prompt='Claude › ' --height=50% --reverse \
+              --prompt='Claude › ' \
               --preview='[ -d {3} ] && ls -- {3} || echo "(running agent)"' \
               --preview-window=right:35%)
 
@@ -272,10 +272,14 @@ in {
         windowrulev2 = [
           "float, class:^claude-agent-.*$"
           "workspace special:claude-agents silent, class:^claude-agent-.*$"
+          "float, class:^claude-agents-picker$"
+          "center, class:^claude-agents-picker$"
+          "size 700 400, class:^claude-agents-picker$"
+          "stayfocused, class:^claude-agents-picker$"
         ];
         bind = [
           "SUPER, D, togglespecialworkspace, claude-agents"
-          "SUPER, O, exec, ${smartO}/bin/claude-agents-smart-o"
+          "SUPER, O, exec, ${pkgs.kitty}/bin/kitty --class claude-agents-picker -e ${smartO}/bin/claude-agents-smart-o"
           "SUPER, P, exec, ${smartP}/bin/claude-agents-smart-p"
         ];
       };
