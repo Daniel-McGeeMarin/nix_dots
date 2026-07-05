@@ -5,6 +5,7 @@ in
 {
   imports = [
     ./caelestia
+    ./claude-agents.nix
     ./gnome
     ./hyprland
     ./rofi
