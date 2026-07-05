@@ -146,16 +146,64 @@ let
     '';
   };
 
-  # ── SUPER+O: spawn — only fires inside the overlay ───────────────────────────
-
   overlayCheck = "hyprctl monitors -j | jq -e 'any(.[]; .focused == true and .specialWorkspace.name == \"special:claude-agents\")' >/dev/null 2>&1";
+
+  # ── SUPER+O: fuzzy picker — focus running agent or spawn in chosen dir ───────
 
   smartO = pkgs.writeShellApplication {
     name = "claude-agents-smart-o";
-    runtimeInputs = [ pkgs.jq pkgs.hyprland spawner ];
+    runtimeInputs = [ pkgs.jq pkgs.hyprland pkgs.fzf pkgs.fd pkgs.coreutils spawner ];
     text = ''
-      if ${overlayCheck}; then
-        claude-agent-spawn "$HOME"
+      history_file="''${XDG_STATE_HOME:-$HOME/.local/state}/claude-agents/dir-history"
+      mkdir -p "$(dirname "$history_file")"
+
+      # Running agents: "▶\tTITLE (STATE)\tCLASS"
+      running=$(hyprctl clients -j | jq -r '
+        .[] | select(.class | startswith("claude-agent-"))
+        | ["▶", (.title + " [" + .workspace.name + "]"), .class]
+        | join("\t")
+      ')
+
+      # History: "◆\tDIR\tDIR"
+      history_lines=""
+      [ -f "$history_file" ] && \
+        history_lines=$(awk '{print "◆\t" $0 "\t" $0}' "$history_file")
+
+      # Git repos not already in history: "\t\tDIR"
+      in_history=""
+      [ -f "$history_file" ] && in_history=$(cat "$history_file")
+      git_dirs=$(fd -H -t d -d 4 '^\.git$' "$HOME" \
+          --exclude node_modules --exclude .cache --exclude .cargo --exclude .rustup \
+          2>/dev/null \
+        | sed 's|/\.git$||' \
+        | grep -vxF "$in_history" \
+        | head -200 \
+        | awk '{print "\t" $0 "\t" $0}')
+
+      all=$(printf '%s\n%s\n%s' "$running" "$history_lines" "$git_dirs" | grep -v '^$')
+
+      choice=$(printf '%s' "$all" \
+        | fzf --delimiter=$'\t' --with-nth=1,2 \
+              --prompt='Claude › ' --height=50% --reverse \
+              --preview='d=$(echo {3}); [ -d "$d" ] && ls "$d" || echo "(running agent)"' \
+              --preview-window=right:35%)
+
+      [ -z "$choice" ] && exit 0
+
+      tag=$(printf '%s' "$choice" | cut -f1)
+      data=$(printf '%s' "$choice" | cut -f3)
+
+      if [ "$tag" = "▶" ]; then
+        # Focus the running agent window
+        addr=$(hyprctl clients -j | jq -r --arg cls "$data" \
+          '.[] | select(.class == $cls) | .address')
+        [ -n "$addr" ] && hyprctl dispatch focuswindow "address:$addr" >/dev/null
+      else
+        # Record to history and spawn
+        { echo "$data"; cat "$history_file" 2>/dev/null; } \
+          | awk '!seen[$0]++' | head -50 > "${history_file}.tmp"
+        mv "${history_file}.tmp" "$history_file"
+        claude-agent-spawn "$data"
       fi
     '';
   };
