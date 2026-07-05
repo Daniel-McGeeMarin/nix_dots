@@ -139,26 +139,9 @@ let
 
   # ── Spawner ──────────────────────────────────────────────────────────────────
 
-  focusWaiter = pkgs.writeShellApplication {
-    name = "claude-agent-focus-waiter";
-    runtimeInputs = [ pkgs.jq pkgs.hyprland pkgs.coreutils ];
-    text = ''
-      class="$1"
-      for _ in $(seq 30); do
-        sleep 0.2
-        addr=$(hyprctl clients -j | jq -r --arg c "$class" \
-          '.[] | select(.class == $c) | .address' | head -1)
-        if [ -n "$addr" ]; then
-          hyprctl dispatch focuswindow "address:$addr" >/dev/null 2>&1
-          exit 0
-        fi
-      done
-    '';
-  };
-
   spawner = pkgs.writeShellApplication {
     name = "claude-agent-spawn";
-    runtimeInputs = [ pkgs.coreutils pkgs.util-linux focusWaiter ];
+    runtimeInputs = [ pkgs.coreutils pkgs.util-linux ];
     text = ''
       cwd="''${1:-$HOME}"
       sid="agent-$(date +%s%3N)"
@@ -175,7 +158,6 @@ let
         --override tab_bar_style=separator \
         --override tab_title_template="{title}" \
         -e "${pkgs.claude-code}/bin/claude"
-      setsid --fork claude-agent-focus-waiter "claude-agent-$sid"
     '';
   };
 
@@ -339,7 +321,7 @@ in {
           "float, class:^claude-agents-picker$"
           "center, class:^claude-agents-picker$"
           "size 1200 550, class:^claude-agents-picker$"
-          "workspace special:claude-agents silent, class:^claude-agents-picker$"
+          "workspace special:claude-agents, class:^claude-agents-picker$"
         ];
         bind = [
           "SUPER, D, togglespecialworkspace, claude-agents"
