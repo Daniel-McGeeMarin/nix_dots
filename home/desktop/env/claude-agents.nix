@@ -149,7 +149,8 @@ let
       printf 'idle' > "${stateDir}/$sid.state"
       printf '%s' "$cwd" > "${stateDir}/$sid.dir"
       title=$(basename "$cwd")
-      CLAUDE_AGENT_CLASS="$sid" ${pkgs.kitty}/bin/kitty \
+      ${pkgs.kitty}/bin/kitty \
+        --detach \
         --class "claude-agent-$sid" \
         --title "$title" \
         --working-directory "$cwd" \
@@ -157,8 +158,7 @@ let
         --override tab_bar_edge=top \
         --override tab_bar_style=separator \
         --override tab_title_template="{title}" \
-        -e sh -c "${pkgs.claude-code}/bin/claude" &
-      disown
+        -e "${pkgs.claude-code}/bin/claude"
     '';
   };
 
@@ -186,9 +186,9 @@ let
           [ -f "$history_file" ] && awk '{print "◆\t" $0 "\t" $0}' "$history_file"
           {
             [ -d "$HOME/Documents" ] && \
-              fd -H -t d -d 5 --absolute-path '^\.git$' "$HOME/Documents" 2>/dev/null | sed 's|/\.git/?$||'
+              fd -H -t d -d 5 '^\.git$' "$HOME/Documents" -x dirname 2>/dev/null
             [ -d "$HOME/nixos" ] && \
-              fd -H -t d -d 5 --absolute-path '^\.git$' "$HOME/nixos" 2>/dev/null | sed 's|/\.git/?$||'
+              fd -H -t d -d 5 '^\.git$' "$HOME/nixos" -x dirname 2>/dev/null
           } | awk '{print "\t" $0 "\t" $0}'
         } \
         | awk -F'\t' '!seen[$3]++'
