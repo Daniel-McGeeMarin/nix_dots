@@ -77,21 +77,32 @@ let
         lh=$(awk "BEGIN{printf \"%d\", $mh/$scale - $oy - $res_bottom}")
         col_w=$(( lw / 3 ))
 
-        local idle_addrs=() working_addrs=() approval_addrs=()
-        local sf sid state addr
+        local clients_json
+        clients_json=$(hyprctl clients -j)
+
+        local idle_pairs="" working_pairs="" approval_pairs=""
+        local sf sid state client title addr
         for sf in "${stateDir}"/*.state; do
           [ -f "$sf" ] || continue
           sid=$(basename "$sf" .state)
           state=$(cat "$sf")
-          addr=$(hyprctl clients -j | jq -r --arg c "claude-agent-$sid" \
-            '.[] | select(.class == $c) | .address' | head -1)
-          [ -z "$addr" ] && continue
+          client=$(printf '%s' "$clients_json" | jq -r --arg c "claude-agent-$sid" \
+            '.[] | select(.class == $c) | [.title, .address] | join("\t")' | head -1)
+          [ -z "$client" ] && continue
+          title=$(printf '%s' "$client" | cut -f1)
+          addr=$(printf '%s' "$client" | cut -f2)
           case "$state" in
-            idle)           idle_addrs+=("$addr") ;;
-            working)        working_addrs+=("$addr") ;;
-            needs-approval) approval_addrs+=("$addr") ;;
+            idle)           idle_pairs+="$title"$'\t'"$addr"$'\n' ;;
+            working)        working_pairs+="$title"$'\t'"$addr"$'\n' ;;
+            needs-approval) approval_pairs+="$title"$'\t'"$addr"$'\n' ;;
           esac
         done
+
+        # Sort each column by title, extract addresses into arrays
+        local idle_addrs=() working_addrs=() approval_addrs=()
+        [ -n "$idle_pairs" ]    && readarray -t idle_addrs    < <(printf '%s' "$idle_pairs"    | sort -f | cut -f2)
+        [ -n "$working_pairs" ] && readarray -t working_addrs < <(printf '%s' "$working_pairs" | sort -f | cut -f2)
+        [ -n "$approval_pairs" ] && readarray -t approval_addrs < <(printf '%s' "$approval_pairs" | sort -f | cut -f2)
 
         # layout_col <col_x> [addr ...]
         layout_col() {
@@ -164,21 +175,18 @@ let
         | join("\t")
       ')
 
-      # Dirs: history (◆) + git repos merged, deduped by path, sorted by basename
+      # Dirs: history (◆) + git repos from Documents/nixos only, deduped
       dirs=$(
         {
           [ -f "$history_file" ] && awk '{print "◆\t" $0 "\t" $0}' "$history_file"
-          fd -H -t d -d 4 '^\.git$' "$HOME" \
-              --exclude node_modules --exclude .cache --exclude .cargo --exclude .rustup \
-              2>/dev/null \
-            | sed 's|/\.git$||' \
-            | head -200 \
-            | awk '{print "\t" $0 "\t" $0}'
+          {
+            [ -d "$HOME/Documents" ] && \
+              fd -H -t d -d 5 '^\.git$' "$HOME/Documents" 2>/dev/null | sed 's|/\.git$||'
+            [ -d "$HOME/nixos" ] && \
+              fd -H -t d -d 5 '^\.git$' "$HOME/nixos" 2>/dev/null | sed 's|/\.git$||'
+          } | awk '{print "\t" $0 "\t" $0}'
         } \
-        | awk -F'\t' '!seen[$3]++' \
-        | awk -F'\t' '{n=split($3,a,"/"); print a[n] "\t" $0}' \
-        | sort -f \
-        | cut -f2-
+        | awk -F'\t' '!seen[$3]++'
       )
 
       all=$(printf '%s\n%s' "$running" "$dirs" | grep -v '^$')
