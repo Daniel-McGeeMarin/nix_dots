@@ -171,6 +171,11 @@ let
     name = "claude-agents-smart-o";
     runtimeInputs = [ pkgs.jq pkgs.hyprland pkgs.fzf pkgs.fd pkgs.coreutils spawner ];
     text = ''
+      # Show the overlay if it isn't already visible
+      if ! hyprctl monitors -j | jq -e 'any(.[]; .focused == true and .specialWorkspace.name == "special:claude-agents")' >/dev/null 2>&1; then
+        hyprctl dispatch togglespecialworkspace claude-agents >/dev/null 2>&1
+      fi
+
       history_file="''${XDG_STATE_HOME:-$HOME/.local/state}/claude-agents/dir-history"
       mkdir -p "$(dirname "$history_file")"
 
@@ -208,12 +213,6 @@ let
       tag=$(printf '%s' "$choice" | cut -f1)
       data=$(printf '%s' "$choice" | cut -f3)
 
-      ensure_overlay_shown() {
-        if ! hyprctl monitors -j | jq -e 'any(.[]; .focused == true and .specialWorkspace.name == "special:claude-agents")' >/dev/null 2>&1; then
-          hyprctl dispatch togglespecialworkspace claude-agents >/dev/null 2>&1
-        fi
-      }
-
       if [ "$tag" = "▶" ]; then
         # Fork: spawn a new agent in the same directory as the selected agent
         sid="''${data#claude-agent-}"
@@ -221,14 +220,12 @@ let
         spawn_dir="$HOME"
         [ -f "$dir_file" ] && spawn_dir=$(cat "$dir_file")
         claude-agent-spawn "$spawn_dir"
-        ensure_overlay_shown
       else
         # Record to history and spawn
         { echo "$data"; cat "$history_file" 2>/dev/null || true; } \
           | awk '!seen[$0]++' | head -50 > "''${history_file}.tmp"
         mv "''${history_file}.tmp" "$history_file"
         claude-agent-spawn "$data"
-        ensure_overlay_shown
       fi
     '';
   };
@@ -285,7 +282,7 @@ in {
           "float, class:^claude-agents-picker$"
           "center, class:^claude-agents-picker$"
           "size 1200 550, class:^claude-agents-picker$"
-          "stayfocused, class:^claude-agents-picker$"
+          "workspace special:claude-agents silent, class:^claude-agents-picker$"
         ];
         bind = [
           "SUPER, D, togglespecialworkspace, claude-agents"
