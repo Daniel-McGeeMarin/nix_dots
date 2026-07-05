@@ -75,7 +75,9 @@ let
         res_bottom=$(printf '%s' "$mon" | jq '.reserved[3]')
         lw=$(awk "BEGIN{printf \"%d\", $mw/$scale - $ox - $res_right}")
         lh=$(awk "BEGIN{printf \"%d\", $mh/$scale - $oy - $res_bottom}")
-        col_w=$(( lw / 3 ))
+        # Gaps: 24px between columns (section divider feel), 8px between stacked windows
+        local col_gap=24 win_gap=8
+        col_w=$(( (lw - 2*col_gap) / 3 ))
 
         local clients_json
         clients_json=$(hyprctl clients -j)
@@ -109,10 +111,11 @@ let
           local cx="$1"; shift
           local n="$#"
           [ "$n" -eq 0 ] && return 0
-          local wh=$(( lh / n ))
+          # Distribute win_gap between windows; last window gets no trailing gap
+          local wh=$(( (lh - (n-1)*win_gap) / n ))
           local i=0 addr
           for addr in "$@"; do
-            local wy=$(( oy + i * wh ))
+            local wy=$(( oy + i * (wh + win_gap) ))
             hyprctl dispatch movetoworkspacesilent "special:claude-agents,address:$addr" >/dev/null 2>&1 || true
             hyprctl dispatch movewindowpixel "exact $cx $wy,address:$addr" >/dev/null 2>&1 || true
             hyprctl dispatch resizewindowpixel "exact $col_w $wh,address:$addr" >/dev/null 2>&1 || true
@@ -120,9 +123,9 @@ let
           done
         }
 
-        [ "''${#idle_addrs[@]}"     -gt 0 ] && layout_col "$(( ox ))"             "''${idle_addrs[@]}"
-        [ "''${#working_addrs[@]}"  -gt 0 ] && layout_col "$(( ox + col_w ))"     "''${working_addrs[@]}"
-        [ "''${#approval_addrs[@]}" -gt 0 ] && layout_col "$(( ox + col_w*2 ))"   "''${approval_addrs[@]}"
+        [ "''${#idle_addrs[@]}"     -gt 0 ] && layout_col "$(( ox ))"                          "''${idle_addrs[@]}"
+        [ "''${#working_addrs[@]}"  -gt 0 ] && layout_col "$(( ox + col_w + col_gap ))"        "''${working_addrs[@]}"
+        [ "''${#approval_addrs[@]}" -gt 0 ] && layout_col "$(( ox + 2*(col_w + col_gap) ))"    "''${approval_addrs[@]}"
       }
 
       reposition_all
