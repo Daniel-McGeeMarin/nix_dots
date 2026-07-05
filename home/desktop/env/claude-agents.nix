@@ -164,23 +164,24 @@ let
         | join("\t")
       ')
 
-      # History: "◆\tDIR\tDIR"
-      history_lines=""
-      [ -f "$history_file" ] && \
-        history_lines=$(awk '{print "◆\t" $0 "\t" $0}' "$history_file")
+      # Dirs: history (◆) + git repos merged, deduped by path, sorted by basename
+      dirs=$(
+        {
+          [ -f "$history_file" ] && awk '{print "◆\t" $0 "\t" $0}' "$history_file"
+          fd -H -t d -d 4 '^\.git$' "$HOME" \
+              --exclude node_modules --exclude .cache --exclude .cargo --exclude .rustup \
+              2>/dev/null \
+            | sed 's|/\.git$||' \
+            | head -200 \
+            | awk '{print "\t" $0 "\t" $0}'
+        } \
+        | awk -F'\t' '!seen[$3]++' \
+        | awk -F'\t' '{n=split($3,a,"/"); print a[n] "\t" $0}' \
+        | sort -f \
+        | cut -f2-
+      )
 
-      # Git repos not already in history: "\t\tDIR"
-      in_history=""
-      [ -f "$history_file" ] && in_history=$(cat "$history_file")
-      git_dirs=$(fd -H -t d -d 4 '^\.git$' "$HOME" \
-          --exclude node_modules --exclude .cache --exclude .cargo --exclude .rustup \
-          2>/dev/null \
-        | sed 's|/\.git$||' \
-        | grep -vxF "$in_history" \
-        | head -200 \
-        | awk '{print "\t" $0 "\t" $0}')
-
-      all=$(printf '%s\n%s\n%s' "$running" "$history_lines" "$git_dirs" | grep -v '^$')
+      all=$(printf '%s\n%s' "$running" "$dirs" | grep -v '^$')
 
       choice=$(printf '%s' "$all" \
         | fzf --delimiter=$'\t' --with-nth=1,2 \
