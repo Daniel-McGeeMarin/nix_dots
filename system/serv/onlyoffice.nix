@@ -53,7 +53,9 @@
     # Allow longer retry window with a pause between attempts so it recovers automatically.
     systemd.services."podman-ocis-collab" = {
       serviceConfig = {
-        RestartSec            = "15s";
+        RestartSec = "15s";
+      };
+      unitConfig = {
         StartLimitBurst       = 20;
         StartLimitIntervalSec = 600;
       };

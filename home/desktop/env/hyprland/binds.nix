@@ -45,9 +45,7 @@ in
         "$mainMod,W,exec,firefox"
         "$mainMod,A,exec,pkill aiclip; aiclip"
         "$mainMod,V,togglefloating,"
-        "$mainMod,n,exec,swaync-client --close-latest"
-        "$mainMod SHIFT,n,exec,swaync-client -t"
-        "$mainMod SHIFT,R,exec,pkill rofi || rofi -show drun"
+"$mainMod SHIFT,R,exec,pkill rofi || rofi -show drun"
 
         # Caelestia global binds
         "$mainMod,R,global,caelestia:launcher"

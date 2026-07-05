@@ -43,6 +43,7 @@ pys = "source ./venv/bin/activate";
       sch = "cd ~/Documents/school/";
       c = "cd ~/.config/";
       p = "cd ~/Documents/Projects";
+      st = "cd ~/Documents/startup";
       d = "cd ~/Documents";
       m = "cd ~/MyApps/";
       #sudo = "doas";

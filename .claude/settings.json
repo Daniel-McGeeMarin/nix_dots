@@ -1,8 +1,7 @@
 {
   "permissions": {
     "deny": [
-      "Bash(git push *)",
-      "Bash(git reset --hard *)",
+"Bash(git reset --hard *)",
       "Bash(git clean *)",
       "Bash(sudo nixos-rebuild *)",
       "Bash(home-manager switch *)",

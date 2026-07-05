@@ -37,8 +37,7 @@
       (lib.mkIf ((osConfig.services or { }).pipewire.enable or false) helvum)       # PipeWire patchbay GUI
       (lib.mkIf ((osConfig.services or { }).pipewire.pulse.enable or false) pavucontrol) # PulseAudio volume control
 
-      # ── Notifications & media control ─────────────────────────────────────────
-      swaynotificationcenter                 # notification daemon (swaync)
+      # ── Media control ─────────────────────────────────────────────────────────
       playerctl                              # MPRIS media player control
       syncplay                               # synchronized media playback
 
