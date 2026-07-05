@@ -141,7 +141,7 @@ let
 
   spawner = pkgs.writeShellApplication {
     name = "claude-agent-spawn";
-    runtimeInputs = [ pkgs.coreutils ];
+    runtimeInputs = [ pkgs.coreutils pkgs.util-linux ];
     text = ''
       cwd="''${1:-$HOME}"
       sid="agent-$(date +%s%3N)"
@@ -149,8 +149,7 @@ let
       printf 'idle' > "${stateDir}/$sid.state"
       printf '%s' "$cwd" > "${stateDir}/$sid.dir"
       title=$(basename "$cwd")
-      ${pkgs.kitty}/bin/kitty \
-        --detach \
+      setsid ${pkgs.kitty}/bin/kitty \
         --class "claude-agent-$sid" \
         --title "$title" \
         --working-directory "$cwd" \
@@ -158,7 +157,9 @@ let
         --override tab_bar_edge=top \
         --override tab_bar_style=separator \
         --override tab_title_template="{title}" \
-        -e "${pkgs.claude-code}/bin/claude"
+        -e "${pkgs.claude-code}/bin/claude" \
+        </dev/null >/dev/null 2>&1 &
+      disown
     '';
   };
 
