@@ -147,6 +147,7 @@ let
       sid="agent-$(date +%s%3N)"
       mkdir -p "${stateDir}"
       printf 'idle' > "${stateDir}/$sid.state"
+      printf '%s' "$cwd" > "${stateDir}/$sid.dir"
       title=$(basename "$cwd")
       CLAUDE_AGENT_CLASS="$sid" ${pkgs.kitty}/bin/kitty \
         --class "claude-agent-$sid" \
@@ -206,10 +207,12 @@ let
       data=$(printf '%s' "$choice" | cut -f3)
 
       if [ "$tag" = "▶" ]; then
-        # Focus the running agent window
-        addr=$(hyprctl clients -j | jq -r --arg cls "$data" \
-          '.[] | select(.class == $cls) | .address')
-        [ -n "$addr" ] && hyprctl dispatch focuswindow "address:$addr" >/dev/null
+        # Fork: spawn a new agent in the same directory as the selected agent
+        sid="''${data#claude-agent-}"
+        dir_file="${stateDir}/$sid.dir"
+        spawn_dir="$HOME"
+        [ -f "$dir_file" ] && spawn_dir=$(cat "$dir_file")
+        claude-agent-spawn "$spawn_dir"
       else
         # Record to history and spawn
         { echo "$data"; cat "$history_file" 2>/dev/null; } \
