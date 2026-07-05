@@ -171,7 +171,7 @@ let
     name = "claude-agents-smart-o";
     runtimeInputs = [ pkgs.jq pkgs.hyprland pkgs.fzf pkgs.fd pkgs.coreutils spawner ];
     text = ''
-      # Show the overlay if it isn't already visible
+      # Show overlay first if not already visible
       if ! hyprctl monitors -j | jq -e 'any(.[]; .focused == true and .specialWorkspace.name == "special:claude-agents")' >/dev/null 2>&1; then
         hyprctl dispatch togglespecialworkspace claude-agents >/dev/null 2>&1
       fi
@@ -179,42 +179,80 @@ let
       history_file="''${XDG_STATE_HOME:-$HOME/.local/state}/claude-agents/dir-history"
       mkdir -p "$(dirname "$history_file")"
 
-      # Running agents: "▶\tTITLE (STATE)\tCLASS"
+      GRN=$'\033[32m'
+      YLW=$'\033[33m'
+      CYN=$'\033[36m'
+      DIM=$'\033[2m'
+      RST=$'\033[0m'
+
+      # Running agents — cyan ▶, field4=running
       running=$(hyprctl clients -j | jq -r '
         .[] | select(.class | startswith("claude-agent-"))
-        | ["▶", (.title + " [" + .workspace.name + "]"), .class]
+        | [.title + " [" + .workspace.name + "]", .class]
         | join("\t")
-      ')
+      ' | awk -v c="$CYN" -v r="$RST" -F'\t' \
+          '{print c "▶" r "\t" c $1 r "\t" $2 "\trunning"}')
 
-      # Dirs: history (◆) + git repos from Documents/nixos only, deduped
+      # Git repos from Documents (depth 5) — green, field4=git
+      git_repos=""
+      if [ -d "$HOME/Documents" ]; then
+        git_repos=$(fd -H -t d -d 5 '^\.git$' "$HOME/Documents" \
+          -x dirname 2>/dev/null | sort -u)
+      fi
+
+      # Top-level dirs in Documents (depth 1) — dim, field4=dir
+      top_dirs=""
+      if [ -d "$HOME/Documents" ]; then
+        top_dirs=$(fd -t d -d 1 . "$HOME/Documents" 2>/dev/null | sort -u)
+      fi
+
+      # Non-git dirs = top-level minus git repos
+      non_git=""
+      if [ -n "$top_dirs" ]; then
+        if [ -n "$git_repos" ]; then
+          non_git=$(printf '%s\n' "$top_dirs" \
+            | grep -Fxv -f <(printf '%s\n' "$git_repos") || true)
+        else
+          non_git="$top_dirs"
+        fi
+      fi
+
       dirs=$(
         {
-          [ -f "$history_file" ] && awk '{print "◆\t" $0 "\t" $0}' "$history_file"
-          {
-            [ -d "$HOME/Documents" ] && \
-              fd -H -t d -d 5 '^\.git$' "$HOME/Documents" -x dirname 2>/dev/null
-            [ -d "$HOME/nixos" ] && \
-              fd -H -t d -d 5 '^\.git$' "$HOME/nixos" -x dirname 2>/dev/null
-          } | awk '{print "\t" $0 "\t" $0}'
-        } \
-        | awk -F'\t' '!seen[$3]++'
+          # History — yellow ◆
+          [ -f "$history_file" ] && \
+            awk -v c="$YLW" -v r="$RST" \
+              '{print c "◆" r "\t" c $0 r "\t" $0 "\thistory"}' "$history_file"
+
+          # Git repos — green "git"
+          [ -n "$git_repos" ] && \
+            printf '%s\n' "$git_repos" | \
+            awk -v c="$GRN" -v r="$RST" \
+              '{print c " git" r "\t" c $0 r "\t" $0 "\tgit"}'
+
+          # Regular dirs — dim "dir"
+          [ -n "$non_git" ] && \
+            printf '%s\n' "$non_git" | \
+            awk -v c="$DIM" -v r="$RST" \
+              '{print c " dir" r "\t" c $0 r "\t" $0 "\tdir"}'
+        } | awk -F'\t' '!seen[$3]++'
       )
 
       all=$(printf '%s\n%s' "$running" "$dirs" | grep -v '^$')
 
       choice=$(printf '%s' "$all" \
-        | fzf --delimiter=$'\t' --with-nth=1,2 \
+        | fzf --ansi --delimiter=$'\t' --with-nth=1,2 \
               --prompt='Claude › ' \
-              --preview='[ -d {3} ] && ls -- {3} || echo "(running agent)"' \
+              --preview='d={3}; [ -d "$d" ] && ls -- "$d" || echo "(running agent)"' \
               --preview-window=right:35%)
 
       [ -z "$choice" ] && exit 0
 
-      tag=$(printf '%s' "$choice" | cut -f1)
+      entry_type=$(printf '%s' "$choice" | cut -f4)
       data=$(printf '%s' "$choice" | cut -f3)
 
-      if [ "$tag" = "▶" ]; then
-        # Fork: spawn a new agent in the same directory as the selected agent
+      if [ "$entry_type" = "running" ]; then
+        # Fork: spawn new agent in same directory as selected running agent
         sid="''${data#claude-agent-}"
         dir_file="${stateDir}/$sid.dir"
         spawn_dir="$HOME"
