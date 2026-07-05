@@ -120,6 +120,17 @@ pys = "source ./venv/bin/activate";
 
 
 
+            gc() {
+              local repo
+              repo=$(gh repo list --limit 200 --json nameWithOwner,description,isPrivate \
+                --jq '.[] | "\(.nameWithOwner)\t\(if .isPrivate then "🔒" else "  " end) \(.description // "")"' \
+                | fzf --prompt="clone> " --delimiter=$'\t' --with-nth=2.. \
+                      --preview='echo {1}' --preview-window=up:1) || return
+              local name
+              name=$(echo "$repo" | cut -f1)
+              git clone "git@github.com:${name}.git"
+            }
+
             cursor() { appimage-run "$HOME/MyApps/Cursor/Cursor-2.4.35-x86_64.AppImage" >/dev/null 2>&1 &}
             bb() { "$HOME/MyApps/bluebubbles-linux-x86_64/bluebubbles" >/dev/null 2>&1 &! }
             emu() { "$HOME/MyApps/sudachi-linux-v1.0.14/sudachi" >/dev/null 2>&1 &! }
