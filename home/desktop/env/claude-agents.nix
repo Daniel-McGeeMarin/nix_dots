@@ -200,18 +200,20 @@ let
           -x dirname 2>/dev/null | sort -u)
       fi
 
-      # Top-level dirs in Documents (depth 1) — dim, field4=dir
+      # All dirs in Documents up to depth 4, skipping .git internals
       top_dirs=""
       if [ -d "$HOME/Documents" ]; then
-        top_dirs=$(fd -t d -d 1 . "$HOME/Documents" 2>/dev/null | sort -u)
+        top_dirs=$(fd -t d -d 4 --exclude '.git' . "$HOME/Documents" 2>/dev/null | sort -u)
       fi
 
-      # Non-git dirs = top-level minus git repos
+      # Non-git dirs = dirs not equal to or underneath any git repo root
       non_git=""
       if [ -n "$top_dirs" ]; then
         if [ -n "$git_repos" ]; then
-          non_git=$(printf '%s\n' "$top_dirs" \
-            | grep -Fxv -f <(printf '%s\n' "$git_repos") || true)
+          non_git=$(printf '%s\n' "$top_dirs" | awk -v repos="$git_repos" '
+            BEGIN { n=split(repos,r,"\n"); for(i=1;i<=n;i++) if(r[i]!="") g[r[i]]=1 }
+            { for(repo in g) if($0==repo || index($0,repo "/")==1) next; print }
+          ')
         else
           non_git="$top_dirs"
         fi
