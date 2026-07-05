@@ -240,6 +240,7 @@ let
 
       all=$(printf '%s\n%s' "$running" "$dirs" | grep -v '^$')
 
+      # shellcheck disable=SC2016
       choice=$(printf '%s' "$all" \
         | fzf --ansi --delimiter=$'\t' --with-nth=1,2 \
               --prompt='Claude › ' \
