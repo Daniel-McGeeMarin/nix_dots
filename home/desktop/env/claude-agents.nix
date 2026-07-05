@@ -213,8 +213,8 @@ let
       else
         # Record to history and spawn
         { echo "$data"; cat "$history_file" 2>/dev/null; } \
-          | awk '!seen[$0]++' | head -50 > "${history_file}.tmp"
-        mv "${history_file}.tmp" "$history_file"
+          | awk '!seen[$0]++' | head -50 > "''${history_file}.tmp"
+        mv "''${history_file}.tmp" "$history_file"
         claude-agent-spawn "$data"
       fi
     '';
