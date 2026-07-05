@@ -197,7 +197,7 @@ let
       choice=$(printf '%s' "$all" \
         | fzf --delimiter=$'\t' --with-nth=1,2 \
               --prompt='Claude › ' --height=50% --reverse \
-              --preview='d=$(echo {3}); [ -d "$d" ] && ls "$d" || echo "(running agent)"' \
+              --preview='[ -d {3} ] && ls -- {3} || echo "(running agent)"' \
               --preview-window=right:35%)
 
       [ -z "$choice" ] && exit 0
