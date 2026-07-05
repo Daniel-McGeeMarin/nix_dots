@@ -149,7 +149,7 @@ let
       printf 'idle' > "${stateDir}/$sid.state"
       printf '%s' "$cwd" > "${stateDir}/$sid.dir"
       title=$(basename "$cwd")
-      setsid ${pkgs.kitty}/bin/kitty \
+      setsid --fork ${pkgs.kitty}/bin/kitty \
         --class "claude-agent-$sid" \
         --title "$title" \
         --working-directory "$cwd" \
@@ -157,9 +157,7 @@ let
         --override tab_bar_edge=top \
         --override tab_bar_style=separator \
         --override tab_title_template="{title}" \
-        -e "${pkgs.claude-code}/bin/claude" \
-        </dev/null >/dev/null 2>&1 &
-      disown
+        -e "${pkgs.claude-code}/bin/claude"
     '';
   };
 
