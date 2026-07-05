@@ -136,23 +136,26 @@ let
 
   # ── SUPER+O: spawn — only fires inside the overlay ───────────────────────────
 
+  # Check if the claude-agents special workspace is currently visible on the focused monitor
+  overlayActive = ''
+    hyprctl monitors -j | jq -e \
+      'any(.[]; .focused == true and .specialWorkspace.name == "special:claude-agents")' \
+      >/dev/null 2>&1
+  '';
+
   smartO = pkgs.writeShellApplication {
     name = "claude-agents-smart-o";
     runtimeInputs = [ pkgs.jq pkgs.hyprland spawner ];
     text = ''
-      ws=$(hyprctl activewindow -j 2>/dev/null | jq -r '.workspace.name // ""')
-      [ "$ws" = "special:claude-agents" ] && claude-agent-spawn "$HOME"
+      ${overlayActive} && claude-agent-spawn "$HOME"
     '';
   };
-
-  # ── SUPER+P: focus — fullscreen-toggles the active CLI only inside overlay ──
 
   smartP = pkgs.writeShellApplication {
     name = "claude-agents-smart-p";
     runtimeInputs = [ pkgs.jq pkgs.hyprland ];
     text = ''
-      ws=$(hyprctl activewindow -j 2>/dev/null | jq -r '.workspace.name // ""')
-      [ "$ws" = "special:claude-agents" ] && hyprctl dispatch fullscreen 1
+      ${overlayActive} && hyprctl dispatch fullscreen 1
     '';
   };
 
