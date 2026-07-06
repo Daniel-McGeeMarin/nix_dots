@@ -6,8 +6,10 @@ let
 
   # ── Hooks ────────────────────────────────────────────────────────────────────
   # State machine: idle → working (UserPromptSubmit) → needs-approval (Notification)
-  #                     ↑___________________________________________ (UserPromptSubmit)
-  # Stop always → idle.
+  #                          ↑______________________________ (PostToolUse, after approval)
+  # Stop always → idle. No PreToolUse — it fires before the permission dialog
+  # and races with Notification. PostToolUse fires after tool completes (= after
+  # user approved), so it safely transitions needs-approval → working.
 
   hookSessionStart = pkgs.writeShellApplication {
     name = "claude-agent-hook-session-start";
@@ -45,6 +47,18 @@ let
       msg=$(printf '%s' "$input" | jq -r '.message // "Agent needs attention"')
       printf 'needs-approval' > "${stateDir}/$agent_sid.state"
       notify-send "Claude Agent" "$msg" --icon=terminal
+    '';
+  };
+
+  hookPostToolUse = pkgs.writeShellApplication {
+    name = "claude-agent-hook-post-tool-use";
+    runtimeInputs = [ pkgs.jq pkgs.coreutils ];
+    text = ''
+      input=$(cat)
+      claude_sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
+      [ -z "$claude_sid" ] && exit 0
+      agent_sid="''${CLAUDE_AGENT_SID:-$claude_sid}"
+      printf 'working' > "${stateDir}/$agent_sid.state"
     '';
   };
 
@@ -300,6 +314,7 @@ in {
           SessionStart     = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookSessionStart}/bin/claude-agent-hook-session-start"; }]; }];
           UserPromptSubmit = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookUserPromptSubmit}/bin/claude-agent-hook-user-prompt-submit"; }]; }];
           Notification     = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookNotification}/bin/claude-agent-hook-notification"; }]; }];
+          PostToolUse      = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookPostToolUse}/bin/claude-agent-hook-post-tool-use"; }]; }];
           Stop             = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookStop}/bin/claude-agent-hook-stop"; }]; }];
         };
       };
