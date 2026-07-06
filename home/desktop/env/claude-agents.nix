@@ -127,16 +127,16 @@ let
           done
         }
 
-        [ "''${#idle_addrs[@]}"     -gt 0 ] && layout_col "$(( ox ))"                          "''${idle_addrs[@]}"
-        [ "''${#working_addrs[@]}"  -gt 0 ] && layout_col "$(( ox + col_w + col_gap ))"        "''${working_addrs[@]}"
-        [ "''${#approval_addrs[@]}" -gt 0 ] && layout_col "$(( ox + 2*(col_w + col_gap) ))"    "''${approval_addrs[@]}"
+        [ "''${#idle_addrs[@]}"     -gt 0 ] && layout_col "$(( ox ))"                          "''${idle_addrs[@]}"     || true
+        [ "''${#working_addrs[@]}"  -gt 0 ] && layout_col "$(( ox + col_w + col_gap ))"        "''${working_addrs[@]}"  || true
+        [ "''${#approval_addrs[@]}" -gt 0 ] && layout_col "$(( ox + 2*(col_w + col_gap) ))"    "''${approval_addrs[@]}" || true
       }
 
       reposition_all
 
       inotifywait -m -e close_write,moved_to "${stateDir}" --format '%w%f' \
         | while read -r sf; do
-            [[ "$sf" == *.state ]] && reposition_all
+            [[ "$sf" == *.state ]] && reposition_all || true
           done
     '';
   };
