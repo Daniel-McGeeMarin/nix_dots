@@ -4,78 +4,26 @@ let
   cfg = config.programs.claudeAgents;
   stateDir = "$XDG_RUNTIME_DIR/claude-agents";
 
-  # ── Transcript watcher — real-time working detection ─────────────────────────
-  # Launched by SessionStart; watches the JSONL transcript Claude streams to
-  # in real-time. Any write → working. Stop hook handles idle; Notification
-  # hook handles needs-approval. Pre/PostToolUse are belt-and-suspenders.
-
-  transcriptWatcher = pkgs.writeShellApplication {
-    name = "claude-agent-transcript-watcher";
-    runtimeInputs = [ pkgs.inotify-tools pkgs.coreutils ];
-    text = ''
-      agent_sid="$1"
-      transcript="$2"
-      state_file="${stateDir}/$agent_sid.state"
-      pid_file="${stateDir}/$agent_sid.watcher-pid"
-      printf '%d' "$$" > "$pid_file"
-
-      # Wait up to 5s for Claude to create the transcript file
-      for _ in $(seq 10); do
-        [ -f "$transcript" ] && break
-        sleep 0.5
-      done
-      [ -f "$transcript" ] || { rm -f "$pid_file"; exit 0; }
-
-      inotifywait -m -e modify,close_write "$transcript" 2>/dev/null \
-        | while read -r _; do
-            cur=$(cat "$state_file" 2>/dev/null || printf idle)
-            [ "$cur" != "needs-approval" ] && printf 'working' > "$state_file"
-          done
-
-      rm -f "$pid_file"
-    '';
-  };
-
   # ── Hooks ────────────────────────────────────────────────────────────────────
+  # State machine: idle → working (UserPromptSubmit) → needs-approval (Notification)
+  #                     ↑___________________________________________ (UserPromptSubmit)
+  # Stop always → idle.
 
   hookSessionStart = pkgs.writeShellApplication {
     name = "claude-agent-hook-session-start";
-    runtimeInputs = [ pkgs.jq pkgs.coreutils pkgs.util-linux transcriptWatcher ];
-    text = ''
-      input=$(cat)
-      claude_sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
-      [ -z "$claude_sid" ] && exit 0
-      agent_sid="''${CLAUDE_AGENT_SID:-$claude_sid}"
-      transcript=$(printf '%s' "$input" | jq -r '.transcript_path // empty')
-      mkdir -p "${stateDir}"
-      printf 'idle' > "${stateDir}/$agent_sid.state"
-
-      # Kill any existing transcript watcher for this agent
-      pid_file="${stateDir}/$agent_sid.watcher-pid"
-      if [ -f "$pid_file" ]; then
-        kill "$(cat "$pid_file")" 2>/dev/null || true
-        rm -f "$pid_file"
-      fi
-
-      [ -n "$transcript" ] && \
-        setsid --fork claude-agent-transcript-watcher "$agent_sid" "$transcript"
-    '';
-  };
-
-  hookPreToolUse = pkgs.writeShellApplication {
-    name = "claude-agent-hook-pre-tool-use";
     runtimeInputs = [ pkgs.jq pkgs.coreutils ];
     text = ''
       input=$(cat)
       claude_sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
       [ -z "$claude_sid" ] && exit 0
       agent_sid="''${CLAUDE_AGENT_SID:-$claude_sid}"
-      printf 'working' > "${stateDir}/$agent_sid.state"
+      mkdir -p "${stateDir}"
+      printf 'idle' > "${stateDir}/$agent_sid.state"
     '';
   };
 
-  hookPostToolUse = pkgs.writeShellApplication {
-    name = "claude-agent-hook-post-tool-use";
+  hookUserPromptSubmit = pkgs.writeShellApplication {
+    name = "claude-agent-hook-user-prompt-submit";
     runtimeInputs = [ pkgs.jq pkgs.coreutils ];
     text = ''
       input=$(cat)
@@ -93,15 +41,10 @@ let
       input=$(cat)
       claude_sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
       [ -z "$claude_sid" ] && exit 0
-      ntype=$(printf '%s' "$input" | jq -r '.notification_type // "unknown"')
-      msg=$(printf '%s' "$input" | jq -r '.message // "Agent needs attention"')
       agent_sid="''${CLAUDE_AGENT_SID:-$claude_sid}"
-      case "$ntype" in
-        permission_prompt|agent_needs_input)
-          printf 'needs-approval' > "${stateDir}/$agent_sid.state"
-          notify-send "Claude Agent" "$msg" --icon=terminal
-          ;;
-      esac
+      msg=$(printf '%s' "$input" | jq -r '.message // "Agent needs attention"')
+      printf 'needs-approval' > "${stateDir}/$agent_sid.state"
+      notify-send "Claude Agent" "$msg" --icon=terminal
     '';
   };
 
@@ -354,11 +297,10 @@ in {
       force = true;
       text = builtins.toJSON {
         hooks = {
-          SessionStart = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookSessionStart}/bin/claude-agent-hook-session-start"; }]; }];
-          PreToolUse   = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookPreToolUse}/bin/claude-agent-hook-pre-tool-use"; }]; }];
-          PostToolUse  = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookPostToolUse}/bin/claude-agent-hook-post-tool-use"; }]; }];
-          Notification = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookNotification}/bin/claude-agent-hook-notification"; }]; }];
-          Stop         = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookStop}/bin/claude-agent-hook-stop"; }]; }];
+          SessionStart     = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookSessionStart}/bin/claude-agent-hook-session-start"; }]; }];
+          UserPromptSubmit = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookUserPromptSubmit}/bin/claude-agent-hook-user-prompt-submit"; }]; }];
+          Notification     = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookNotification}/bin/claude-agent-hook-notification"; }]; }];
+          Stop             = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookStop}/bin/claude-agent-hook-stop"; }]; }];
         };
       };
     };
