@@ -31,17 +31,34 @@ let
     '';
   };
 
+  hookPostToolUse = pkgs.writeShellApplication {
+    name = "claude-agent-hook-post-tool-use";
+    runtimeInputs = [ pkgs.jq pkgs.coreutils ];
+    text = ''
+      input=$(cat)
+      claude_sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
+      [ -z "$claude_sid" ] && exit 0
+      agent_sid="''${CLAUDE_AGENT_SID:-$claude_sid}"
+      printf 'working' > "${stateDir}/$agent_sid.state"
+    '';
+  };
+
   hookNotification = pkgs.writeShellApplication {
     name = "claude-agent-hook-notification";
     runtimeInputs = [ pkgs.jq pkgs.coreutils pkgs.libnotify ];
     text = ''
       input=$(cat)
       claude_sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
-      msg=$(printf '%s' "$input" | jq -r '.message // "Agent needs attention"')
       [ -z "$claude_sid" ] && exit 0
+      ntype=$(printf '%s' "$input" | jq -r '.notification_type // "unknown"')
+      msg=$(printf '%s' "$input" | jq -r '.message // "Agent needs attention"')
       agent_sid="''${CLAUDE_AGENT_SID:-$claude_sid}"
-      printf 'needs-approval' > "${stateDir}/$agent_sid.state"
-      notify-send "Claude Agent" "$msg" --icon=terminal
+      case "$ntype" in
+        permission_prompt|agent_needs_input|agent_completed)
+          printf 'needs-approval' > "${stateDir}/$agent_sid.state"
+          notify-send "Claude Agent" "$msg" --icon=terminal
+          ;;
+      esac
     '';
   };
 
@@ -53,7 +70,7 @@ let
       claude_sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
       [ -z "$claude_sid" ] && exit 0
       agent_sid="''${CLAUDE_AGENT_SID:-$claude_sid}"
-      printf 'idle' > "${stateDir}/$agent_sid.state"
+      printf 'needs-approval' > "${stateDir}/$agent_sid.state"
     '';
   };
 
@@ -296,6 +313,7 @@ in {
         hooks = {
           SessionStart = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookSessionStart}/bin/claude-agent-hook-session-start"; }]; }];
           PreToolUse   = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookPreToolUse}/bin/claude-agent-hook-pre-tool-use"; }]; }];
+          PostToolUse  = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookPostToolUse}/bin/claude-agent-hook-post-tool-use"; }]; }];
           Notification = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookNotification}/bin/claude-agent-hook-notification"; }]; }];
           Stop         = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookStop}/bin/claude-agent-hook-stop"; }]; }];
         };
