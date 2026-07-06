@@ -45,7 +45,7 @@ let
       agent_sid="''${CLAUDE_AGENT_SID:-$claude_sid}"
       msg=$(printf '%s' "$input" | jq -r '.message // "Agent needs attention"')
       printf 'needs-approval' > "${stateDir}/$agent_sid.state"
-      notify-send "Claude Agent" "$msg" --icon=terminal
+      notify-send "Claude Agent" "$msg" --icon=terminal &
     '';
   };
 
