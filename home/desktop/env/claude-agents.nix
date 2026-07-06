@@ -6,10 +6,9 @@ let
 
   # ── Hooks ────────────────────────────────────────────────────────────────────
   # State machine: idle → working (UserPromptSubmit) → needs-approval (Notification)
-  #                          ↑______________________________ (PostToolUse, after approval)
-  # Stop always → idle. No PreToolUse — it fires before the permission dialog
-  # and races with Notification. PostToolUse fires after tool completes (= after
-  # user approved), so it safely transitions needs-approval → working.
+  #                          ↑____________ (PostToolUse = approved, PostToolUseFailure = denied)
+  # Stop always → idle. No PreToolUse — fires before the permission dialog
+  # and races with Notification.
 
   hookSessionStart = pkgs.writeShellApplication {
     name = "claude-agent-hook-session-start";
@@ -52,6 +51,18 @@ let
 
   hookPostToolUse = pkgs.writeShellApplication {
     name = "claude-agent-hook-post-tool-use";
+    runtimeInputs = [ pkgs.jq pkgs.coreutils ];
+    text = ''
+      input=$(cat)
+      claude_sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
+      [ -z "$claude_sid" ] && exit 0
+      agent_sid="''${CLAUDE_AGENT_SID:-$claude_sid}"
+      printf 'working' > "${stateDir}/$agent_sid.state"
+    '';
+  };
+
+  hookPostToolUseFailure = pkgs.writeShellApplication {
+    name = "claude-agent-hook-post-tool-use-failure";
     runtimeInputs = [ pkgs.jq pkgs.coreutils ];
     text = ''
       input=$(cat)
@@ -311,11 +322,12 @@ in {
       force = true;
       text = builtins.toJSON {
         hooks = {
-          SessionStart     = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookSessionStart}/bin/claude-agent-hook-session-start"; }]; }];
-          UserPromptSubmit = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookUserPromptSubmit}/bin/claude-agent-hook-user-prompt-submit"; }]; }];
-          Notification     = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookNotification}/bin/claude-agent-hook-notification"; }]; }];
-          PostToolUse      = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookPostToolUse}/bin/claude-agent-hook-post-tool-use"; }]; }];
-          Stop             = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookStop}/bin/claude-agent-hook-stop"; }]; }];
+          SessionStart        = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookSessionStart}/bin/claude-agent-hook-session-start"; }]; }];
+          UserPromptSubmit    = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookUserPromptSubmit}/bin/claude-agent-hook-user-prompt-submit"; }]; }];
+          Notification        = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookNotification}/bin/claude-agent-hook-notification"; }]; }];
+          PostToolUse         = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookPostToolUse}/bin/claude-agent-hook-post-tool-use"; }]; }];
+          PostToolUseFailure  = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookPostToolUseFailure}/bin/claude-agent-hook-post-tool-use-failure"; }]; }];
+          Stop                = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookStop}/bin/claude-agent-hook-stop"; }]; }];
         };
       };
     };
