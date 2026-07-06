@@ -54,7 +54,7 @@ let
       msg=$(printf '%s' "$input" | jq -r '.message // "Agent needs attention"')
       agent_sid="''${CLAUDE_AGENT_SID:-$claude_sid}"
       case "$ntype" in
-        permission_prompt|agent_needs_input|agent_completed)
+        permission_prompt|agent_needs_input)
           printf 'needs-approval' > "${stateDir}/$agent_sid.state"
           notify-send "Claude Agent" "$msg" --icon=terminal
           ;;
@@ -70,7 +70,7 @@ let
       claude_sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
       [ -z "$claude_sid" ] && exit 0
       agent_sid="''${CLAUDE_AGENT_SID:-$claude_sid}"
-      printf 'needs-approval' > "${stateDir}/$agent_sid.state"
+      printf 'idle' > "${stateDir}/$agent_sid.state"
     '';
   };
 
