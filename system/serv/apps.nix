@@ -16,7 +16,11 @@
       };
     };
 
-    services.caddy.virtualHosts."http://v2.mcgeedan.com".extraConfig = ''
+    services.caddy.virtualHosts."http://www.mcgeedan.com".extraConfig = ''
+      redir https://mcgeedan.com{uri} permanent
+    '';
+
+    services.caddy.virtualHosts."http://mcgeedan.com".extraConfig = ''
       handle /api/* {
         reverse_proxy 127.0.0.1:8000
       }
