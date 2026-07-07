@@ -10,6 +10,7 @@
     "d /srv/data/homarr       0750 root root"
     "d /srv/data/ghost-public 0750 root root"
     "d /srv/data/ghost-private 0750 root root"
+    "d /srv/data/site-api     0750 root root"
     "d /srv/www               0755 root root"
   ];
 }

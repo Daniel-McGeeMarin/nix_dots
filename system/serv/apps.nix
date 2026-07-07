@@ -12,6 +12,8 @@
       site-api = {
         image  = "ghcr.io/daniel-mcgeemarin/mcgeeinfov2-api:latest";
         ports  = [ "127.0.0.1:8000:8000" ];
+        volumes = [ "/srv/data/site-api:/data" ];
+        environment.JOBS_DB_PATH = "/data/jobs.db";
         labels."io.containers.autoupdate" = "registry";
       };
     };
