@@ -21,8 +21,16 @@
     '';
 
     services.caddy.virtualHosts."http://mcgeedan.com".extraConfig = ''
+      handle /api/jobs* {
+        import require_auth
+        reverse_proxy 127.0.0.1:8000
+      }
       handle /api/* {
         reverse_proxy 127.0.0.1:8000
+      }
+      handle /apps/jobs* {
+        import require_auth
+        reverse_proxy 127.0.0.1:3001
       }
       handle {
         reverse_proxy 127.0.0.1:3001

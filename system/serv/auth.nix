@@ -31,7 +31,11 @@
           rules = [
             # Authelia's own login portal must be reachable without auth
             { domain = "auth.mcgeedan.com"; policy = "bypass"; }
-            # Everything else on the domain requires one-factor login
+            # Jobs section of the main site requires login
+            { domain = "mcgeedan.com"; resources = [ "^/api/jobs(/.*)?$" "^/apps/jobs(/.*)?$" ]; policy = "one_factor"; }
+            # Rest of the main site is public
+            { domain = "mcgeedan.com"; policy = "bypass"; }
+            # Everything else on subdomains requires one-factor login
             { domain = "*.mcgeedan.com"; policy = "one_factor"; }
           ];
         };
