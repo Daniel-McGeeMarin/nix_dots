@@ -45,6 +45,8 @@
           COLLABORATION_APP_INSECURE                = "false";
           COLLABORATION_CS3API_DATAGATEWAY_INSECURE = "true";
           OCIS_URL                                  = "https://cloud.mcgeedan.com";
+          OCIS_LOG_LEVEL                            = "debug";
+          OCIS_LOG_PRETTY                           = "true";
         };
         labels = { "io.containers.autoupdate" = "registry"; };
       };
