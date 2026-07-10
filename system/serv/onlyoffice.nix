@@ -35,8 +35,9 @@
           COLLABORATION_HTTP_ADDR                   = "0.0.0.0:9300";
           MICRO_REGISTRY                            = "nats-js-kv";
           MICRO_REGISTRY_ADDRESS                    = "127.0.0.1:9233";
-          # OnlyOffice reaches collab via ocis container's IP (shared network namespace)
-          COLLABORATION_WOPI_SRC                    = "http://ocis:9300";
+          # WOPI src must be an https:// URL — OnlyOffice 8+ silently refuses http:// sources.
+          # The OCIS proxy routes /wopi/ to the collab service, so the external URL works.
+          COLLABORATION_WOPI_SRC                    = "https://cloud.mcgeedan.com";
           COLLABORATION_APP_NAME                    = "OnlyOffice";
           COLLABORATION_APP_PRODUCT                 = "OnlyOffice";
           COLLABORATION_APP_ADDR                    = "https://office.mcgeedan.com";
