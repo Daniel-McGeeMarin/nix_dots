@@ -42,9 +42,13 @@
     services.caddy.virtualHosts."http://cloud.mcgeedan.com".extraConfig = ''
       reverse_proxy 127.0.0.1:9200 {
         header_up X-Forwarded-Proto https
+        # Inject office.mcgeedan.com into OCIS's CSP so OnlyOffice iframes and
+        # WebSocket connections are allowed. header_down modifies the upstream
+        # response header directly; the site-level header directive's search-replace
+        # form does not reliably fire on proxied responses.
+        header_down Content-Security-Policy "https://embed\.diagrams\.net/" "https://embed.diagrams.net/ https://office.mcgeedan.com"
+        header_down Content-Security-Policy "(connect-src[^;]*)" "$1 https://office.mcgeedan.com wss://office.mcgeedan.com"
       }
-      # Inject office.mcgeedan.com into OCIS's CSP frame-src so OnlyOffice iframes are allowed
-      header Content-Security-Policy "https://embed\.diagrams\.net/" "https://embed.diagrams.net/ https://office.mcgeedan.com"
     '';
   };
 }
