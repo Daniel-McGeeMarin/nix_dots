@@ -40,14 +40,20 @@
     # No require_auth — OCIS uses its own OIDC auth; Authelia here would break
     # desktop/mobile sync clients that authenticate directly with OCIS.
     services.caddy.virtualHosts."http://cloud.mcgeedan.com".extraConfig = ''
-      reverse_proxy 127.0.0.1:9200 {
-        header_up X-Forwarded-Proto https
-        # Inject office.mcgeedan.com into OCIS's CSP so OnlyOffice iframes and
-        # WebSocket connections are allowed. header_down modifies the upstream
-        # response header directly; the site-level header directive's search-replace
-        # form does not reliably fire on proxied responses.
-        header_down Content-Security-Policy "https://embed\.diagrams\.net/" "https://embed.diagrams.net/ https://office.mcgeedan.com"
-        header_down Content-Security-Policy "(connect-src[^;]*)" "$1 https://office.mcgeedan.com wss://office.mcgeedan.com"
+      # WOPI callbacks from OnlyOffice go directly to the collab service (9300).
+      # The OCIS proxy (9200) serves its SPA for unknown paths and does not route
+      # /wopi/ internally — requests there return 200 HTML, which OnlyOffice rejects.
+      handle /wopi/* {
+        reverse_proxy 127.0.0.1:9300 {
+          header_up X-Forwarded-Proto https
+        }
+      }
+      handle {
+        reverse_proxy 127.0.0.1:9200 {
+          header_up X-Forwarded-Proto https
+          header_down Content-Security-Policy "https://embed\.diagrams\.net/" "https://embed.diagrams.net/ https://office.mcgeedan.com"
+          header_down Content-Security-Policy "(connect-src[^;]*)" "$1 https://office.mcgeedan.com wss://office.mcgeedan.com"
+        }
       }
     '';
   };
