@@ -41,7 +41,7 @@
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
-      secrets = import (builtins.getEnv "HOME" + "/nixos/secrets.nix");
+      secrets = import (builtins.getEnv "HOME" + "/nixos/local.nix");
 
       overlay-unstable = final: prev: {
         unstable = import nixpkgs-unstable.legacyPackages.${system};

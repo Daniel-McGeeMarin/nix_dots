@@ -4,7 +4,7 @@ confs/nvim/lazy-lock.json
 confs/nvim/.secrets.lua
 
 # Local Nix secrets (not for git)
-secrets.nix
+local.nix
 
 # Nix build output symlinks
 result
