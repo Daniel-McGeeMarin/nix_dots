@@ -51,6 +51,7 @@
   environment.systemPackages = with pkgs; [
     unfree.cudatoolkit
     unfree.cudaPackages.cuda_cudart
+    inputs.agenix.packages.x86_64-linux.default
   ];
 
   programs = {
