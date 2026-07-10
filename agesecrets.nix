@@ -9,4 +9,6 @@ in {
   "secrets/ghost-public-env.age".publicKeys     = [ xiaserver ];
   "secrets/ghost-private-env.age".publicKeys    = [ xiaserver ];
   "secrets/ocis-admin-password.age".publicKeys  = [ xiaserver ];
+  "secrets/graphide-api-env.age".publicKeys     = [ xiaserver ];
+  "secrets/ghcr-token.age".publicKeys           = [ xiaserver ];
 }
