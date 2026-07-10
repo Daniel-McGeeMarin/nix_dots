@@ -14,7 +14,7 @@
 
     virtualisation.oci-containers.containers.ocis = {
       image   = "docker.io/owncloud/ocis:latest";
-      ports   = [ "127.0.0.1:9200:9200" ];
+      ports   = [ "127.0.0.1:9200:9200" "127.0.0.1:9300:9300" ];
       volumes = [ "/srv/data/ocis:/var/lib/ocis" ];
       environment = {
         OCIS_URL        = "https://cloud.mcgeedan.com";
