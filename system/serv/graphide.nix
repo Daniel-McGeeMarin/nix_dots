@@ -11,7 +11,8 @@
       # Classic PAT with read:packages scope, no expiration.
       ghcr-token = {
         file = ../../secrets/ghcr-token.age;
-        mode = "0400";
+        mode = "0440";
+        group = "users";
       };
     };
 
