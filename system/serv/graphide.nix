@@ -29,7 +29,7 @@
       wantedBy    = [ "multi-user.target" ];
       script = ''
         ${pkgs.podman}/bin/podman login ghcr.io \
-          --username graphidehq \
+          --username Daniel-McGeeMarin \
           --password-stdin < ${config.age.secrets.ghcr-token.path}
       '';
       serviceConfig = {
