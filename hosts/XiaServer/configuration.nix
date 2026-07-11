@@ -69,6 +69,32 @@
 
   virtualisation.oci-containers.backend = "podman";
 
+  # Workaround for nixos-rebuild-ng bug: systemd-run --collect never fires the
+  # "unit removed" D-Bus event when the transient unit file persists on disk,
+  # causing nixos-rebuild to hang indefinitely after switch-to-configuration
+  # completes. This path unit watches for the file and cleans it up.
+  systemd.paths."nixos-rebuild-cleanup" = {
+    wantedBy = [ "multi-user.target" ];
+    pathConfig.PathExists = "/run/systemd/transient/nixos-rebuild-switch-to-configuration.service";
+  };
+  systemd.services."nixos-rebuild-cleanup" = {
+    description = "Unblock nixos-rebuild-ng after switch-to-configuration completes";
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = toString (pkgs.writeShellScript "nixos-rebuild-cleanup" ''
+        for i in $(seq 1 120); do
+          if ! systemctl is-active nixos-rebuild-switch-to-configuration.service &>/dev/null; then
+            break
+          fi
+          sleep 1
+        done
+        sleep 2
+        rm -f /run/systemd/transient/nixos-rebuild-switch-to-configuration.service
+        systemctl daemon-reload
+      '');
+    };
+  };
+
   fonts.packages = with pkgs; [
     rubik
     nerd-fonts.ubuntu
