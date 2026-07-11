@@ -13,8 +13,9 @@
         ports   = [ "127.0.0.1:8090:80" ];
         volumes = [ "/srv/data/onlyoffice:/var/www/onlyoffice/Data" ];
         environment = {
-          WOPI_ENABLED = "true";
-          JWT_ENABLED  = "false";
+          WOPI_ENABLED      = "true";
+          JWT_ENABLED       = "false";
+          NGINX_ACCESS_LOG  = "true";
         };
         labels = { "io.containers.autoupdate" = "registry"; };
       };
