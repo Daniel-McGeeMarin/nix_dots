@@ -73,6 +73,7 @@
     blueman
     alsa-utils
     kdePackages.breeze-icons
+    inputs.agenix.packages.x86_64-linux.default
   ];
 
   time.timeZone = "America/Los_Angeles";
