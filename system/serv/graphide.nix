@@ -16,9 +16,18 @@
     };
 
     systemd.tmpfiles.rules = [
-      "d /srv/data/graphide-pg    0700 root root"
+      # UID 70 = postgres user in postgres:17-alpine; must own the data dir.
+      "d /srv/data/graphide-pg    0700 70   70"
       "d /srv/data/graphide-redis 0700 root root"
     ];
+
+    # Ensure ownership is correct even when the directory already exists
+    # (tmpfiles `d` only sets ownership on creation, not on existing dirs).
+    systemd.services."podman-graphide-postgres" = {
+      serviceConfig.ExecStartPre = [
+        "${pkgs.coreutils}/bin/chown -R 70:70 /srv/data/graphide-pg"
+      ];
+    };
 
     # Log into GHCR once at boot so both the container start and the
     # podman-auto-update timer can pull the private image.
@@ -69,10 +78,39 @@
       };
     };
 
-    # Ensure GHCR credentials exist before pulling the private image.
+    # Wait for PostgreSQL to accept connections before starting the API.
+    # dependsOn only waits for the container *service* to start, not for
+    # postgres to finish initializing its data directory (which takes several
+    # seconds on first boot). This script polls TCP 5432 until it's open.
+    systemd.services.graphide-pg-ready = {
+      description = "Wait for graphide-postgres to accept connections";
+      after       = [ "podman-graphide-postgres.service" ];
+      requires    = [ "podman-graphide-postgres.service" ];
+      wantedBy    = [ "podman-graphide-api.service" ];
+      before      = [ "podman-graphide-api.service" ];
+      script = ''
+        echo "Waiting for postgres on 127.0.0.1:5432..."
+        for i in $(seq 1 60); do
+          if ${pkgs.netcat-openbsd}/bin/nc -z 127.0.0.1 5432 2>/dev/null; then
+            echo "Postgres ready after $i attempts."
+            exit 0
+          fi
+          sleep 1
+        done
+        echo "Postgres did not become ready within 60 seconds." >&2
+        exit 1
+      '';
+      serviceConfig = {
+        Type            = "oneshot";
+        RemainAfterExit = true;
+      };
+    };
+
+    # Ensure GHCR credentials exist before pulling the private image,
+    # and postgres is ready before the API tries to connect.
     systemd.services."podman-graphide-api" = {
-      after    = [ "graphide-ghcr-login.service" ];
-      requires = [ "graphide-ghcr-login.service" ];
+      after    = [ "graphide-ghcr-login.service" "graphide-pg-ready.service" ];
+      requires = [ "graphide-ghcr-login.service" "graphide-pg-ready.service" ];
     };
 
     services.caddy.virtualHosts."http://graphideapi.mcgeedan.com".extraConfig = ''
