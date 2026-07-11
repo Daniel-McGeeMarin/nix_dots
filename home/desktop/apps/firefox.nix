@@ -72,7 +72,6 @@ in
             (extension "darkreader"                 "addon@darkreader.org")
             (extension "tridactyl-vim"              "tridactyl.vim@cmcaine.co.uk")
             (extension "caelestiafox"               "caelestiafox@caelestia.org")
-            (extension "styl-us"                    "{7a7a4a92-a2a0-41d1-9fd7-1e92480d612d}")
           ];
       };
 
