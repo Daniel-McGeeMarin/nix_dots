@@ -27,7 +27,7 @@
   serv.onlyoffice.enable = true;
   serv.apps.site.enable = true;
   serv.forgejo.enable = true;
-  # serv.graphide.enable = true; # re-enable after secrets are created
+  serv.graphide.enable = true;
   services.openssh.settings.PasswordAuthentication = false;
 
   services.displayManager.autoLogin = {
