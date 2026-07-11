@@ -50,6 +50,10 @@
       }
       handle {
         reverse_proxy 127.0.0.1:9200 {
+          # flush_interval -1 forces immediate SSE byte flushing so OCIS's
+          # keep-alive pings reach Cloudflare before its ~100s proxy timeout
+          # fires a 524, which was breaking OnlyOffice context initialization.
+          flush_interval -1
           header_up X-Forwarded-Proto https
           header_down Content-Security-Policy "https://embed\.diagrams\.net/" "https://embed.diagrams.net/ https://office.mcgeedan.com"
           header_down Content-Security-Policy "(connect-src[^;]*)" "$1 https://office.mcgeedan.com wss://office.mcgeedan.com"
