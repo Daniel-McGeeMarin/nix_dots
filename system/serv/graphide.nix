@@ -1,3 +1,67 @@
+# Graphide API server — three Podman containers (postgres, redis, API) on host
+# networking, managed as systemd services via virtualisation.oci-containers.
+#
+# == New system setup checklist ==
+#
+# 1. Secrets — two age-encrypted files in secrets/:
+#
+#    secrets/graphide-api-env.age  (edit with: agenix -e secrets/graphide-api-env.age)
+#      POSTGRES_USER=graphide
+#      POSTGRES_DB=graphide
+#      POSTGRES_PASSWORD=<strong random>
+#      DATABASE_URL=postgres://graphide:<same password>@127.0.0.1:5432/graphide
+#      REDIS_URL=redis://127.0.0.1:6379
+#      SUPABASE_URL=https://<project>.supabase.co   # base URL only, no path
+#      ANTHROPIC_API_KEY=sk-ant-...                 # required for AI jobs; safe to
+#                                                    # omit until you're ready — the
+#                                                    # server starts without it but
+#                                                    # job requests will fail
+#      PORT=8080
+#
+#    secrets/ghcr-token.age  (edit with: agenix -e secrets/ghcr-token.age)
+#      <GitHub PAT with read:packages scope — no newline>
+#
+#    Both must be encrypted to the target host's SSH key (see secrets.nix).
+#    To create a new PAT: GitHub → Settings → Developer settings →
+#    Personal access tokens → Tokens (classic) → read:packages scope.
+#
+# 2. Supabase — create a project at supabase.com; the Project URL
+#    (Settings → API) is all you need for SUPABASE_URL. No tables or
+#    auth providers need to be configured to start the server.
+#
+# 3. GHCR image — ghcr.io/graphidehq/monolith-api:latest is built and
+#    pushed automatically by the deploy.yml workflow in the monolith repo
+#    on every push to master. The image must exist before first boot.
+#
+# 4. Enable — set serv.graphide.enable = true in the host's configuration.nix.
+#
+# == Key design decisions and gotchas ==
+#
+# - Host networking: all three containers share the host network stack so they
+#   reach each other on 127.0.0.1 without a Podman pod or internal DNS.
+#   Postgres and Redis are bound to 127.0.0.1 only — not exposed externally.
+#
+# - Postgres data dir ownership: postgres:17-alpine runs postgres as UID 70.
+#   The data dir must be owned by UID 70 or postgres refuses to start.
+#   systemd tmpfiles creates it with the right owner on fresh systems;
+#   ExecStartPre chowns it on every boot to fix any ownership drift.
+#   (Root-owned dir was the original failure mode — caused a crash loop.)
+#
+# - Startup sequencing: NixOS oci-containers' `dependsOn` only waits for
+#   the container *service* to start, not for postgres to be ready to accept
+#   connections. First boot takes several seconds for initdb to run.
+#   graphide-pg-ready polls TCP 5432 for up to 60s before the API starts.
+#
+# == Verifying the service ==
+#
+#   curl http://localhost:8080/health   # → {"status":"ok"}  (no DB needed)
+#   curl http://localhost:8080/ready    # → {"status":"ok"}  (DB + Redis up)
+#
+#   journalctl -u podman-graphide-api      -f   # API logs
+#   journalctl -u podman-graphide-postgres -f   # postgres logs
+#   journalctl -u graphide-pg-ready        -f   # startup sequencing
+#   podman ps                                   # running containers
+
 { config, lib, pkgs, ... }:
 {
   options.serv.graphide.enable = lib.mkEnableOption "Graphide API server";

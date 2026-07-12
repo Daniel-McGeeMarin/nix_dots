@@ -177,6 +177,31 @@ Example skeleton (adapt and keep local):
 
 ---
 
+## Graphide API service
+
+`system/serv/graphide.nix` runs the Graphide cloud API server on XiaServer as three Podman containers (PostgreSQL, Redis, Go API) on host networking, proxied by Caddy at `graphideapi.mcgeedan.com`.
+
+Enable with `serv.graphide.enable = true` in the host's `configuration.nix`.
+
+**Two secrets required** (agenix-encrypted, in `secrets/`):
+
+| File | Contents |
+|---|---|
+| `graphide-api-env.age` | `POSTGRES_USER`, `POSTGRES_DB`, `POSTGRES_PASSWORD`, `DATABASE_URL`, `REDIS_URL`, `SUPABASE_URL`, `ANTHROPIC_API_KEY`, `PORT` |
+| `ghcr-token.age` | GitHub PAT with `read:packages` scope (pulls the private GHCR image) |
+
+The container image (`ghcr.io/graphidehq/monolith-api:latest`) is built and pushed automatically by the deploy workflow in the [monolith repo](https://github.com/GraphideHQ/monolith) on every push to `master`.
+
+Full setup instructions and gotchas (postgres UID, startup sequencing) are documented at the top of `system/serv/graphide.nix`.
+
+**Verify the service is healthy:**
+```sh
+curl http://localhost:8080/health   # {"status":"ok"}
+curl http://localhost:8080/ready    # {"status":"ok"} — confirms DB + Redis up
+```
+
+---
+
 ## Credits
 
 Thanks to **Ben** for helping build and refine this repo and the Nix setup over time.
