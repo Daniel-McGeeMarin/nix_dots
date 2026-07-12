@@ -34,8 +34,39 @@
       # ocis init generates jwt/signing secrets on first run; || true skips if already done
       entrypoint = "/bin/sh";
       cmd        = [ "-c" "ocis init || true; ocis server" ];
+      # All OIDC calls (discovery, JWKS, userinfo, SSE auth) go to cloud.mcgeedan.com
+      # which DNS-resolves to Cloudflare externally, causing a hairpin through the tunnel
+      # that times out. host-gateway (10.88.0.1) routes them to Caddy on the host directly.
+      # ocis-collab inherits this via --network=container:ocis.
+      extraOptions = [ "--add-host=cloud.mcgeedan.com:host-gateway" ];
       labels = { "io.containers.autoupdate" = "registry"; };
     };
+
+    # Allow the OCIS container to reach Caddy's internal HTTPS vhost on 10.88.0.1:443.
+    # The NixOS firewall drops packets from the Podman subnet by default, causing the
+    # OIDC discovery / JWKS fetch to time out with "context deadline exceeded".
+    # This only opens port 443 on podman0 — external interfaces are unaffected.
+    networking.firewall.interfaces."podman0".allowedTCPPorts = [ 443 ];
+
+    # Internal HTTPS endpoint for the OCIS container's own OIDC calls.
+    # Bound only to the Podman gateway (10.88.0.1) so external traffic is unaffected.
+    # OCIS routes cloud.mcgeedan.com here via --add-host instead of hairpinning through
+    # Cloudflare. tls internal uses Caddy's built-in CA; OCIS_INSECURE=true accepts it.
+    services.caddy.virtualHosts."https://cloud.mcgeedan.com".extraConfig = ''
+      bind 10.88.0.1
+      tls internal
+      handle /wopi/* {
+        reverse_proxy 127.0.0.1:9300 {
+          header_up X-Forwarded-Proto https
+        }
+      }
+      handle {
+        reverse_proxy 127.0.0.1:9200 {
+          flush_interval -1
+          header_up X-Forwarded-Proto https
+        }
+      }
+    '';
 
     # No require_auth — OCIS uses its own OIDC auth; Authelia here would break
     # desktop/mobile sync clients that authenticate directly with OCIS.
