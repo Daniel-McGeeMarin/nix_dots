@@ -20,6 +20,7 @@ let
       agent_sid="''${CLAUDE_AGENT_SID:-$claude_sid}"
       mkdir -p "${stateDir}"
       printf 'idle' > "${stateDir}/$agent_sid.state"
+      printf '%s' "$claude_sid" > "${stateDir}/$agent_sid.session"
     '';
   };
 
@@ -224,11 +225,17 @@ let
     runtimeInputs = [ pkgs.coreutils pkgs.util-linux ];
     text = ''
       cwd="''${1:-$HOME}"
+      resume_session="''${2:-}"
       sid="agent-$(date +%s%3N)"
       mkdir -p "${stateDir}"
       printf 'idle' > "${stateDir}/$sid.state"
       printf '%s' "$cwd" > "${stateDir}/$sid.dir"
       title=$(basename "$cwd")
+      if [ -n "$resume_session" ]; then
+        set -- "${pkgs.claude-code}/bin/claude" --resume "$resume_session"
+      else
+        set -- "${pkgs.claude-code}/bin/claude"
+      fi
       CLAUDE_AGENT_SID="$sid" setsid --fork ${pkgs.kitty}/bin/kitty \
         --class "claude-agent-$sid" \
         --title "$title" \
@@ -239,7 +246,7 @@ let
         --override tab_title_template="{title}" \
         --override allow_remote_control=socket-only \
         --override "listen_on=unix:${stateDir}/$sid.sock" \
-        -e "${pkgs.claude-code}/bin/claude"
+        -e "$@"
     '';
   };
 
@@ -433,15 +440,20 @@ let
       [ -z "$agents" ] && exit 0
 
       spawn_dirs=()
+      spawn_sessions=()
       kill_pids=()
       while IFS=$'\t' read -r class pid; do
         [ -z "$class" ] && continue
         sid="''${class#claude-agent-}"
         dir="$HOME"
         [ -f "$stateDir/$sid.dir" ] && dir=$(cat "$stateDir/$sid.dir")
+        session=""
+        [ -f "$stateDir/$sid.session" ] && session=$(cat "$stateDir/$sid.session")
         spawn_dirs+=("$dir")
+        spawn_sessions+=("$session")
         kill_pids+=("$pid")
-        rm -f "$stateDir/$sid.state" "$stateDir/$sid.dir" "$stateDir/$sid.sock"
+        rm -f "$stateDir/$sid.state" "$stateDir/$sid.dir" \
+              "$stateDir/$sid.session" "$stateDir/$sid.sock"
       done <<< "$agents"
 
       # Kill all agent processes
@@ -452,8 +464,8 @@ let
       # Give windows time to close before spawning replacements
       sleep 0.5
 
-      for dir in "''${spawn_dirs[@]}"; do
-        claude-agent-spawn "$dir"
+      for i in "''${!spawn_dirs[@]}"; do
+        claude-agent-spawn "''${spawn_dirs[$i]}" "''${spawn_sessions[$i]}"
       done
     '';
   };
