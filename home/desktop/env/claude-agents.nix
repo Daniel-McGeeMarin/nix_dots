@@ -431,7 +431,14 @@ let
       stateDir="${stateDir}"
       PIPE=$(mktemp -u /tmp/claude-hover-XXXXXX)
       mkfifo "$PIPE"
-      cleanup() { kill "$(jobs -p)" 2>/dev/null || true; rm -f "$PIPE"; }
+      MAIN_PID=$BASHPID
+      # Guard with BASHPID so inherited EXIT traps in subshells are no-ops —
+      # without this, every debounce/reexpand subshell deletes the FIFO on exit.
+      cleanup() {
+        [ "$BASHPID" = "$MAIN_PID" ] || return 0
+        kill "$(jobs -p)" 2>/dev/null || true
+        rm -f "$PIPE"
+      }
       trap cleanup EXIT INT TERM
 
       # Locate Hyprland event socket (Hyprland 0.41+ uses XDG_RUNTIME_DIR/hypr/)
