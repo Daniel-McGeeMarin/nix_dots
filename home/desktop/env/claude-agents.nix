@@ -26,42 +26,13 @@ let
 
   hookUserPromptSubmit = pkgs.writeShellApplication {
     name = "claude-agent-hook-user-prompt-submit";
-    runtimeInputs = [ pkgs.jq pkgs.coreutils pkgs.gawk ];
+    runtimeInputs = [ pkgs.jq pkgs.coreutils ];
     text = ''
       input=$(cat)
       claude_sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
       [ -z "$claude_sid" ] && exit 0
       agent_sid="''${CLAUDE_AGENT_SID:-$claude_sid}"
       printf 'working' > "${stateDir}/$agent_sid.state"
-
-      # Auto-title: on the first real prompt, replace the initial basename+N
-      # title with the first few words of the message (capped at 32 chars).
-      # Only fires while the title still matches the auto-assigned pattern.
-      tf="${stateDir}/$agent_sid.title"
-      df="${stateDir}/$agent_sid.dir"
-      if [ -f "$tf" ] && [ -f "$df" ]; then
-        current=$(cat "$tf")
-        base=$(basename "$(cat "$df")")
-        rest="''${current#"$base"}"
-        if [ "$rest" != "$current" ] && [ -n "$rest" ]; then
-          case "$rest" in
-            *[!0-9]*) ;;
-            *)
-              prompt=$(printf '%s' "$input" | jq -r '.prompt // ""')
-              short=$(printf '%s' "$prompt" | awk '{
-                out=""
-                for(i=1;i<=NF&&i<=5;i++){
-                  cand=(out==""?$i:out" "$i)
-                  if(length(cand)>32) break
-                  out=cand
-                }
-                print out
-              }')
-              [ -n "$short" ] && printf '%s' "$short" > "$tf"
-              ;;
-          esac
-        fi
-      fi
     '';
   };
 
@@ -112,13 +83,52 @@ let
 
   hookStop = pkgs.writeShellApplication {
     name = "claude-agent-hook-stop";
-    runtimeInputs = [ pkgs.jq pkgs.coreutils ];
+    runtimeInputs = [ pkgs.jq pkgs.coreutils pkgs.claude-code ];
     text = ''
       input=$(cat)
       claude_sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
       [ -z "$claude_sid" ] && exit 0
       agent_sid="''${CLAUDE_AGENT_SID:-$claude_sid}"
       printf 'idle' > "${stateDir}/$agent_sid.state"
+
+      # Auto-title: after the first response, replace the initial basename+N
+      # title with a Claude-generated short title. Only fires once — the
+      # generated title won't match the basename+N pattern so it won't re-run.
+      # env -u CLAUDE_AGENT_SID ensures the sub-call doesn't re-trigger this.
+      tf="${stateDir}/$agent_sid.title"
+      df="${stateDir}/$agent_sid.dir"
+      transcript=$(printf '%s' "$input" | jq -r '.transcript_path // empty')
+      if [ -f "$tf" ] && [ -f "$df" ] && [ -n "$transcript" ] && [ -f "$transcript" ]; then
+        current=$(cat "$tf")
+        base=$(basename "$(cat "$df")")
+        rest="''${current#"$base"}"
+        if [ "$rest" != "$current" ] && [ -n "$rest" ]; then
+          case "$rest" in
+            *[!0-9]*) ;;
+            *)
+              first_msg=$(jq -rs '
+                first(
+                  .[] |
+                  select(.type == "user") |
+                  .message.content |
+                  if type == "string" then
+                    select(startswith("<command") | not)
+                  elif type == "array" then
+                    first(.[].text? // empty) | select(. != "")
+                  else empty end
+                ) // ""
+              ' "$transcript" 2>/dev/null | tr '\n' ' ' | cut -c1-400)
+              if [ -n "$first_msg" ]; then
+                gen_title=$(env -u CLAUDE_AGENT_SID claude --print \
+                  "Generate a 2-4 word title for a conversation starting with this user message. Reply with ONLY the title, no quotes, no punctuation, no explanation.
+
+$first_msg" 2>/dev/null | head -1 | tr -d '"' | cut -c1-40) || true
+                [ -n "$gen_title" ] && printf '%s' "$gen_title" > "$tf"
+              fi
+              ;;
+          esac
+        fi
+      fi
     '';
   };
 
@@ -501,47 +511,6 @@ let
     '';
   };
 
-  # ── SUPER+N: rename the focused agent ───────────────────────────────────────
-
-  renameHelper = pkgs.writeShellApplication {
-    name = "claude-agents-rename-helper";
-    runtimeInputs = [ pkgs.coreutils ];
-    text = ''
-      stateDir="${stateDir}"
-      sid="''${RENAME_SID:-}"
-      [ -z "$sid" ] && exit 1
-      current="''${RENAME_CURRENT:-}"
-      printf '\033[36mRename agent\033[0m'
-      [ -n "$current" ] && printf ' (current: %s)' "$current"
-      printf '\nNew name: '
-      # shellcheck disable=SC2039
-      read -r -e -i "$current" new_name || exit 0
-      [ -z "$new_name" ] && exit 0
-      printf '%s' "$new_name" > "$stateDir/$sid.title"
-    '';
-  };
-
-  smartRename = pkgs.writeShellApplication {
-    name = "claude-agents-rename-prompt";
-    runtimeInputs = [ pkgs.jq pkgs.hyprland pkgs.coreutils pkgs.kitty renameHelper ];
-    text = ''
-      stateDir="${stateDir}"
-      active_class=$(hyprctl activewindow -j | jq -r '.class // ""')
-      [[ "$active_class" == claude-agent-* ]] || exit 0
-      sid="''${active_class#claude-agent-}"
-      current=""
-      if [ -f "$stateDir/$sid.title" ]; then
-        current=$(cat "$stateDir/$sid.title")
-      else
-        current=$(hyprctl activewindow -j | jq -r '.title // ""')
-      fi
-      RENAME_SID="$sid" RENAME_CURRENT="$current" \
-        kitty --class claude-agents-rename \
-          --override close_on_child_death=yes \
-          -e claude-agents-rename-helper
-    '';
-  };
-
   # ── SUPER+SHIFT+O: restart all open agents in-place ─────────────────────────
   # Kills every running agent window, cleans up stale state files, then
   # re-spawns each one in the same directory it was originally opened in.
@@ -848,7 +817,7 @@ in {
     mkEnableOption "Claude Code agent management with Hyprland workspace integration";
 
   config = mkIf cfg.enable {
-    home.packages = [ watcher spawner smartO smartP smartI smartRename renameHelper smartRestart hoverDaemon ];
+    home.packages = [ watcher spawner smartO smartP smartI smartRestart hoverDaemon ];
 
     home.file.".claude/settings.json" = {
       force = true;
@@ -905,9 +874,6 @@ in {
           "center, class:^claude-agents-picker$"
           "size 1200 550, class:^claude-agents-picker$"
           "workspace special:claude-agents, class:^claude-agents-picker$"
-          "float, class:^claude-agents-rename$"
-          "center, class:^claude-agents-rename$"
-          "size 600 120, class:^claude-agents-rename$"
         ];
         bind = [
           "SUPER, D, togglespecialworkspace, claude-agents"
@@ -915,7 +881,6 @@ in {
           "SUPER, O, exec, ${pkgs.kitty}/bin/kitty --class claude-agents-picker --override close_on_child_death=yes -e ${smartO}/bin/claude-agents-smart-o"
           "SUPER, P, exec, ${smartP}/bin/claude-agents-smart-p"
           "SUPER, I, exec, ${smartI}/bin/claude-agents-smart-i"
-          "SUPER, N, exec, ${smartRename}/bin/claude-agents-rename-prompt"
           "SUPER SHIFT, O, exec, ${smartRestart}/bin/claude-agents-restart"
         ];
       };
