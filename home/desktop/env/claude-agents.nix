@@ -667,6 +667,7 @@ let
       initial=$(hyprctl activewindow -j | jq -r '.address // ""')
       [ -n "$initial" ] && on_focus "$initial" || true
 
+      # shellcheck disable=SC2094 — FIFO is intentionally both read (main loop) and written (background timers)
       while IFS= read -r line; do
         case "''${line%%>>*}" in
           H:activewindowv2)
