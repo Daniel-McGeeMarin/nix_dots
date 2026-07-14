@@ -413,9 +413,14 @@ let
 
   # ── Hover-to-expand daemon ────────────────────────────────────────────────────
   # Listens to Hyprland socket2 activewindowv2 events (follow_mouse=1 makes
-  # these fire on hover). When an agent window is smaller than half the column
-  # height it expands to 50%; others in the column compress proportionally.
-  # Also watches state files so it can reexpand after the watcher repositions.
+  # these fire on hover). When an agent window is hovered it expands to 50% of
+  # the column; others compress proportionally.
+  #
+  # Performance: AGENT_MAP caches the hyprctl clients -j output (one line per
+  # agent: class\taddr\ttitle). It is refreshed only on openwindow/closewindow
+  # events. addr_state and col_addrs use awk/bash reads on this string instead
+  # of spawning jq per-event, eliminating the ~100ms compositor-blocking call
+  # that caused the visible pause before animations started.
 
   hoverDaemon = pkgs.writeShellApplication {
     name = "claude-agents-hover";
@@ -446,7 +451,7 @@ let
       socat -u "UNIX-CONNECT:$SOCK" - 2>&1 \
         | while IFS= read -r ev; do printf 'H:%s\n' "$ev"; done >> "$PIPE" &
       inotifywait -m -q -e close_write,moved_to "$stateDir" --format 'S' >> "$PIPE" &
-      log "event sources started (socat PID=$!, stateDir watcher running)"
+      log "event sources started"
 
       hovered_addr=""
       hovered_col="-1"
@@ -454,7 +459,19 @@ let
       focus_pid=""
       reexpand_pid=""
 
-      # Cache monitor geometry once — avoids a hyprctl round-trip per expand/restore
+      # AGENT_MAP: one line per agent window — "class\taddr\ttitle"
+      # Refreshed on openwindow/closewindow; never touched on hover events.
+      AGENT_MAP=""
+      AGENTS_VALID=0
+
+      refresh_agents() {
+        AGENT_MAP=$(hyprctl clients -j | jq -r \
+          '.[] | select(.class | startswith("claude-agent-")) | [.class, .address, .title] | join("\t")')
+        AGENTS_VALID=1
+        log "agent map refreshed"
+      }
+
+      # Cache monitor geometry — avoids a hyprctl round-trip per expand/restore
       G_OX=0 G_OY=0 G_LH=0 G_CW=0
       init_params() {
         local mon mw mh scale rr rb lw
@@ -480,9 +497,8 @@ let
       }
 
       addr_state() {
-        local addr="$1" cj="$2" class sid sf
-        class=$(printf '%s' "$cj" | jq -r --arg a "$addr" \
-          '.[] | select(.address == $a) | .class')
+        local addr="$1" class sid sf
+        class=$(printf '%s\n' "$AGENT_MAP" | awk -F'\t' -v a="$addr" '$2 == a {print $1; exit}')
         [[ "$class" == claude-agent-* ]] || return 0
         sid="''${class#claude-agent-}"
         sf="$stateDir/$sid.state"
@@ -498,40 +514,35 @@ let
         esac
       }
 
-      # col_addrs <col> <cj> [state_filter]
-      # Optional state_filter restricts to windows with exactly that state value.
+      # col_addrs <col> [state_filter]
       col_addrs() {
-        local col="$1" cj="$2" filter="''${3:-}" sf sid state client title addr
-        for sf in "$stateDir"/*.state; do
+        local col="$1" filter="''${2:-}" class addr title sid sf state
+        [ -z "$AGENT_MAP" ] && return 0
+        while IFS=$'\t' read -r class addr title; do
+          [[ "$class" == claude-agent-* ]] || continue
+          sid="''${class#claude-agent-}"
+          sf="$stateDir/$sid.state"
           [ -f "$sf" ] || continue
-          sid=$(basename "$sf" .state)
           state=$(cat "$sf")
           [ "$(state_col "$state")" = "$col" ] || continue
           [ -n "$filter" ] && [ "$state" != "$filter" ] && continue
-          client=$(printf '%s' "$cj" | jq -r --arg cl "claude-agent-$sid" \
-            '.[] | select(.class == $cl) | [.title, .address] | join("\t")' | head -1)
-          [ -z "$client" ] && continue
-          title=$(printf '%s' "$client" | cut -f1)
-          addr=$(printf '%s' "$client" | cut -f2)
           printf '%s\t%s\n' "$title" "$addr"
-        done | sort -f | cut -f2
+        done < <(printf '%s\n' "$AGENT_MAP") | sort -f | cut -f2
       }
 
       do_expand() {
-        local target="$1" cj="''${2:-}" state col cx
-        [ -z "$cj" ] && cj=$(hyprctl clients -j)
-        state=$(addr_state "$target" "$cj")
+        local target="$1" state col cx
+        state=$(addr_state "$target")
         [ -z "$state" ] && { log "expand: no state for $target, skipping"; return 0; }
         col=$(state_col "$state")
         [ "$col" = "-1" ] && { log "expand: unknown col for state '$state'"; return 0; }
 
         cx=$(col_cx "$col")
 
-        # Col 0 has stored windows pinned at the bottom — only expand idle windows
-        # and compute available height excluding stored area so they don't overlap.
+        # Col 0: only expand idle windows; compute height excluding pinned stored area
         local addrs=() avail_h="$G_LH"
         if [ "$col" = "0" ]; then
-          readarray -t addrs < <(col_addrs "$col" "$cj" "idle")
+          readarray -t addrs < <(col_addrs "$col" "idle")
           local n_stored=0 sf_s
           for sf_s in "$stateDir"/*.state; do
             [ -f "$sf_s" ] || continue
@@ -540,18 +551,14 @@ let
           [ "$n_stored" -gt 0 ] && avail_h=$(( G_LH - n_stored * 200 - n_stored * 8 ))
           [ "$avail_h" -lt 100 ] && avail_h=100
         else
-          readarray -t addrs < <(col_addrs "$col" "$cj")
+          readarray -t addrs < <(col_addrs "$col")
         fi
         local n="''${#addrs[@]}"
         [ "$n" -lt 2 ] && { log "expand: only $n window(s) in col $col, nothing to compress"; return 0; }
 
-        local curr_h half other_h
-        curr_h=$(printf '%s' "$cj" | jq -r --arg a "$target" \
-          '.[] | select(.address == $a) | .size[1]')
+        local half other_h
         half=$(( avail_h / 2 ))
-        log "expand: target=$target col=$col n=$n curr_h=$curr_h half=$half avail=$avail_h"
-        [ "$curr_h" -ge "$half" ] && { log "expand: already at or above half, skipping"; return 0; }
-
+        log "expand: target=$target col=$col n=$n half=$half avail=$avail_h"
         other_h=$(( (avail_h - half - (n-1)*8) / (n-1) ))
         [ "$other_h" -lt 40 ] && { log "expand: other_h=$other_h too small, skipping"; return 0; }
 
@@ -569,28 +576,24 @@ let
       }
 
       do_restore() {
-        local col="$1" cj="''${2:-}" cx batch=""
+        local col="$1" cx batch=""
         [ "$col" = "-1" ] && return 0
-        [ -z "$cj" ] && cj=$(hyprctl clients -j)
         cx=$(col_cx "$col")
 
         if [ "$col" = "0" ]; then
-          local idle_pairs="" stored_pairs="" sf sid state client title addr
-          for sf in "$stateDir"/*.state; do
+          local idle_pairs="" stored_pairs="" class addr title sid sf state
+          while IFS=$'\t' read -r class addr title; do
+            [[ "$class" == claude-agent-* ]] || continue
+            sid="''${class#claude-agent-}"
+            sf="$stateDir/$sid.state"
             [ -f "$sf" ] || continue
-            sid=$(basename "$sf" .state)
             state=$(cat "$sf")
             [ "$(state_col "$state")" = "0" ] || continue
-            client=$(printf '%s' "$cj" | jq -r --arg cl "claude-agent-$sid" \
-              '.[] | select(.class == $cl) | [.title, .address] | join("\t")' | head -1)
-            [ -z "$client" ] && continue
-            title=$(printf '%s' "$client" | cut -f1)
-            addr=$(printf '%s' "$client" | cut -f2)
             case "$state" in
               idle)   idle_pairs+="$title"$'\t'"$addr"$'\n' ;;
               stored) stored_pairs+="$title"$'\t'"$addr"$'\n' ;;
             esac
-          done
+          done < <(printf '%s\n' "$AGENT_MAP")
 
           local idle_addrs=() stored_addrs=()
           [ -n "$idle_pairs" ]   && readarray -t idle_addrs   < <(printf '%s' "$idle_pairs"   | sort -f | cut -f2)
@@ -631,7 +634,7 @@ let
           fi
         else
           local addrs=()
-          readarray -t addrs < <(col_addrs "$col" "$cj")
+          readarray -t addrs < <(col_addrs "$col")
           local n="''${#addrs[@]}"
           [ "$n" -eq 0 ] && return 0
           local wh=$(( (G_LH - (n-1)*8) / n ))
@@ -647,9 +650,8 @@ let
       }
 
       on_focus() {
-        local new_addr="$1" cj new_state new_col
-        cj=$(hyprctl clients -j)
-        new_state=$(addr_state "$new_addr" "$cj")
+        local new_addr="$1" new_state new_col
+        new_state=$(addr_state "$new_addr")
         new_col="-1"
         [ -n "$new_state" ] && new_col=$(state_col "$new_state")
         log "focus addr=$new_addr state='$new_state' col=$new_col hovered_col=$hovered_col"
@@ -661,15 +663,17 @@ let
           hovered_addr=""
           hovered_col="-1"
           log "restoring col $old_col"
-          do_restore "$old_col" "$cj"
+          do_restore "$old_col"
         fi
 
         # Stored windows stay small intentionally — never expand them
-        [ "$new_col" != "-1" ] && [ "$new_state" != "stored" ] && do_expand "$new_addr" "$cj" || true
+        [ "$new_col" != "-1" ] && [ "$new_state" != "stored" ] && do_expand "$new_addr" || true
       }
 
-      # Pre-compute monitor geometry and expand whatever is under the cursor at startup
+      # Pre-compute monitor geometry, build initial agent map, expand whatever
+      # is already focused at startup
       init_params
+      refresh_agents
       initial=$(hyprctl activewindow -j | jq -r '.address // ""')
       [ -n "$initial" ] && on_focus "$initial" || true
 
@@ -677,19 +681,21 @@ let
       while IFS= read -r line; do
         case "''${line%%>>*}" in
           H:activewindowv2)
-            # Debounce: each hover event is O(1) here — just update pending addr and
-            # reset a 50ms timer. The FIFO drains instantly even on fast mouse sweeps;
-            # on_focus only runs once the cursor has settled, killing the thrash loop.
+            # Debounce: O(1) here — update pending addr and reset a 20ms timer.
+            # on_focus only runs once the cursor has settled.
             addr="0x''${line#H:activewindowv2>>}"
             pending_focus="$addr"
             [ -n "$focus_pid" ] && kill "$focus_pid" 2>/dev/null || true
-            ( sleep 0.05; printf 'FOCUS:%s\n' "$addr" ) >> "$PIPE" &
+            ( sleep 0.02; printf 'FOCUS:%s\n' "$addr" ) >> "$PIPE" &
             focus_pid=$!
             ;;
           FOCUS:*)
             addr="''${line#FOCUS:}"
             focus_pid=""
             [ "$addr" = "$pending_focus" ] && on_focus "$addr" || true
+            ;;
+          H:openwindow|H:closewindow)
+            AGENTS_VALID=0
             ;;
           S)
             # Watcher repositioned; reexpand the hovered window after it settles
@@ -704,6 +710,7 @@ let
             reexpand_pid="$!"
             ;;
         esac
+        [ "$AGENTS_VALID" -eq 0 ] && refresh_agents || true
       done < "$PIPE"
     '';
   };
@@ -765,7 +772,6 @@ in {
       settings = {
         windowrulev2 = [
           "float, class:^claude-agent-.*$"
-          "noanim, class:^claude-agent-.*$"
           "workspace special:claude-agents silent, class:^claude-agent-.*$"
           "float, class:^claude-agents-picker$"
           "center, class:^claude-agents-picker$"
