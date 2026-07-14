@@ -149,10 +149,10 @@ let
           local sock="${stateDir}/$sid.sock"
           if [ -S "$sock" ]; then
             case "$state" in
-              idle)           kitty @ --to "unix:$sock" set-colors "background=#0d1f0d" >/dev/null 2>&1 || true ;;
-              working)        kitty @ --to "unix:$sock" set-colors "background=#1f1a00" >/dev/null 2>&1 || true ;;
-              needs-approval) kitty @ --to "unix:$sock" set-colors "background=#1f0d1f" >/dev/null 2>&1 || true ;;
-              stored)         kitty @ --to "unix:$sock" set-colors "background=#0d0d1f" >/dev/null 2>&1 || true ;;
+              idle)           kitty @ --to "unix:$sock" set-colors --all background=#0d1f0d >/dev/null 2>&1 || true ;;
+              working)        kitty @ --to "unix:$sock" set-colors --all background=#1f1a00 >/dev/null 2>&1 || true ;;
+              needs-approval) kitty @ --to "unix:$sock" set-colors --all background=#1f0d1f >/dev/null 2>&1 || true ;;
+              stored)         kitty @ --to "unix:$sock" set-colors --all background=#0d0d1f >/dev/null 2>&1 || true ;;
             esac
           fi
         done
