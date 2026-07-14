@@ -119,6 +119,12 @@ let
         local col_gap=24 win_gap=8
         col_w=$(( (lw - 2*col_gap) / 3 ))
 
+        # Read the currently hovered address so layout_col can preserve its expansion
+        local hovered=""
+        if [ -f "${stateDir}/.hovered-addr" ]; then
+          hovered=$(tr -d '[:space:]' < "${stateDir}/.hovered-addr" 2>/dev/null) || true
+        fi
+
         local clients_json
         clients_json=$(hyprctl clients -j)
 
@@ -158,19 +164,36 @@ let
         [ -n "$stored_pairs" ]   && readarray -t stored_addrs   < <(printf '%s' "$stored_pairs"   | sort -f | cut -f2)
 
         # layout_col <cx> <start_y> <avail_h> [addr ...]
+        # If $hovered is set and present among addrs with n≥2, gives it 50% height
         layout_col() {
           local cx="$1" start_y="$2" avail_h="$3"; shift 3
           local n="$#"
           [ "$n" -eq 0 ] && return 0
-          local wh=$(( (avail_h - (n-1)*win_gap) / n ))
-          local j=0 addr
-          for addr in "$@"; do
-            local wy=$(( start_y + j * (wh + win_gap) ))
-            hyprctl dispatch movetoworkspacesilent "special:claude-agents,address:$addr" >/dev/null 2>&1 || true
-            hyprctl dispatch movewindowpixel "exact $cx $wy,address:$addr" >/dev/null 2>&1 || true
-            hyprctl dispatch resizewindowpixel "exact $col_w $wh,address:$addr" >/dev/null 2>&1 || true
-            j=$(( j + 1 ))
-          done
+          local has_hov=0 a="" y=0 wh=0 addr="" half=0 other_h=0
+          if [ -n "$hovered" ] && [ "$n" -ge 2 ]; then
+            for a in "$@"; do [ "$a" = "$hovered" ] && { has_hov=1; break; }; done
+          fi
+          y="$start_y"
+          if [ "$has_hov" = "1" ]; then
+            half=$(( avail_h / 2 ))
+            other_h=$(( (avail_h - half - (n-1)*win_gap) / (n-1) ))
+            [ "$other_h" -lt 40 ] && other_h=40
+            for addr in "$@"; do
+              if [ "$addr" = "$hovered" ]; then wh="$half"; else wh="$other_h"; fi
+              hyprctl dispatch movetoworkspacesilent "special:claude-agents,address:$addr" >/dev/null 2>&1 || true
+              hyprctl dispatch movewindowpixel "exact $cx $y,address:$addr" >/dev/null 2>&1 || true
+              hyprctl dispatch resizewindowpixel "exact $col_w $wh,address:$addr" >/dev/null 2>&1 || true
+              y=$(( y + wh + win_gap ))
+            done
+          else
+            wh=$(( (avail_h - (n-1)*win_gap) / n ))
+            for addr in "$@"; do
+              hyprctl dispatch movetoworkspacesilent "special:claude-agents,address:$addr" >/dev/null 2>&1 || true
+              hyprctl dispatch movewindowpixel "exact $cx $y,address:$addr" >/dev/null 2>&1 || true
+              hyprctl dispatch resizewindowpixel "exact $col_w $wh,address:$addr" >/dev/null 2>&1 || true
+              y=$(( y + wh + win_gap ))
+            done
+          fi
         }
 
         # layout_stored_grid [addr ...] — centered grid on special:claude-agents-stored
@@ -210,9 +233,6 @@ let
         [ "''${#approval_addrs[@]}" -gt 0 ] && layout_col "$(( ox + 2*(col_w + col_gap) ))"  "$oy" "$lh" "''${approval_addrs[@]}" || true
         # Storage: centered grid on stored workspace
         [ "''${#stored_addrs[@]}"   -gt 0 ] && layout_stored_grid "''${stored_addrs[@]}" || true
-
-        # Signal hover daemon that repositioning is complete
-        printf 'done\n' > "${stateDir}/.watcher-idle"
       }
 
       reposition_all
@@ -522,17 +542,15 @@ let
         log "ERROR: socket not found at $SOCK — cannot receive events"
       fi
 
-      # Feed Hyprland events as "H:<event>" and state-file changes as "S"
+      # Feed Hyprland events as "H:<event>"
       socat -u "UNIX-CONNECT:$SOCK" - 2>&1 \
         | while IFS= read -r ev; do printf 'H:%s\n' "$ev"; done >> "$PIPE" &
-      inotifywait -m -q -e close_write,moved_to "$stateDir" --format 'S' >> "$PIPE" &
       log "event sources started"
 
       hovered_addr=""
       hovered_col="-1"
       pending_focus=""
       focus_pid=""
-      reexpand_pid=""
 
       # AGENT_MAP: one line per agent window — "class\taddr\ttitle"
       # Refreshed by invalidate_agents (debounced); never on hover events.
@@ -641,6 +659,7 @@ let
 
         hovered_addr="$target"
         hovered_col="$col"
+        printf '%s\n' "$target" > "$stateDir/.hovered-addr"
       }
 
       do_restore() {
@@ -676,6 +695,7 @@ let
           local old_col="$hovered_col"
           hovered_addr=""
           hovered_col="-1"
+          printf '\n' > "$stateDir/.hovered-addr"
           log "restoring col $old_col"
           do_restore "$old_col"
         fi
@@ -685,6 +705,8 @@ let
 
       # Pre-compute monitor geometry, build initial agent map, expand whatever
       # is already focused at startup
+      mkdir -p "$stateDir"
+      printf '\n' > "$stateDir/.hovered-addr"
       init_params
       refresh_agents
       initial=$(hyprctl activewindow -j | jq -r '.address // ""')
@@ -713,19 +735,6 @@ let
           REFRESH*)
             REFRESH_TIMER_PID=""
             refresh_agents
-            ;;
-          S)
-            # Watcher repositioned; reexpand the hovered window after it settles
-            [ -n "$reexpand_pid" ] && kill "$reexpand_pid" 2>/dev/null || true
-            ha="$hovered_addr"
-            ( trap - EXIT INT TERM
-              sleep 0.25
-              if [ -n "$ha" ]; then
-                active=$(hyprctl activewindow -j | jq -r '.address // ""')
-                [ "$active" = "$ha" ] && do_expand "$ha" || true
-              fi
-            ) &
-            reexpand_pid="$!"
             ;;
         esac
       done < "$PIPE"
