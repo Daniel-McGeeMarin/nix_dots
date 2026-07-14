@@ -505,7 +505,7 @@ let
       }
 
       do_expand() {
-        local target="$1" cj="${2:-}" state col cx
+        local target="$1" cj="''${2:-}" state col cx
         [ -z "$cj" ] && cj=$(hyprctl clients -j)
         state=$(addr_state "$target" "$cj")
         [ -z "$state" ] && { log "expand: no state for $target, skipping"; return 0; }
