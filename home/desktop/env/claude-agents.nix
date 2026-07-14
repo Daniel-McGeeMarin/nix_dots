@@ -26,13 +26,42 @@ let
 
   hookUserPromptSubmit = pkgs.writeShellApplication {
     name = "claude-agent-hook-user-prompt-submit";
-    runtimeInputs = [ pkgs.jq pkgs.coreutils ];
+    runtimeInputs = [ pkgs.jq pkgs.coreutils pkgs.gawk ];
     text = ''
       input=$(cat)
       claude_sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
       [ -z "$claude_sid" ] && exit 0
       agent_sid="''${CLAUDE_AGENT_SID:-$claude_sid}"
       printf 'working' > "${stateDir}/$agent_sid.state"
+
+      # Auto-title: on the first real prompt, replace the initial basename+N
+      # title with the first few words of the message (capped at 32 chars).
+      # Only fires while the title still matches the auto-assigned pattern.
+      tf="${stateDir}/$agent_sid.title"
+      df="${stateDir}/$agent_sid.dir"
+      if [ -f "$tf" ] && [ -f "$df" ]; then
+        current=$(cat "$tf")
+        base=$(basename "$(cat "$df")")
+        rest="''${current#"$base"}"
+        if [ "$rest" != "$current" ] && [ -n "$rest" ]; then
+          case "$rest" in
+            *[!0-9]*) ;;
+            *)
+              prompt=$(printf '%s' "$input" | jq -r '.prompt // ""')
+              short=$(printf '%s' "$prompt" | awk '{
+                out=""
+                for(i=1;i<=NF&&i<=5;i++){
+                  cand=(out==""?$i:out" "$i)
+                  if(length(cand)>32) break
+                  out=cand
+                }
+                print out
+              }')
+              [ -n "$short" ] && printf '%s' "$short" > "$tf"
+              ;;
+          esac
+        fi
+      fi
     '';
   };
 
