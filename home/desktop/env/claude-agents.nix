@@ -411,6 +411,53 @@ let
     '';
   };
 
+  # ── SUPER+SHIFT+O: restart all open agents in-place ─────────────────────────
+  # Kills every running agent window, cleans up stale state files, then
+  # re-spawns each one in the same directory it was originally opened in.
+  # Useful after nixswitch to pick up a new claude binary without losing
+  # the set of projects you had open.
+
+  smartRestart = pkgs.writeShellApplication {
+    name = "claude-agents-restart";
+    runtimeInputs = [ pkgs.jq pkgs.hyprland pkgs.coreutils spawner ];
+    text = ''
+      stateDir="${stateDir}"
+
+      # Snapshot running agents before touching anything
+      agents=$(hyprctl clients -j | jq -r '
+        .[] | select(.class | startswith("claude-agent-"))
+        | [.class, (.pid | tostring)]
+        | join("\t")
+      ')
+
+      [ -z "$agents" ] && exit 0
+
+      spawn_dirs=()
+      kill_pids=()
+      while IFS=$'\t' read -r class pid; do
+        [ -z "$class" ] && continue
+        sid="''${class#claude-agent-}"
+        dir="$HOME"
+        [ -f "$stateDir/$sid.dir" ] && dir=$(cat "$stateDir/$sid.dir")
+        spawn_dirs+=("$dir")
+        kill_pids+=("$pid")
+        rm -f "$stateDir/$sid.state" "$stateDir/$sid.dir" "$stateDir/$sid.sock"
+      done <<< "$agents"
+
+      # Kill all agent processes
+      for pid in "''${kill_pids[@]}"; do
+        kill "$pid" 2>/dev/null || true
+      done
+
+      # Give windows time to close before spawning replacements
+      sleep 0.5
+
+      for dir in "''${spawn_dirs[@]}"; do
+        claude-agent-spawn "$dir"
+      done
+    '';
+  };
+
   # ── Hover-to-expand daemon ────────────────────────────────────────────────────
   # Listens to Hyprland socket2 activewindowv2 events (follow_mouse=1 makes
   # these fire on hover). When an agent window is hovered it expands to 50% of
@@ -741,7 +788,7 @@ in {
     mkEnableOption "Claude Code agent management with Hyprland workspace integration";
 
   config = mkIf cfg.enable {
-    home.packages = [ watcher spawner smartO smartP smartI hoverDaemon ];
+    home.packages = [ watcher spawner smartO smartP smartI smartRestart hoverDaemon ];
 
     home.file.".claude/settings.json" = {
       force = true;
@@ -804,6 +851,7 @@ in {
           "SUPER, O, exec, ${pkgs.kitty}/bin/kitty --class claude-agents-picker --override close_on_child_death=yes -e ${smartO}/bin/claude-agents-smart-o"
           "SUPER, P, exec, ${smartP}/bin/claude-agents-smart-p"
           "SUPER, I, exec, ${smartI}/bin/claude-agents-smart-i"
+          "SUPER SHIFT, O, exec, ${smartRestart}/bin/claude-agents-restart"
         ];
       };
     };
