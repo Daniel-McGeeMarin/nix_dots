@@ -65,6 +65,17 @@ in
             };
           };
           in listToAttrs [
+            # ==========================================================================
+            # WARNING: uBlock Origin BREAKS OnlyOffice inside OCIS (cloud.mcgeedan.com).
+            # Symptom: editor UI shell renders in the iframe but no document ever loads,
+            # no /doc/{key}/c/ Socket.IO request is ever attempted from the browser, and
+            # DevTools console shows "starting iframe protection loop" from content.js.
+            # Confirmed 2026-07-14: works in incognito (extensions off), fails in normal
+            # session even after full CSP + SSE keepalive fix on the server side. If
+            # OnlyOffice ever silently fails to open a document, DISABLE UBLOCK ON
+            # cloud.mcgeedan.com AND office.mcgeedan.com FIRST before spending hours in
+            # server logs. Trusted-site whitelist in the uBlock dashboard is the fix.
+            # ==========================================================================
             (extension "ublock-origin"              "uBlock0@raymondhill.net")
             (extension "bitwarden-password-manager" "{446900e4-71c2-419f-a6a7-df9c091e268b}")
             (extension "video-downloadhelper"       "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}")

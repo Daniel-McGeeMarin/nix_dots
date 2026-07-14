@@ -1,5 +1,12 @@
 {
   "permissions": {
+    "allow": [
+      "Bash(podman ps *)",
+      "Bash(journalctl *)",
+      "Bash(systemctl status *)",
+      "Bash(systemctl list-units *)",
+      "Bash(nixos-rebuild list-generations)"
+    ],
     "deny": [
 "Bash(git reset --hard *)",
       "Bash(git clean *)",
