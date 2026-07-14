@@ -252,11 +252,13 @@ let
     text = ''
       cwd="''${1:-$HOME}"
       resume_session="''${2:-}"
+      custom_name="''${3:-}"
       sid="agent-$(date +%s%3N)"
       mkdir -p "${stateDir}"
       printf 'idle' > "${stateDir}/$sid.state"
       printf '%s' "$cwd" > "${stateDir}/$sid.dir"
-      title=$(basename "$cwd")
+      [ -n "$custom_name" ] && printf '%s' "$custom_name" > "${stateDir}/$sid.title"
+      title="''${custom_name:-$(basename "$cwd")}"
       if [ -n "$resume_session" ]; then
         set -- "${pkgs.claude-code}/bin/claude" --resume "$resume_session"
       else
@@ -299,12 +301,20 @@ let
       RST=$'\033[0m'
 
       # Running agents — cyan ▶, field4=running
-      running=$(hyprctl clients -j | jq -r '
+      # Custom names from .title files take precedence over window titles
+      running=""
+      while IFS=$'\t' read -r _cls _ws _wtitle; do
+        _sid="''${_cls#claude-agent-}"
+        _name="$_wtitle"
+        [ -f "${stateDir}/$_sid.title" ] && _name=$(cat "${stateDir}/$_sid.title")
+        _entry=$(printf '%s▶%s\t%s%s [%s]%s\t%s\trunning' \
+          "$CYN" "$RST" "$CYN" "$_name" "$_ws" "$RST" "$_cls")
+        running+="$_entry"$'\n'
+      done < <(hyprctl clients -j | jq -r '
         .[] | select(.class | startswith("claude-agent-"))
-        | [.title + " [" + .workspace.name + "]", .class]
+        | [.class, .workspace.name, .title]
         | join("\t")
-      ' | awk -v c="$CYN" -v r="$RST" -F'\t' \
-          '{print c "▶" r "\t" c $1 r "\t" $2 "\trunning"}')
+      ')
 
       # Git repos from Documents (depth 5) — green, field4=git
       git_repos=""
@@ -444,6 +454,47 @@ let
     '';
   };
 
+  # ── SUPER+N: rename the focused agent ───────────────────────────────────────
+
+  renameHelper = pkgs.writeShellApplication {
+    name = "claude-agents-rename-helper";
+    runtimeInputs = [ pkgs.coreutils ];
+    text = ''
+      stateDir="${stateDir}"
+      sid="''${RENAME_SID:-}"
+      [ -z "$sid" ] && exit 1
+      current="''${RENAME_CURRENT:-}"
+      printf '\033[36mRename agent\033[0m'
+      [ -n "$current" ] && printf ' (current: %s)' "$current"
+      printf '\nNew name: '
+      # shellcheck disable=SC2039
+      read -r -e -i "$current" new_name || exit 0
+      [ -z "$new_name" ] && exit 0
+      printf '%s' "$new_name" > "$stateDir/$sid.title"
+    '';
+  };
+
+  smartRename = pkgs.writeShellApplication {
+    name = "claude-agents-rename-prompt";
+    runtimeInputs = [ pkgs.jq pkgs.hyprland pkgs.coreutils pkgs.kitty renameHelper ];
+    text = ''
+      stateDir="${stateDir}"
+      active_class=$(hyprctl activewindow -j | jq -r '.class // ""')
+      [[ "$active_class" == claude-agent-* ]] || exit 0
+      sid="''${active_class#claude-agent-}"
+      current=""
+      if [ -f "$stateDir/$sid.title" ]; then
+        current=$(cat "$stateDir/$sid.title")
+      else
+        current=$(hyprctl activewindow -j | jq -r '.title // ""')
+      fi
+      RENAME_SID="$sid" RENAME_CURRENT="$current" \
+        kitty --class claude-agents-rename \
+          --override close_on_child_death=yes \
+          -e claude-agents-rename-helper
+    '';
+  };
+
   # ── SUPER+SHIFT+O: restart all open agents in-place ─────────────────────────
   # Kills every running agent window, cleans up stale state files, then
   # re-spawns each one in the same directory it was originally opened in.
@@ -467,6 +518,7 @@ let
 
       spawn_dirs=()
       spawn_sessions=()
+      spawn_names=()
       kill_pids=()
       while IFS=$'\t' read -r class pid; do
         [ -z "$class" ] && continue
@@ -475,8 +527,11 @@ let
         [ -f "$stateDir/$sid.dir" ] && dir=$(cat "$stateDir/$sid.dir")
         session=""
         [ -f "$stateDir/$sid.session" ] && session=$(cat "$stateDir/$sid.session")
+        name=""
+        [ -f "$stateDir/$sid.title" ] && name=$(cat "$stateDir/$sid.title")
         spawn_dirs+=("$dir")
         spawn_sessions+=("$session")
+        spawn_names+=("$name")
         kill_pids+=("$pid")
         rm -f "$stateDir/$sid.state" "$stateDir/$sid.dir" \
               "$stateDir/$sid.session" "$stateDir/$sid.sock"
@@ -491,7 +546,7 @@ let
       sleep 0.5
 
       for i in "''${!spawn_dirs[@]}"; do
-        claude-agent-spawn "''${spawn_dirs[$i]}" "''${spawn_sessions[$i]}"
+        claude-agent-spawn "''${spawn_dirs[$i]}" "''${spawn_sessions[$i]}" "''${spawn_names[$i]}"
       done
     '';
   };
@@ -746,7 +801,7 @@ in {
     mkEnableOption "Claude Code agent management with Hyprland workspace integration";
 
   config = mkIf cfg.enable {
-    home.packages = [ watcher spawner smartO smartP smartI smartRestart hoverDaemon ];
+    home.packages = [ watcher spawner smartO smartP smartI smartRename renameHelper smartRestart hoverDaemon ];
 
     home.file.".claude/settings.json" = {
       force = true;
@@ -803,6 +858,9 @@ in {
           "center, class:^claude-agents-picker$"
           "size 1200 550, class:^claude-agents-picker$"
           "workspace special:claude-agents, class:^claude-agents-picker$"
+          "float, class:^claude-agents-rename$"
+          "center, class:^claude-agents-rename$"
+          "size 600 120, class:^claude-agents-rename$"
         ];
         bind = [
           "SUPER, D, togglespecialworkspace, claude-agents"
@@ -810,6 +868,7 @@ in {
           "SUPER, O, exec, ${pkgs.kitty}/bin/kitty --class claude-agents-picker --override close_on_child_death=yes -e ${smartO}/bin/claude-agents-smart-o"
           "SUPER, P, exec, ${smartP}/bin/claude-agents-smart-p"
           "SUPER, I, exec, ${smartI}/bin/claude-agents-smart-i"
+          "SUPER, N, exec, ${smartRename}/bin/claude-agents-rename-prompt"
           "SUPER SHIFT, O, exec, ${smartRestart}/bin/claude-agents-restart"
         ];
       };
