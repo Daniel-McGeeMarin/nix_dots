@@ -431,9 +431,12 @@ let
       stateDir="${stateDir}"
       PIPE=$(mktemp -u /tmp/claude-hover-XXXXXX)
       mkfifo "$PIPE"
+      # Keep a R+W fd open so subshells can write via >&9 rather than >> "$PIPE".
+      # O_RDWR on a FIFO doesn't block (Linux extension); writes to fd 9 land in
+      # the same buffer that the main loop reads from fd 0.  This way the FIFO
+      # path can be deleted without breaking debounce timer writes.
+      exec 9<>"$PIPE"
       MAIN_PID=$BASHPID
-      # Guard with BASHPID so inherited EXIT traps in subshells are no-ops —
-      # without this, every debounce/reexpand subshell deletes the FIFO on exit.
       cleanup() {
         [ "$BASHPID" = "$MAIN_PID" ] || return 0
         kill "$(jobs -p)" 2>/dev/null || true
@@ -467,15 +470,22 @@ let
       reexpand_pid=""
 
       # AGENT_MAP: one line per agent window — "class\taddr\ttitle"
-      # Refreshed on openwindow/closewindow; never touched on hover events.
+      # Refreshed by invalidate_agents (debounced); never on hover events.
       AGENT_MAP=""
-      AGENTS_VALID=0
+      REFRESH_TIMER_PID=""
 
       refresh_agents() {
         AGENT_MAP=$(hyprctl clients -j | jq -r \
           '.[] | select(.class | startswith("claude-agent-")) | [.class, .address, .title] | join("\t")')
-        AGENTS_VALID=1
         log "agent map refreshed"
+      }
+
+      # Debounce agent-map invalidation — watcher repositions emit rapid
+      # openwindow/closewindow events.  Collapse them into one refresh call.
+      invalidate_agents() {
+        [ -n "$REFRESH_TIMER_PID" ] && kill "$REFRESH_TIMER_PID" 2>/dev/null || true
+        ( trap - EXIT INT TERM; sleep 0.4; printf 'REFRESH\n' >&9 ) &
+        REFRESH_TIMER_PID=$!
       }
 
       # Cache monitor geometry — avoids a hyprctl round-trip per expand/restore
@@ -693,7 +703,7 @@ let
             addr="0x''${line#H:activewindowv2>>}"
             pending_focus="$addr"
             [ -n "$focus_pid" ] && kill "$focus_pid" 2>/dev/null || true
-            ( sleep 0.02; printf 'FOCUS:%s\n' "$addr" ) >> "$PIPE" &
+            ( trap - EXIT INT TERM; sleep 0.02; printf 'FOCUS:%s\n' "$addr" >&9 ) &
             focus_pid=$!
             ;;
           FOCUS:*)
@@ -702,13 +712,18 @@ let
             [ "$addr" = "$pending_focus" ] && on_focus "$addr" || true
             ;;
           H:openwindow|H:closewindow)
-            AGENTS_VALID=0
+            invalidate_agents
+            ;;
+          REFRESH*)
+            REFRESH_TIMER_PID=""
+            refresh_agents
             ;;
           S)
             # Watcher repositioned; reexpand the hovered window after it settles
             [ -n "$reexpand_pid" ] && kill "$reexpand_pid" 2>/dev/null || true
             ha="$hovered_addr"
-            ( sleep 0.25
+            ( trap - EXIT INT TERM
+              sleep 0.25
               if [ -n "$ha" ]; then
                 active=$(hyprctl activewindow -j | jq -r '.address // ""')
                 [ "$active" = "$ha" ] && do_expand "$ha" || true
@@ -717,7 +732,6 @@ let
             reexpand_pid="$!"
             ;;
         esac
-        [ "$AGENTS_VALID" -eq 0 ] && refresh_agents || true
       done < "$PIPE"
     '';
   };
