@@ -257,8 +257,26 @@ let
       mkdir -p "${stateDir}"
       printf 'idle' > "${stateDir}/$sid.state"
       printf '%s' "$cwd" > "${stateDir}/$sid.dir"
-      [ -n "$custom_name" ] && printf '%s' "$custom_name" > "${stateDir}/$sid.title"
-      title="''${custom_name:-$(basename "$cwd")}"
+      base=$(basename "$cwd")
+      if [ -n "$custom_name" ]; then
+        title="$custom_name"
+      else
+        # Auto-name: basename + instance counter, e.g. nixos1, nixos2
+        n=1
+        for tf in "${stateDir}"/*.title; do
+          [ -f "$tf" ] || continue
+          content=$(cat "$tf" 2>/dev/null)
+          rest="''${content#"$base"}"
+          if [ "$rest" != "$content" ] && [ -n "$rest" ]; then
+            case "$rest" in
+              *[!0-9]*) ;;
+              *) n=$(( n + 1 )) ;;
+            esac
+          fi
+        done
+        title="''${base}''${n}"
+      fi
+      printf '%s' "$title" > "${stateDir}/$sid.title"
       if [ -n "$resume_session" ]; then
         set -- "${pkgs.claude-code}/bin/claude" --resume "$resume_session"
       else
