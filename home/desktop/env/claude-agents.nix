@@ -444,9 +444,13 @@ let
 
       hovered_addr=""
       hovered_col="-1"
+      pending_focus=""
+      focus_pid=""
       reexpand_pid=""
 
-      get_params() {
+      # Cache monitor geometry once — avoids a hyprctl round-trip per expand/restore
+      G_OX=0 G_OY=0 G_LH=0 G_CW=0
+      init_params() {
         local mon mw mh scale rr rb lw
         mon=$(hyprctl monitors -j | jq 'map(select(.focused))[0] // .[0]')
         G_OX=$(printf '%s' "$mon" | jq '.reserved[0]')
@@ -488,13 +492,16 @@ let
         esac
       }
 
+      # col_addrs <col> <cj> [state_filter]
+      # Optional state_filter restricts to windows with exactly that state value.
       col_addrs() {
-        local col="$1" cj="$2" sf sid state client title addr
+        local col="$1" cj="$2" filter="''${3:-}" sf sid state client title addr
         for sf in "$stateDir"/*.state; do
           [ -f "$sf" ] || continue
           sid=$(basename "$sf" .state)
           state=$(cat "$sf")
           [ "$(state_col "$state")" = "$col" ] || continue
+          [ -n "$filter" ] && [ "$state" != "$filter" ] && continue
           client=$(printf '%s' "$cj" | jq -r --arg cl "claude-agent-$sid" \
             '.[] | select(.class == $cl) | [.title, .address] | join("\t")' | head -1)
           [ -z "$client" ] && continue
@@ -512,22 +519,34 @@ let
         col=$(state_col "$state")
         [ "$col" = "-1" ] && { log "expand: unknown col for state '$state'"; return 0; }
 
-        get_params
         cx=$(col_cx "$col")
 
-        local addrs=()
-        readarray -t addrs < <(col_addrs "$col" "$cj")
+        # Col 0 has stored windows pinned at the bottom — only expand idle windows
+        # and compute available height excluding stored area so they don't overlap.
+        local addrs=() avail_h="$G_LH"
+        if [ "$col" = "0" ]; then
+          readarray -t addrs < <(col_addrs "$col" "$cj" "idle")
+          local n_stored=0 sf_s
+          for sf_s in "$stateDir"/*.state; do
+            [ -f "$sf_s" ] || continue
+            [ "$(cat "$sf_s")" = "stored" ] && n_stored=$(( n_stored + 1 ))
+          done
+          [ "$n_stored" -gt 0 ] && avail_h=$(( G_LH - n_stored * 200 - n_stored * 8 ))
+          [ "$avail_h" -lt 100 ] && avail_h=100
+        else
+          readarray -t addrs < <(col_addrs "$col" "$cj")
+        fi
         local n="''${#addrs[@]}"
         [ "$n" -lt 2 ] && { log "expand: only $n window(s) in col $col, nothing to compress"; return 0; }
 
         local curr_h half other_h
         curr_h=$(printf '%s' "$cj" | jq -r --arg a "$target" \
           '.[] | select(.address == $a) | .size[1]')
-        half=$(( G_LH / 2 ))
-        log "expand: target=$target col=$col n=$n curr_h=$curr_h half=$half"
+        half=$(( avail_h / 2 ))
+        log "expand: target=$target col=$col n=$n curr_h=$curr_h half=$half avail=$avail_h"
         [ "$curr_h" -ge "$half" ] && { log "expand: already at or above half, skipping"; return 0; }
 
-        other_h=$(( (G_LH - half - (n-1)*8) / (n-1) ))
+        other_h=$(( (avail_h - half - (n-1)*8) / (n-1) ))
         [ "$other_h" -lt 40 ] && { log "expand: other_h=$other_h too small, skipping"; return 0; }
 
         local y="$G_OY" addr wh batch=""
@@ -544,10 +563,9 @@ let
       }
 
       do_restore() {
-        local col="$1" cj cx batch=""
+        local col="$1" cj="''${2:-}" cx batch=""
         [ "$col" = "-1" ] && return 0
-        cj=$(hyprctl clients -j)
-        get_params
+        [ -z "$cj" ] && cj=$(hyprctl clients -j)
         cx=$(col_cx "$col")
 
         if [ "$col" = "0" ]; then
@@ -637,27 +655,37 @@ let
           hovered_addr=""
           hovered_col="-1"
           log "restoring col $old_col"
-          do_restore "$old_col"
+          do_restore "$old_col" "$cj"
         fi
 
         # Stored windows stay small intentionally — never expand them
         [ "$new_col" != "-1" ] && [ "$new_state" != "stored" ] && do_expand "$new_addr" "$cj" || true
       }
 
-      # Expand whatever is already focused on daemon startup
+      # Pre-compute monitor geometry and expand whatever is under the cursor at startup
+      init_params
       initial=$(hyprctl activewindow -j | jq -r '.address // ""')
       [ -n "$initial" ] && on_focus "$initial" || true
 
       while IFS= read -r line; do
-        # Strip >>PAYLOAD suffix before matching — >> in a case pattern is
-        # parsed as a redirect token by bash and causes a syntax error.
         case "''${line%%>>*}" in
           H:activewindowv2)
+            # Debounce: each hover event is O(1) here — just update pending addr and
+            # reset a 50ms timer. The FIFO drains instantly even on fast mouse sweeps;
+            # on_focus only runs once the cursor has settled, killing the thrash loop.
             addr="0x''${line#H:activewindowv2>>}"
-            on_focus "$addr" || true
+            pending_focus="$addr"
+            [ -n "$focus_pid" ] && kill "$focus_pid" 2>/dev/null || true
+            ( sleep 0.05; printf 'FOCUS:%s\n' "$addr" ) >> "$PIPE" &
+            focus_pid=$!
+            ;;
+          FOCUS:*)
+            addr="''${line#FOCUS:}"
+            focus_pid=""
+            [ "$addr" = "$pending_focus" ] && on_focus "$addr" || true
             ;;
           S)
-            # Watcher repositioned; reexpand the hovered window after it finishes
+            # Watcher repositioned; reexpand the hovered window after it settles
             [ -n "$reexpand_pid" ] && kill "$reexpand_pid" 2>/dev/null || true
             ha="$hovered_addr"
             ( sleep 0.25
