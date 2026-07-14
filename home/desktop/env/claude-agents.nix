@@ -44,7 +44,14 @@ let
       [ -z "$claude_sid" ] && exit 0
       agent_sid="''${CLAUDE_AGENT_SID:-$claude_sid}"
       msg=$(printf '%s' "$input" | jq -r '.message // "Agent needs attention"')
-      printf 'needs-approval' > "${stateDir}/$agent_sid.state"
+      sf="${stateDir}/$agent_sid.state"
+      current=$(cat "$sf" 2>/dev/null || printf 'idle')
+      # Only escalate to needs-approval if the agent is actually mid-task.
+      # Notifications fired after Stop (e.g. recap summaries) arrive when the
+      # state is already idle and must not pull the agent back out of idle.
+      if [ "$current" = "working" ]; then
+        printf 'needs-approval' > "$sf"
+      fi
       notify-send "Claude Agent" "$msg" --icon=terminal &
     '';
   };
@@ -107,14 +114,14 @@ let
         res_bottom=$(printf '%s' "$mon" | jq '.reserved[3]')
         lw=$(awk "BEGIN{printf \"%d\", $mw/$scale - $ox - $res_right}")
         lh=$(awk "BEGIN{printf \"%d\", $mh/$scale - $oy - $res_bottom}")
-        # Gaps: 24px between columns (section divider feel), 8px between stacked windows
-        local col_gap=24 win_gap=8
+        # Gaps: 24px between columns, 8px between stacked windows, 200px for stored windows
+        local col_gap=24 win_gap=8 stored_h=200
         col_w=$(( (lw - 2*col_gap) / 3 ))
 
         local clients_json
         clients_json=$(hyprctl clients -j)
 
-        local idle_pairs="" working_pairs="" approval_pairs=""
+        local idle_pairs="" working_pairs="" approval_pairs="" stored_pairs=""
         local sf sid state client title addr
         for sf in "${stateDir}"/*.state; do
           [ -f "$sf" ] || continue
@@ -129,35 +136,72 @@ let
             idle)           idle_pairs+="$title"$'\t'"$addr"$'\n' ;;
             working)        working_pairs+="$title"$'\t'"$addr"$'\n' ;;
             needs-approval) approval_pairs+="$title"$'\t'"$addr"$'\n' ;;
+            stored)         stored_pairs+="$title"$'\t'"$addr"$'\n' ;;
           esac
         done
 
-        # Sort each column by title, extract addresses into arrays
-        local idle_addrs=() working_addrs=() approval_addrs=()
-        [ -n "$idle_pairs" ]    && readarray -t idle_addrs    < <(printf '%s' "$idle_pairs"    | sort -f | cut -f2)
-        [ -n "$working_pairs" ] && readarray -t working_addrs < <(printf '%s' "$working_pairs" | sort -f | cut -f2)
+        local idle_addrs=() working_addrs=() approval_addrs=() stored_addrs=()
+        [ -n "$idle_pairs" ]     && readarray -t idle_addrs     < <(printf '%s' "$idle_pairs"     | sort -f | cut -f2)
+        [ -n "$working_pairs" ]  && readarray -t working_addrs  < <(printf '%s' "$working_pairs"  | sort -f | cut -f2)
         [ -n "$approval_pairs" ] && readarray -t approval_addrs < <(printf '%s' "$approval_pairs" | sort -f | cut -f2)
+        [ -n "$stored_pairs" ]   && readarray -t stored_addrs   < <(printf '%s' "$stored_pairs"   | sort -f | cut -f2)
 
-        # layout_col <col_x> [addr ...]
+        # layout_col <cx> <start_y> <avail_h> <border_color> [addr ...]
+        # Uses col_w and win_gap from outer scope via dynamic scoping.
         layout_col() {
-          local cx="$1"; shift
+          local cx="$1" start_y="$2" avail_h="$3" color="$4"; shift 4
           local n="$#"
           [ "$n" -eq 0 ] && return 0
-          # Distribute win_gap between windows; last window gets no trailing gap
-          local wh=$(( (lh - (n-1)*win_gap) / n ))
-          local i=0 addr
+          local wh=$(( (avail_h - (n-1)*win_gap) / n ))
+          local j=0 addr
           for addr in "$@"; do
-            local wy=$(( oy + i * (wh + win_gap) ))
+            local wy=$(( start_y + j * (wh + win_gap) ))
             hyprctl dispatch movetoworkspacesilent "special:claude-agents,address:$addr" >/dev/null 2>&1 || true
             hyprctl dispatch movewindowpixel "exact $cx $wy,address:$addr" >/dev/null 2>&1 || true
             hyprctl dispatch resizewindowpixel "exact $col_w $wh,address:$addr" >/dev/null 2>&1 || true
-            i=$(( i + 1 ))
+            hyprctl setprop "address:$addr" bordersize 3 lock >/dev/null 2>&1 || true
+            hyprctl setprop "address:$addr" bordercolor "$color" lock >/dev/null 2>&1 || true
+            j=$(( j + 1 ))
           done
         }
 
-        [ "''${#idle_addrs[@]}"     -gt 0 ] && layout_col "$(( ox ))"                          "''${idle_addrs[@]}"     || true
-        [ "''${#working_addrs[@]}"  -gt 0 ] && layout_col "$(( ox + col_w + col_gap ))"        "''${working_addrs[@]}"  || true
-        [ "''${#approval_addrs[@]}" -gt 0 ] && layout_col "$(( ox + 2*(col_w + col_gap) ))"    "''${approval_addrs[@]}" || true
+        # layout_stored <cx> <start_y> [addr ...]
+        # Places windows at fixed stored_h height with blue border.
+        layout_stored() {
+          local cx="$1" start_y="$2"; shift 2
+          local k=0 addr
+          for addr in "$@"; do
+            local wy=$(( start_y + k * (stored_h + win_gap) ))
+            hyprctl dispatch movetoworkspacesilent "special:claude-agents,address:$addr" >/dev/null 2>&1 || true
+            hyprctl dispatch movewindowpixel "exact $cx $wy,address:$addr" >/dev/null 2>&1 || true
+            hyprctl dispatch resizewindowpixel "exact $col_w $stored_h,address:$addr" >/dev/null 2>&1 || true
+            hyprctl setprop "address:$addr" bordersize 3 lock >/dev/null 2>&1 || true
+            hyprctl setprop "address:$addr" bordercolor "rgba(3b82f6ff)" lock >/dev/null 2>&1 || true
+            k=$(( k + 1 ))
+          done
+        }
+
+        local n_idle="''${#idle_addrs[@]}" n_stored="''${#stored_addrs[@]}"
+        local col1_x="$ox"
+
+        # Column 1: idle windows (proportional, top) + stored windows (200px, bottom)
+        if [ "$n_idle" -gt 0 ] && [ "$n_stored" -gt 0 ]; then
+          local stored_total idle_avail
+          stored_total=$(( n_stored * stored_h + (n_stored - 1) * win_gap ))
+          idle_avail=$(( lh - stored_total - win_gap ))
+          [ "$idle_avail" -lt 100 ] && idle_avail=100
+          layout_col "$col1_x" "$oy" "$idle_avail" "rgba(22c55eff)" "''${idle_addrs[@]}"
+          layout_stored "$col1_x" "$(( oy + idle_avail + win_gap ))" "''${stored_addrs[@]}"
+        elif [ "$n_stored" -gt 0 ]; then
+          layout_stored "$col1_x" "$oy" "''${stored_addrs[@]}"
+        elif [ "$n_idle" -gt 0 ]; then
+          layout_col "$col1_x" "$oy" "$lh" "rgba(22c55eff)" "''${idle_addrs[@]}"
+        fi
+
+        # Column 2: working (yellow)
+        [ "''${#working_addrs[@]}"  -gt 0 ] && layout_col "$(( ox + col_w + col_gap ))"     "$oy" "$lh" "rgba(eab308ff)" "''${working_addrs[@]}"  || true
+        # Column 3: needs-approval (purple)
+        [ "''${#approval_addrs[@]}" -gt 0 ] && layout_col "$(( ox + 2*(col_w + col_gap) ))" "$oy" "$lh" "rgba(a855f7ff)" "''${approval_addrs[@]}" || true
       }
 
       reposition_all
@@ -303,11 +347,329 @@ let
 
   smartP = pkgs.writeShellApplication {
     name = "claude-agents-smart-p";
-    runtimeInputs = [ pkgs.jq pkgs.hyprland ];
+    runtimeInputs = [ pkgs.jq pkgs.hyprland pkgs.coreutils ];
     text = ''
-      if ${overlayCheck}; then
-        hyprctl dispatch fullscreen 1
+      # Is any agent window currently fullscreened?
+      fullscreened=$(hyprctl clients -j | jq -r '
+        .[] | select(
+          (.class | startswith("claude-agent-")) and
+          ((.fullscreen // 0) != 0)
+        ) | .address' | head -1)
+
+      if [ -n "$fullscreened" ]; then
+        # Un-fullscreen (batch: focus + toggle off in one IPC call to avoid races)
+        hyprctl --batch "dispatch focuswindow address:$fullscreened ; dispatch fullscreen 0"
+        for sf in "${stateDir}"/*.state; do
+          [ -f "$sf" ] || continue
+          printf '%s' "$(cat "$sf")" > "$sf"
+          break
+        done
+      else
+        # Ensure the overlay is visible on the focused monitor
+        if ! hyprctl monitors -j | jq -e 'any(.[]; .focused == true and .specialWorkspace.name == "special:claude-agents")' >/dev/null 2>&1; then
+          hyprctl dispatch togglespecialworkspace claude-agents
+        fi
+        # With follow_mouse=1 the active window is whatever is under the cursor.
+        # Honour that if it's an agent; otherwise fall back to the first agent found.
+        active_class=$(hyprctl activewindow -j | jq -r '.class // ""')
+        if [[ "$active_class" == claude-agent-* ]]; then
+          hyprctl dispatch fullscreen 0
+        else
+          agent_addr=$(hyprctl clients -j | jq -r '
+            .[] | select(.class | startswith("claude-agent-")) | .address' | head -1)
+          if [ -n "$agent_addr" ]; then
+            hyprctl --batch "dispatch focuswindow address:$agent_addr ; dispatch fullscreen 0"
+          fi
+        fi
       fi
+    '';
+  };
+
+  smartI = pkgs.writeShellApplication {
+    name = "claude-agents-smart-i";
+    runtimeInputs = [ pkgs.jq pkgs.hyprland pkgs.coreutils ];
+    text = ''
+      active_class=$(hyprctl activewindow -j | jq -r '.class // ""')
+      if [[ "$active_class" == claude-agent-* ]]; then
+        sid="''${active_class#claude-agent-}"
+        sf="${stateDir}/$sid.state"
+        if [ -f "$sf" ]; then
+          state=$(cat "$sf")
+          if [ "$state" = "stored" ]; then
+            printf 'idle' > "$sf"
+          else
+            printf 'stored' > "$sf"
+          fi
+        fi
+      fi
+    '';
+  };
+
+  # ── Hover-to-expand daemon ────────────────────────────────────────────────────
+  # Listens to Hyprland socket2 activewindowv2 events (follow_mouse=1 makes
+  # these fire on hover). When an agent window is smaller than half the column
+  # height it expands to 50%; others in the column compress proportionally.
+  # Also watches state files so it can reexpand after the watcher repositions.
+
+  hoverDaemon = pkgs.writeShellApplication {
+    name = "claude-agents-hover";
+    runtimeInputs = with pkgs; [ jq hyprland gawk coreutils inotify-tools socat ];
+    text = ''
+      log() { echo "[hover] $*" >&2; }
+
+      stateDir="${stateDir}"
+      PIPE=$(mktemp -u /tmp/claude-hover-XXXXXX)
+      mkfifo "$PIPE"
+      cleanup() { kill "$(jobs -p)" 2>/dev/null || true; rm -f "$PIPE"; }
+      trap cleanup EXIT INT TERM
+
+      # Locate Hyprland event socket (Hyprland 0.41+ uses XDG_RUNTIME_DIR/hypr/)
+      his_fallback=""
+      for d in "$XDG_RUNTIME_DIR/hypr/"/*/; do
+        if [ -d "$d" ]; then his_fallback=$(basename "$d"); break; fi
+      done
+      HIS="''${HYPRLAND_INSTANCE_SIGNATURE:-$his_fallback}"
+      SOCK="$XDG_RUNTIME_DIR/hypr/$HIS/.socket2.sock"
+      log "HIS=$HIS  SOCK=$SOCK  stateDir=$stateDir"
+
+      if [ ! -S "$SOCK" ]; then
+        log "ERROR: socket not found at $SOCK — cannot receive events"
+      fi
+
+      # Feed Hyprland events as "H:<event>" and state-file changes as "S"
+      socat -u "UNIX-CONNECT:$SOCK" - 2>&1 \
+        | while IFS= read -r ev; do printf 'H:%s\n' "$ev"; done >> "$PIPE" &
+      inotifywait -m -q -e close_write,moved_to "$stateDir" --format 'S' >> "$PIPE" &
+      log "event sources started (socat PID=$!, stateDir watcher running)"
+
+      hovered_addr=""
+      hovered_col="-1"
+      reexpand_pid=""
+
+      get_params() {
+        local mon mw mh scale rr rb lw
+        mon=$(hyprctl monitors -j | jq 'map(select(.focused))[0] // .[0]')
+        G_OX=$(printf '%s' "$mon" | jq '.reserved[0]')
+        G_OY=$(printf '%s' "$mon" | jq '.reserved[1]')
+        mw=$(printf '%s' "$mon" | jq '.width')
+        mh=$(printf '%s' "$mon" | jq '.height')
+        scale=$(printf '%s' "$mon" | jq '.scale')
+        rr=$(printf '%s' "$mon" | jq '.reserved[2]')
+        rb=$(printf '%s' "$mon" | jq '.reserved[3]')
+        lw=$(awk "BEGIN{printf \"%d\", $mw/$scale - $G_OX - $rr}")
+        G_LH=$(awk "BEGIN{printf \"%d\", $mh/$scale - $G_OY - $rb}")
+        G_CW=$(( (lw - 2*24) / 3 ))
+      }
+
+      col_cx() {
+        case "$1" in
+          0) printf '%d' "$G_OX" ;;
+          1) printf '%d' "$(( G_OX + G_CW + 24 ))" ;;
+          2) printf '%d' "$(( G_OX + 2*(G_CW + 24) ))" ;;
+        esac
+      }
+
+      addr_state() {
+        local addr="$1" cj="$2" class sid sf
+        class=$(printf '%s' "$cj" | jq -r --arg a "$addr" \
+          '.[] | select(.address == $a) | .class')
+        [[ "$class" == claude-agent-* ]] || return 0
+        sid="''${class#claude-agent-}"
+        sf="$stateDir/$sid.state"
+        [ -f "$sf" ] && cat "$sf" || true
+      }
+
+      state_col() {
+        case "$1" in
+          idle|stored)    printf '0' ;;
+          working)        printf '1' ;;
+          needs-approval) printf '2' ;;
+          *)              printf '-1' ;;
+        esac
+      }
+
+      col_addrs() {
+        local col="$1" cj="$2" sf sid state client title addr
+        for sf in "$stateDir"/*.state; do
+          [ -f "$sf" ] || continue
+          sid=$(basename "$sf" .state)
+          state=$(cat "$sf")
+          [ "$(state_col "$state")" = "$col" ] || continue
+          client=$(printf '%s' "$cj" | jq -r --arg cl "claude-agent-$sid" \
+            '.[] | select(.class == $cl) | [.title, .address] | join("\t")' | head -1)
+          [ -z "$client" ] && continue
+          title=$(printf '%s' "$client" | cut -f1)
+          addr=$(printf '%s' "$client" | cut -f2)
+          printf '%s\t%s\n' "$title" "$addr"
+        done | sort -f | cut -f2
+      }
+
+      do_expand() {
+        local target="$1" cj="${2:-}" state col cx
+        [ -z "$cj" ] && cj=$(hyprctl clients -j)
+        state=$(addr_state "$target" "$cj")
+        [ -z "$state" ] && { log "expand: no state for $target, skipping"; return 0; }
+        col=$(state_col "$state")
+        [ "$col" = "-1" ] && { log "expand: unknown col for state '$state'"; return 0; }
+
+        get_params
+        cx=$(col_cx "$col")
+
+        local addrs=()
+        readarray -t addrs < <(col_addrs "$col" "$cj")
+        local n="''${#addrs[@]}"
+        [ "$n" -lt 2 ] && { log "expand: only $n window(s) in col $col, nothing to compress"; return 0; }
+
+        local curr_h half other_h
+        curr_h=$(printf '%s' "$cj" | jq -r --arg a "$target" \
+          '.[] | select(.address == $a) | .size[1]')
+        half=$(( G_LH / 2 ))
+        log "expand: target=$target col=$col n=$n curr_h=$curr_h half=$half"
+        [ "$curr_h" -ge "$half" ] && { log "expand: already at or above half, skipping"; return 0; }
+
+        other_h=$(( (G_LH - half - (n-1)*8) / (n-1) ))
+        [ "$other_h" -lt 40 ] && { log "expand: other_h=$other_h too small, skipping"; return 0; }
+
+        local y="$G_OY" addr wh batch=""
+        for addr in "''${addrs[@]}"; do
+          if [ "$addr" = "$target" ]; then wh="$half"; else wh="$other_h"; fi
+          batch+="dispatch movewindowpixel exact $cx $y,address:$addr ; "
+          batch+="dispatch resizewindowpixel exact $G_CW $wh,address:$addr ; "
+          y=$(( y + wh + 8 ))
+        done
+        hyprctl --batch "''${batch% ; }" >/dev/null 2>&1 || true
+
+        hovered_addr="$target"
+        hovered_col="$col"
+      }
+
+      do_restore() {
+        local col="$1" cj cx batch=""
+        [ "$col" = "-1" ] && return 0
+        cj=$(hyprctl clients -j)
+        get_params
+        cx=$(col_cx "$col")
+
+        if [ "$col" = "0" ]; then
+          local idle_pairs="" stored_pairs="" sf sid state client title addr
+          for sf in "$stateDir"/*.state; do
+            [ -f "$sf" ] || continue
+            sid=$(basename "$sf" .state)
+            state=$(cat "$sf")
+            [ "$(state_col "$state")" = "0" ] || continue
+            client=$(printf '%s' "$cj" | jq -r --arg cl "claude-agent-$sid" \
+              '.[] | select(.class == $cl) | [.title, .address] | join("\t")' | head -1)
+            [ -z "$client" ] && continue
+            title=$(printf '%s' "$client" | cut -f1)
+            addr=$(printf '%s' "$client" | cut -f2)
+            case "$state" in
+              idle)   idle_pairs+="$title"$'\t'"$addr"$'\n' ;;
+              stored) stored_pairs+="$title"$'\t'"$addr"$'\n' ;;
+            esac
+          done
+
+          local idle_addrs=() stored_addrs=()
+          [ -n "$idle_pairs" ]   && readarray -t idle_addrs   < <(printf '%s' "$idle_pairs"   | sort -f | cut -f2)
+          [ -n "$stored_pairs" ] && readarray -t stored_addrs < <(printf '%s' "$stored_pairs" | sort -f | cut -f2)
+
+          local n_idle="''${#idle_addrs[@]}" n_stored="''${#stored_addrs[@]}" y="$G_OY"
+          local stored_total idle_avail idle_wh
+
+          if [ "$n_idle" -gt 0 ] && [ "$n_stored" -gt 0 ]; then
+            stored_total=$(( n_stored * 200 + (n_stored-1) * 8 ))
+            idle_avail=$(( G_LH - stored_total - 8 ))
+            [ "$idle_avail" -lt 100 ] && idle_avail=100
+            idle_wh=$(( (idle_avail - (n_idle-1)*8) / n_idle ))
+            for addr in "''${idle_addrs[@]}"; do
+              batch+="dispatch movewindowpixel exact $cx $y,address:$addr ; "
+              batch+="dispatch resizewindowpixel exact $G_CW $idle_wh,address:$addr ; "
+              y=$(( y + idle_wh + 8 ))
+            done
+            y=$(( G_OY + idle_avail + 8 ))
+            for addr in "''${stored_addrs[@]}"; do
+              batch+="dispatch movewindowpixel exact $cx $y,address:$addr ; "
+              batch+="dispatch resizewindowpixel exact $G_CW 200,address:$addr ; "
+              y=$(( y + 200 + 8 ))
+            done
+          elif [ "$n_stored" -gt 0 ]; then
+            for addr in "''${stored_addrs[@]}"; do
+              batch+="dispatch movewindowpixel exact $cx $y,address:$addr ; "
+              batch+="dispatch resizewindowpixel exact $G_CW 200,address:$addr ; "
+              y=$(( y + 200 + 8 ))
+            done
+          elif [ "$n_idle" -gt 0 ]; then
+            idle_wh=$(( (G_LH - (n_idle-1)*8) / n_idle ))
+            for addr in "''${idle_addrs[@]}"; do
+              batch+="dispatch movewindowpixel exact $cx $y,address:$addr ; "
+              batch+="dispatch resizewindowpixel exact $G_CW $idle_wh,address:$addr ; "
+              y=$(( y + idle_wh + 8 ))
+            done
+          fi
+        else
+          local addrs=()
+          readarray -t addrs < <(col_addrs "$col" "$cj")
+          local n="''${#addrs[@]}"
+          [ "$n" -eq 0 ] && return 0
+          local wh=$(( (G_LH - (n-1)*8) / n ))
+          local y="$G_OY" addr
+          for addr in "''${addrs[@]}"; do
+            batch+="dispatch movewindowpixel exact $cx $y,address:$addr ; "
+            batch+="dispatch resizewindowpixel exact $G_CW $wh,address:$addr ; "
+            y=$(( y + wh + 8 ))
+          done
+        fi
+        batch="''${batch% ; }"
+        [ -n "$batch" ] && hyprctl --batch "$batch" >/dev/null 2>&1 || true
+      }
+
+      on_focus() {
+        local new_addr="$1" cj new_state new_col
+        cj=$(hyprctl clients -j)
+        new_state=$(addr_state "$new_addr" "$cj")
+        new_col="-1"
+        [ -n "$new_state" ] && new_col=$(state_col "$new_state")
+        log "focus addr=$new_addr state='$new_state' col=$new_col hovered_col=$hovered_col"
+
+        [ "$new_addr" = "$hovered_addr" ] && return 0
+
+        if [ "$hovered_col" != "-1" ] && [ "$new_col" != "$hovered_col" ]; then
+          local old_col="$hovered_col"
+          hovered_addr=""
+          hovered_col="-1"
+          log "restoring col $old_col"
+          do_restore "$old_col"
+        fi
+
+        # Stored windows stay small intentionally — never expand them
+        [ "$new_col" != "-1" ] && [ "$new_state" != "stored" ] && do_expand "$new_addr" "$cj" || true
+      }
+
+      # Expand whatever is already focused on daemon startup
+      initial=$(hyprctl activewindow -j | jq -r '.address // ""')
+      [ -n "$initial" ] && on_focus "$initial" || true
+
+      while IFS= read -r line; do
+        # Strip >>PAYLOAD suffix before matching — >> in a case pattern is
+        # parsed as a redirect token by bash and causes a syntax error.
+        case "''${line%%>>*}" in
+          H:activewindowv2)
+            addr="0x''${line#H:activewindowv2>>}"
+            on_focus "$addr" || true
+            ;;
+          S)
+            # Watcher repositioned; reexpand the hovered window after it finishes
+            [ -n "$reexpand_pid" ] && kill "$reexpand_pid" 2>/dev/null || true
+            ha="$hovered_addr"
+            ( sleep 0.25
+              if [ -n "$ha" ]; then
+                active=$(hyprctl activewindow -j | jq -r '.address // ""')
+                [ "$active" = "$ha" ] && do_expand "$ha" || true
+              fi
+            ) &
+            reexpand_pid="$!"
+            ;;
+        esac
+      done < "$PIPE"
     '';
   };
 
@@ -316,7 +678,7 @@ in {
     mkEnableOption "Claude Code agent management with Hyprland workspace integration";
 
   config = mkIf cfg.enable {
-    home.packages = [ watcher spawner smartO smartP ];
+    home.packages = [ watcher spawner smartO smartP smartI hoverDaemon ];
 
     home.file.".claude/settings.json" = {
       force = true;
@@ -347,6 +709,23 @@ in {
       Install.WantedBy = [ "graphical-session.target" ];
     };
 
+    systemd.user.services.claude-agents-hover = {
+      Unit = {
+        Description = "Claude Code agent hover-to-expand";
+        After = [ "graphical-session.target" ];
+        PartOf = [ "graphical-session.target" ];
+      };
+      Service = {
+        Type = "simple";
+        ExecStart = "${hoverDaemon}/bin/claude-agents-hover";
+        Restart = "on-failure";
+        RestartSec = "2s";
+        # socat needs to locate the Hyprland socket
+        PassEnvironment = [ "HYPRLAND_INSTANCE_SIGNATURE" ];
+      };
+      Install.WantedBy = [ "graphical-session.target" ];
+    };
+
     wayland.windowManager.hyprland = {
       settings = {
         windowrulev2 = [
@@ -361,6 +740,7 @@ in {
           "SUPER, D, togglespecialworkspace, claude-agents"
           "SUPER, O, exec, ${pkgs.kitty}/bin/kitty --class claude-agents-picker --override close_on_child_death=yes -e ${smartO}/bin/claude-agents-smart-o"
           "SUPER, P, exec, ${smartP}/bin/claude-agents-smart-p"
+          "SUPER, I, exec, ${smartI}/bin/claude-agents-smart-i"
         ];
       };
     };
