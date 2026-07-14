@@ -115,8 +115,8 @@ let
         res_bottom=$(printf '%s' "$mon" | jq '.reserved[3]')
         lw=$(awk "BEGIN{printf \"%d\", $mw/$scale - $ox - $res_right}")
         lh=$(awk "BEGIN{printf \"%d\", $mh/$scale - $oy - $res_bottom}")
-        # Gaps: 24px between columns, 8px between stacked windows, 200px for stored windows
-        local col_gap=24 win_gap=8 stored_h=200
+        # Gaps: 24px between columns, 8px between stacked windows
+        local col_gap=24 win_gap=8
         col_w=$(( (lw - 2*col_gap) / 3 ))
 
         local clients_json
@@ -173,40 +173,46 @@ let
           done
         }
 
-        # layout_stored <cx> <start_y> [addr ...]
-        layout_stored() {
-          local cx="$1" start_y="$2"; shift 2
-          local k=0 addr
+        # layout_stored_grid [addr ...] — centered grid on special:claude-agents-stored
+        layout_stored_grid() {
+          local n="$#"
+          [ "$n" -eq 0 ] && return 0
+          local grid_gap=16
+          local max_cols=3
+          local n_cols=$(( n < max_cols ? n : max_cols ))
+          local n_rows=$(( (n + n_cols - 1) / n_cols ))
+          local win_w=$(( (lw - (n_cols + 1) * grid_gap) / n_cols ))
+          local win_h=$(( (lh - (n_rows + 1) * grid_gap) / n_rows ))
+          [ "$win_w" -gt 720 ] && win_w=720
+          [ "$win_h" -gt 560 ] && win_h=560
+          local grid_w=$(( n_cols * win_w + (n_cols - 1) * grid_gap ))
+          local grid_h=$(( n_rows * win_h + (n_rows - 1) * grid_gap ))
+          local start_x=$(( ox + (lw - grid_w) / 2 ))
+          local start_y=$(( oy + (lh - grid_h) / 2 ))
+          local i=0 addr
           for addr in "$@"; do
-            local wy=$(( start_y + k * (stored_h + win_gap) ))
-            hyprctl dispatch movetoworkspacesilent "special:claude-agents,address:$addr" >/dev/null 2>&1 || true
-            hyprctl dispatch movewindowpixel "exact $cx $wy,address:$addr" >/dev/null 2>&1 || true
-            hyprctl dispatch resizewindowpixel "exact $col_w $stored_h,address:$addr" >/dev/null 2>&1 || true
-            k=$(( k + 1 ))
+            local row=$(( i / n_cols ))
+            local col=$(( i % n_cols ))
+            local wx=$(( start_x + col * (win_w + grid_gap) ))
+            local wy=$(( start_y + row * (win_h + grid_gap) ))
+            hyprctl dispatch movetoworkspacesilent "special:claude-agents-stored,address:$addr" >/dev/null 2>&1 || true
+            hyprctl dispatch movewindowpixel "exact $wx $wy,address:$addr" >/dev/null 2>&1 || true
+            hyprctl dispatch resizewindowpixel "exact $win_w $win_h,address:$addr" >/dev/null 2>&1 || true
+            i=$(( i + 1 ))
           done
         }
 
-        local n_idle="''${#idle_addrs[@]}" n_stored="''${#stored_addrs[@]}"
-        local col1_x="$ox"
-
-        # Column 1: idle windows (proportional, top) + stored windows (200px, bottom)
-        if [ "$n_idle" -gt 0 ] && [ "$n_stored" -gt 0 ]; then
-          local stored_total idle_avail
-          stored_total=$(( n_stored * stored_h + (n_stored - 1) * win_gap ))
-          idle_avail=$(( lh - stored_total - win_gap ))
-          [ "$idle_avail" -lt 100 ] && idle_avail=100
-          layout_col "$col1_x" "$oy" "$idle_avail" "''${idle_addrs[@]}"
-          layout_stored "$col1_x" "$(( oy + idle_avail + win_gap ))" "''${stored_addrs[@]}"
-        elif [ "$n_stored" -gt 0 ]; then
-          layout_stored "$col1_x" "$oy" "''${stored_addrs[@]}"
-        elif [ "$n_idle" -gt 0 ]; then
-          layout_col "$col1_x" "$oy" "$lh" "''${idle_addrs[@]}"
-        fi
-
+        # Column 1: idle (full height)
+        [ "''${#idle_addrs[@]}"     -gt 0 ] && layout_col "$ox"                              "$oy" "$lh" "''${idle_addrs[@]}"     || true
         # Column 2: working
-        [ "''${#working_addrs[@]}"  -gt 0 ] && layout_col "$(( ox + col_w + col_gap ))"     "$oy" "$lh" "''${working_addrs[@]}"  || true
+        [ "''${#working_addrs[@]}"  -gt 0 ] && layout_col "$(( ox + col_w + col_gap ))"      "$oy" "$lh" "''${working_addrs[@]}"  || true
         # Column 3: needs-approval
-        [ "''${#approval_addrs[@]}" -gt 0 ] && layout_col "$(( ox + 2*(col_w + col_gap) ))" "$oy" "$lh" "''${approval_addrs[@]}" || true
+        [ "''${#approval_addrs[@]}" -gt 0 ] && layout_col "$(( ox + 2*(col_w + col_gap) ))"  "$oy" "$lh" "''${approval_addrs[@]}" || true
+        # Storage: centered grid on stored workspace
+        [ "''${#stored_addrs[@]}"   -gt 0 ] && layout_stored_grid "''${stored_addrs[@]}" || true
+
+        # Signal hover daemon that repositioning is complete
+        printf 'done\n' > "${stateDir}/.watcher-idle"
       }
 
       reposition_all
@@ -583,16 +589,15 @@ let
 
       state_col() {
         case "$1" in
-          idle|stored)    printf '0' ;;
+          idle)           printf '0' ;;
           working)        printf '1' ;;
           needs-approval) printf '2' ;;
           *)              printf '-1' ;;
         esac
       }
 
-      # col_addrs <col> [state_filter]
       col_addrs() {
-        local col="$1" filter="''${2:-}" class addr title sid sf state
+        local col="$1" class addr title sid sf state
         [ -z "$AGENT_MAP" ] && return 0
         while IFS=$'\t' read -r class addr title; do
           [[ "$class" == claude-agent-* ]] || continue
@@ -601,7 +606,6 @@ let
           [ -f "$sf" ] || continue
           state=$(cat "$sf")
           [ "$(state_col "$state")" = "$col" ] || continue
-          [ -n "$filter" ] && [ "$state" != "$filter" ] && continue
           printf '%s\t%s\n' "$title" "$addr"
         done < <(printf '%s\n' "$AGENT_MAP") | sort -f | cut -f2
       }
@@ -615,20 +619,8 @@ let
 
         cx=$(col_cx "$col")
 
-        # Col 0: only expand idle windows; compute height excluding pinned stored area
         local addrs=() avail_h="$G_LH"
-        if [ "$col" = "0" ]; then
-          readarray -t addrs < <(col_addrs "$col" "idle")
-          local n_stored=0 sf_s
-          for sf_s in "$stateDir"/*.state; do
-            [ -f "$sf_s" ] || continue
-            [ "$(cat "$sf_s")" = "stored" ] && n_stored=$(( n_stored + 1 ))
-          done
-          [ "$n_stored" -gt 0 ] && avail_h=$(( G_LH - n_stored * 200 - n_stored * 8 ))
-          [ "$avail_h" -lt 100 ] && avail_h=100
-        else
-          readarray -t addrs < <(col_addrs "$col")
-        fi
+        readarray -t addrs < <(col_addrs "$col")
         local n="''${#addrs[@]}"
         [ "$n" -lt 2 ] && { log "expand: only $n window(s) in col $col, nothing to compress"; return 0; }
 
@@ -656,71 +648,17 @@ let
         [ "$col" = "-1" ] && return 0
         cx=$(col_cx "$col")
 
-        if [ "$col" = "0" ]; then
-          local idle_pairs="" stored_pairs="" class addr title sid sf state
-          while IFS=$'\t' read -r class addr title; do
-            [[ "$class" == claude-agent-* ]] || continue
-            sid="''${class#claude-agent-}"
-            sf="$stateDir/$sid.state"
-            [ -f "$sf" ] || continue
-            state=$(cat "$sf")
-            [ "$(state_col "$state")" = "0" ] || continue
-            case "$state" in
-              idle)   idle_pairs+="$title"$'\t'"$addr"$'\n' ;;
-              stored) stored_pairs+="$title"$'\t'"$addr"$'\n' ;;
-            esac
-          done < <(printf '%s\n' "$AGENT_MAP")
-
-          local idle_addrs=() stored_addrs=()
-          [ -n "$idle_pairs" ]   && readarray -t idle_addrs   < <(printf '%s' "$idle_pairs"   | sort -f | cut -f2)
-          [ -n "$stored_pairs" ] && readarray -t stored_addrs < <(printf '%s' "$stored_pairs" | sort -f | cut -f2)
-
-          local n_idle="''${#idle_addrs[@]}" n_stored="''${#stored_addrs[@]}" y="$G_OY"
-          local stored_total idle_avail idle_wh
-
-          if [ "$n_idle" -gt 0 ] && [ "$n_stored" -gt 0 ]; then
-            stored_total=$(( n_stored * 200 + (n_stored-1) * 8 ))
-            idle_avail=$(( G_LH - stored_total - 8 ))
-            [ "$idle_avail" -lt 100 ] && idle_avail=100
-            idle_wh=$(( (idle_avail - (n_idle-1)*8) / n_idle ))
-            for addr in "''${idle_addrs[@]}"; do
-              batch+="dispatch movewindowpixel exact $cx $y,address:$addr ; "
-              batch+="dispatch resizewindowpixel exact $G_CW $idle_wh,address:$addr ; "
-              y=$(( y + idle_wh + 8 ))
-            done
-            y=$(( G_OY + idle_avail + 8 ))
-            for addr in "''${stored_addrs[@]}"; do
-              batch+="dispatch movewindowpixel exact $cx $y,address:$addr ; "
-              batch+="dispatch resizewindowpixel exact $G_CW 200,address:$addr ; "
-              y=$(( y + 200 + 8 ))
-            done
-          elif [ "$n_stored" -gt 0 ]; then
-            for addr in "''${stored_addrs[@]}"; do
-              batch+="dispatch movewindowpixel exact $cx $y,address:$addr ; "
-              batch+="dispatch resizewindowpixel exact $G_CW 200,address:$addr ; "
-              y=$(( y + 200 + 8 ))
-            done
-          elif [ "$n_idle" -gt 0 ]; then
-            idle_wh=$(( (G_LH - (n_idle-1)*8) / n_idle ))
-            for addr in "''${idle_addrs[@]}"; do
-              batch+="dispatch movewindowpixel exact $cx $y,address:$addr ; "
-              batch+="dispatch resizewindowpixel exact $G_CW $idle_wh,address:$addr ; "
-              y=$(( y + idle_wh + 8 ))
-            done
-          fi
-        else
-          local addrs=()
-          readarray -t addrs < <(col_addrs "$col")
-          local n="''${#addrs[@]}"
-          [ "$n" -eq 0 ] && return 0
-          local wh=$(( (G_LH - (n-1)*8) / n ))
-          local y="$G_OY" addr
-          for addr in "''${addrs[@]}"; do
-            batch+="dispatch movewindowpixel exact $cx $y,address:$addr ; "
-            batch+="dispatch resizewindowpixel exact $G_CW $wh,address:$addr ; "
-            y=$(( y + wh + 8 ))
-          done
-        fi
+        local addrs=()
+        readarray -t addrs < <(col_addrs "$col")
+        local n="''${#addrs[@]}"
+        [ "$n" -eq 0 ] && return 0
+        local wh=$(( (G_LH - (n-1)*8) / n ))
+        local y="$G_OY" addr
+        for addr in "''${addrs[@]}"; do
+          batch+="dispatch movewindowpixel exact $cx $y,address:$addr ; "
+          batch+="dispatch resizewindowpixel exact $G_CW $wh,address:$addr ; "
+          y=$(( y + wh + 8 ))
+        done
         batch="''${batch% ; }"
         [ -n "$batch" ] && hyprctl --batch "$batch" >/dev/null 2>&1 || true
       }
@@ -742,8 +680,7 @@ let
           do_restore "$old_col"
         fi
 
-        # Stored windows stay small intentionally — never expand them
-        [ "$new_col" != "-1" ] && [ "$new_state" != "stored" ] && do_expand "$new_addr" || true
+        [ "$new_col" != "-1" ] && do_expand "$new_addr" || true
       }
 
       # Pre-compute monitor geometry, build initial agent map, expand whatever
@@ -860,6 +797,7 @@ in {
         ];
         bind = [
           "SUPER, D, togglespecialworkspace, claude-agents"
+          "SUPER SHIFT, I, togglespecialworkspace, claude-agents-stored"
           "SUPER, O, exec, ${pkgs.kitty}/bin/kitty --class claude-agents-picker --override close_on_child_death=yes -e ${smartO}/bin/claude-agents-smart-o"
           "SUPER, P, exec, ${smartP}/bin/claude-agents-smart-p"
           "SUPER, I, exec, ${smartI}/bin/claude-agents-smart-i"
