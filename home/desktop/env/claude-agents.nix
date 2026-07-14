@@ -96,7 +96,7 @@ let
 
   watcher = pkgs.writeShellApplication {
     name = "claude-agents-watcher";
-    runtimeInputs = with pkgs; [ inotify-tools jq hyprland gawk coreutils ];
+    runtimeInputs = with pkgs; [ inotify-tools jq hyprland gawk coreutils kitty ];
     text = ''
       mkdir -p "${stateDir}"
 
@@ -138,6 +138,16 @@ let
             needs-approval) approval_pairs+="$title"$'\t'"$addr"$'\n' ;;
             stored)         stored_pairs+="$title"$'\t'"$addr"$'\n' ;;
           esac
+          # Tint the kitty terminal background to reflect agent state
+          local sock="${stateDir}/$sid.sock"
+          if [ -S "$sock" ]; then
+            case "$state" in
+              idle)           kitty @ --to "unix:$sock" set-colors "background=#0d1f0d" >/dev/null 2>&1 || true ;;
+              working)        kitty @ --to "unix:$sock" set-colors "background=#1f1a00" >/dev/null 2>&1 || true ;;
+              needs-approval) kitty @ --to "unix:$sock" set-colors "background=#1f0d1f" >/dev/null 2>&1 || true ;;
+              stored)         kitty @ --to "unix:$sock" set-colors "background=#0d0d1f" >/dev/null 2>&1 || true ;;
+            esac
+          fi
         done
 
         local idle_addrs=() working_addrs=() approval_addrs=() stored_addrs=()
@@ -146,10 +156,9 @@ let
         [ -n "$approval_pairs" ] && readarray -t approval_addrs < <(printf '%s' "$approval_pairs" | sort -f | cut -f2)
         [ -n "$stored_pairs" ]   && readarray -t stored_addrs   < <(printf '%s' "$stored_pairs"   | sort -f | cut -f2)
 
-        # layout_col <cx> <start_y> <avail_h> <border_color> [addr ...]
-        # Uses col_w and win_gap from outer scope via dynamic scoping.
+        # layout_col <cx> <start_y> <avail_h> [addr ...]
         layout_col() {
-          local cx="$1" start_y="$2" avail_h="$3" color="$4"; shift 4
+          local cx="$1" start_y="$2" avail_h="$3"; shift 3
           local n="$#"
           [ "$n" -eq 0 ] && return 0
           local wh=$(( (avail_h - (n-1)*win_gap) / n ))
@@ -159,14 +168,11 @@ let
             hyprctl dispatch movetoworkspacesilent "special:claude-agents,address:$addr" >/dev/null 2>&1 || true
             hyprctl dispatch movewindowpixel "exact $cx $wy,address:$addr" >/dev/null 2>&1 || true
             hyprctl dispatch resizewindowpixel "exact $col_w $wh,address:$addr" >/dev/null 2>&1 || true
-            hyprctl setprop "address:$addr" bordersize 3 lock >/dev/null 2>&1 || true
-            hyprctl setprop "address:$addr" bordercolor "$color" lock >/dev/null 2>&1 || true
             j=$(( j + 1 ))
           done
         }
 
         # layout_stored <cx> <start_y> [addr ...]
-        # Places windows at fixed stored_h height with blue border.
         layout_stored() {
           local cx="$1" start_y="$2"; shift 2
           local k=0 addr
@@ -175,8 +181,6 @@ let
             hyprctl dispatch movetoworkspacesilent "special:claude-agents,address:$addr" >/dev/null 2>&1 || true
             hyprctl dispatch movewindowpixel "exact $cx $wy,address:$addr" >/dev/null 2>&1 || true
             hyprctl dispatch resizewindowpixel "exact $col_w $stored_h,address:$addr" >/dev/null 2>&1 || true
-            hyprctl setprop "address:$addr" bordersize 3 lock >/dev/null 2>&1 || true
-            hyprctl setprop "address:$addr" bordercolor "rgba(3b82f6ff)" lock >/dev/null 2>&1 || true
             k=$(( k + 1 ))
           done
         }
@@ -190,18 +194,18 @@ let
           stored_total=$(( n_stored * stored_h + (n_stored - 1) * win_gap ))
           idle_avail=$(( lh - stored_total - win_gap ))
           [ "$idle_avail" -lt 100 ] && idle_avail=100
-          layout_col "$col1_x" "$oy" "$idle_avail" "rgba(22c55eff)" "''${idle_addrs[@]}"
+          layout_col "$col1_x" "$oy" "$idle_avail" "''${idle_addrs[@]}"
           layout_stored "$col1_x" "$(( oy + idle_avail + win_gap ))" "''${stored_addrs[@]}"
         elif [ "$n_stored" -gt 0 ]; then
           layout_stored "$col1_x" "$oy" "''${stored_addrs[@]}"
         elif [ "$n_idle" -gt 0 ]; then
-          layout_col "$col1_x" "$oy" "$lh" "rgba(22c55eff)" "''${idle_addrs[@]}"
+          layout_col "$col1_x" "$oy" "$lh" "''${idle_addrs[@]}"
         fi
 
-        # Column 2: working (yellow)
-        [ "''${#working_addrs[@]}"  -gt 0 ] && layout_col "$(( ox + col_w + col_gap ))"     "$oy" "$lh" "rgba(eab308ff)" "''${working_addrs[@]}"  || true
-        # Column 3: needs-approval (purple)
-        [ "''${#approval_addrs[@]}" -gt 0 ] && layout_col "$(( ox + 2*(col_w + col_gap) ))" "$oy" "$lh" "rgba(a855f7ff)" "''${approval_addrs[@]}" || true
+        # Column 2: working
+        [ "''${#working_addrs[@]}"  -gt 0 ] && layout_col "$(( ox + col_w + col_gap ))"     "$oy" "$lh" "''${working_addrs[@]}"  || true
+        # Column 3: needs-approval
+        [ "''${#approval_addrs[@]}" -gt 0 ] && layout_col "$(( ox + 2*(col_w + col_gap) ))" "$oy" "$lh" "''${approval_addrs[@]}" || true
       }
 
       reposition_all
@@ -233,6 +237,8 @@ let
         --override tab_bar_edge=top \
         --override tab_bar_style=separator \
         --override tab_title_template="{title}" \
+        --override allow_remote_control=socket-only \
+        --override "listen_on=unix:${stateDir}/$sid.sock" \
         -e "${pkgs.claude-code}/bin/claude"
     '';
   };
@@ -759,6 +765,7 @@ in {
       settings = {
         windowrulev2 = [
           "float, class:^claude-agent-.*$"
+          "noanim, class:^claude-agent-.*$"
           "workspace special:claude-agents silent, class:^claude-agent-.*$"
           "float, class:^claude-agents-picker$"
           "center, class:^claude-agents-picker$"
