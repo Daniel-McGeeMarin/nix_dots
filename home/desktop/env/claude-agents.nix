@@ -185,7 +185,9 @@ $first_msg" 2>/dev/null | head -1 | tr -d '"' | cut -c1-40) || true
             stored)         stored_pairs+="$title"$'\t'"$addr"$'\n' ;;
           esac
           # Tint the kitty terminal background to reflect agent state
-          local sock="${stateDir}/$sid.sock"
+          # listen_on uses {kitty_pid}, so the socket is agent-X-<PID>.sock
+          local sock
+          sock=$(ls "${stateDir}/$sid"-*.sock 2>/dev/null | head -1 || true)
           if [ -S "$sock" ]; then
             case "$state" in
               idle)           kitty @ --to "unix:$sock" set-colors --all background=#0d1f0d >/dev/null 2>&1 || true ;;
@@ -330,7 +332,7 @@ $first_msg" 2>/dev/null | head -1 | tr -d '"' | cut -c1-40) || true
         --override tab_bar_style=separator \
         --override tab_title_template="{title}" \
         --override allow_remote_control=socket-only \
-        --override "listen_on=unix:${stateDir}/$sid.sock" \
+        --override "listen_on=unix:${stateDir}/$sid-{kitty_pid}.sock" \
         -e "$@"
     '';
   };
