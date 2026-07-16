@@ -237,31 +237,23 @@ $first_msg" 2>/dev/null | head -1 | tr -d '"' | cut -c1-40) || true
           fi
         }
 
-        # layout_stored_grid [addr ...] — centered grid on special:claude-agents-stored
+        # layout_stored_grid [addr ...] — 3-col fill on special:claude-agents-stored.
+        # rows_per_col = ceil(n/3): 1-3 items fill full height, 4-6 are halved, etc.
+        # Column-first ordering: fill col 0 top-to-bottom, then col 1, then col 2.
         layout_stored_grid() {
           local n="$#"
           [ "$n" -eq 0 ] && return 0
-          local grid_gap=16
-          local max_cols=3
-          local n_cols=$(( n < max_cols ? n : max_cols ))
-          local n_rows=$(( (n + n_cols - 1) / n_cols ))
-          local win_w=$(( (lw - (n_cols + 1) * grid_gap) / n_cols ))
-          local win_h=$(( (lh - (n_rows + 1) * grid_gap) / n_rows ))
-          [ "$win_w" -gt 720 ] && win_w=720
-          [ "$win_h" -gt 560 ] && win_h=560
-          local grid_w=$(( n_cols * win_w + (n_cols - 1) * grid_gap ))
-          local grid_h=$(( n_rows * win_h + (n_rows - 1) * grid_gap ))
-          local start_x=$(( ox + (lw - grid_w) / 2 ))
-          local start_y=$(( oy + (lh - grid_h) / 2 ))
-          local i=0 addr
+          local rows=$(( (n + 2) / 3 ))
+          local row_h=$(( (lh - (rows - 1) * win_gap) / rows ))
+          local i=0 addr="" col_idx=0 row_idx=0 wx=0 wy=0
           for addr in "$@"; do
-            local row=$(( i / n_cols ))
-            local col=$(( i % n_cols ))
-            local wx=$(( start_x + col * (win_w + grid_gap) ))
-            local wy=$(( start_y + row * (win_h + grid_gap) ))
+            col_idx=$(( i / rows ))
+            row_idx=$(( i % rows ))
+            wx=$(( ox + col_idx * (col_w + col_gap) ))
+            wy=$(( oy + row_idx * (row_h + win_gap) ))
             hyprctl dispatch movetoworkspacesilent "special:claude-agents-stored,address:$addr" >/dev/null 2>&1 || true
             hyprctl dispatch movewindowpixel "exact $wx $wy,address:$addr" >/dev/null 2>&1 || true
-            hyprctl dispatch resizewindowpixel "exact $win_w $win_h,address:$addr" >/dev/null 2>&1 || true
+            hyprctl dispatch resizewindowpixel "exact $col_w $row_h,address:$addr" >/dev/null 2>&1 || true
             i=$(( i + 1 ))
           done
         }
