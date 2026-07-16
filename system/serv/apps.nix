@@ -20,8 +20,8 @@
           JOBS_DB_PATH    = "/data/jobs.db";
           MODELFIT_DB     = "/data/modelfit_sessions.db";
           # URL that the onlyoffice container uses to fetch temp DOCX files from us.
-          # 10.88.0.1 is the Podman bridge gateway — reachable from every container.
-          SITE_API_URL    = "http://10.88.0.1:8000";
+          # Must be a public URL — OnlyOffice 7.2+ blocks private IPs (SSRF protection).
+          SITE_API_URL    = "https://mcgeedan.com";
           ONLYOFFICE_URL  = "http://onlyoffice";
         };
         labels."io.containers.autoupdate" = "registry";
