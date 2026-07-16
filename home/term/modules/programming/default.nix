@@ -29,6 +29,7 @@
 
 
     home.packages = with pkgs; [
+      uv
       nodejs
       gh
       (lib.mkIf config.programming.R.enable R)
