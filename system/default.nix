@@ -50,6 +50,11 @@
 
   home-manager.extraSpecialArgs = { inherit inputs pkgs secrets; };
 
+  services.tailscale = {
+    enable = true;
+    openFirewall = true;
+  };
+
   networking.firewall.enable = lib.mkDefault true;
   fonts.fontDir.enable = true;
 }

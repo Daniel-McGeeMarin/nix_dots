@@ -5,6 +5,8 @@
   options.serv.enable = lib.mkEnableOption "Enable the serv module";
 
   config = lib.mkIf config.serv.enable {
+    networking.firewall.trustedInterfaces = [ "tailscale0" ];
+
     services.openssh = {
       enable = true;
       settings = {
