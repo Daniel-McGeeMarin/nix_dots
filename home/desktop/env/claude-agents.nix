@@ -136,7 +136,7 @@ $first_msg" 2>/dev/null | head -1 | tr -d '"' | cut -c1-40) || true
 
   watcher = pkgs.writeShellApplication {
     name = "claude-agents-watcher";
-    runtimeInputs = with pkgs; [ inotify-tools jq hyprland gawk coreutils kitty ];
+    runtimeInputs = with pkgs; [ inotify-tools jq hyprland gawk coreutils findutils kitty ];
     text = ''
       mkdir -p "${stateDir}"
 
@@ -266,8 +266,30 @@ $first_msg" 2>/dev/null | head -1 | tr -d '"' | cut -c1-40) || true
         [ "''${#approval_addrs[@]}" -gt 0 ] && layout_col "$(( ox + 2*(col_w + col_gap) ))"  "$oy" "$lh" "''${approval_addrs[@]}" || true
         # Storage: centered grid on stored workspace
         [ "''${#stored_addrs[@]}"   -gt 0 ] && layout_stored_grid "''${stored_addrs[@]}" || true
+
+        # Prune state files for agents whose window no longer exists.
+        # Skip files newer than 30s to avoid racing with spawning agents.
+        local cln_sf="" cln_sid="" cln_client="" cln_now=0 cln_mtime=0
+        cln_now=$(date +%s)
+        for cln_sf in "${stateDir}"/*.state; do
+          [ -f "$cln_sf" ] || continue
+          cln_sid=$(basename "$cln_sf" .state)
+          cln_mtime=$(stat -c %Y "$cln_sf" 2>/dev/null) || continue
+          [ "$(( cln_now - cln_mtime ))" -lt 30 ] && continue
+          cln_client=$(printf '%s' "$clients_json" | jq -r \
+            --arg c "claude-agent-$cln_sid" \
+            '.[] | select(.class == $c) | .address' | head -1)
+          if [ -z "$cln_client" ]; then
+            rm -f "${stateDir}/$cln_sid.state" \
+                  "${stateDir}/$cln_sid.title" \
+                  "${stateDir}/$cln_sid.dir" \
+                  "${stateDir}/$cln_sid.session"
+            find "${stateDir}" -maxdepth 1 -name "$cln_sid-*.sock" -delete 2>/dev/null || true
+          fi
+        done
       }
 
+      sleep 1
       reposition_all
 
       inotifywait -m -e close_write,moved_to "${stateDir}" --format '%w%f' \
