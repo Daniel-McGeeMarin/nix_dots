@@ -14,8 +14,9 @@
         ports  = [ "127.0.0.1:8000:8000" ];
         volumes = [ "/srv/data/site-api:/data" ];
         environment = {
-          JOBS_DB_PATH = "/data/jobs.db";
-          MODELFIT_DB  = "/data/modelfit_sessions.db";
+          JOBS_DB_PATH   = "/data/jobs.db";
+          MODELFIT_DB    = "/data/modelfit_sessions.db";
+          RESUME_DB_PATH = "/data/resume.db";
         };
         labels."io.containers.autoupdate" = "registry";
       };
@@ -26,16 +27,28 @@
     '';
 
     services.caddy.virtualHosts."http://mcgeedan.com".extraConfig = ''
-      handle /api/jobs* {
+      handle /api/jobs/queue* {
+        import require_auth
+        reverse_proxy 127.0.0.1:8000
+      }
+      handle /api/jobs/refresh* {
+        import require_auth
+        reverse_proxy 127.0.0.1:8000
+      }
+      handle /api/jobs/enrich* {
+        import require_auth
+        reverse_proxy 127.0.0.1:8000
+      }
+      handle /api/jobs/custom-mapper* {
+        import require_auth
+        reverse_proxy 127.0.0.1:8000
+      }
+      handle /api/resume/saved* {
         import require_auth
         reverse_proxy 127.0.0.1:8000
       }
       handle /api/* {
         reverse_proxy 127.0.0.1:8000
-      }
-      handle /apps/jobs* {
-        import require_auth
-        reverse_proxy 127.0.0.1:3001
       }
       handle {
         reverse_proxy 127.0.0.1:3001
