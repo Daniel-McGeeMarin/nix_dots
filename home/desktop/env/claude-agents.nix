@@ -773,6 +773,7 @@ $first_msg" 2>/dev/null | head -1 | tr -d '"' | cut -c1-40) || true
 
       on_focus() {
         local new_addr="$1" new_state new_col
+        init_params
         new_state=$(addr_state "$new_addr")
         new_col="-1"
         [ -n "$new_state" ] && new_col=$(state_col "$new_state")
