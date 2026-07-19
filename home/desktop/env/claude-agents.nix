@@ -89,7 +89,9 @@ let
       claude_sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
       [ -z "$claude_sid" ] && exit 0
       agent_sid="''${CLAUDE_AGENT_SID:-$claude_sid}"
-      printf 'idle' > "${stateDir}/$agent_sid.state"
+      sf="${stateDir}/$agent_sid.state"
+      cur=$(cat "$sf" 2>/dev/null || printf 'idle')
+      [ "$cur" != "stored" ] && printf 'idle' > "$sf"
 
       # Auto-title: after the first response, replace the initial basename+N
       # title with a Claude-generated short title. Only fires once — the
