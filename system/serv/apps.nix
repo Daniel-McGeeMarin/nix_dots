@@ -47,6 +47,10 @@
         import require_auth
         reverse_proxy 127.0.0.1:8000
       }
+      handle /api/auth/me {
+        rewrite * /api/user/info
+        reverse_proxy 127.0.0.1:9091
+      }
       handle /api/* {
         reverse_proxy 127.0.0.1:8000
       }
