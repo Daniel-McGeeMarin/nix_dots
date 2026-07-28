@@ -142,6 +142,27 @@ $first_msg" 2>/dev/null | head -1 | tr -d '"' | cut -c1-40) || true
     text = ''
       mkdir -p "${stateDir}"
 
+      save_snapshot() {
+        local sd="''${XDG_STATE_HOME:-$HOME/.local/state}/claude-agents"
+        mkdir -p "$sd"
+        local tmp="$sd/snapshot.json.tmp"
+        local sf sid dir session title state
+        {
+          for sf in "${stateDir}"/*.state; do
+            [ -f "$sf" ] || continue
+            sid=$(basename "$sf" .state)
+            [ -f "${stateDir}/$sid.dir" ] || continue
+            dir=$(cat "${stateDir}/$sid.dir")
+            session=$(cat "${stateDir}/$sid.session" 2>/dev/null || true)
+            title=$(cat "${stateDir}/$sid.title" 2>/dev/null || true)
+            state=$(cat "$sf")
+            jq -n --arg d "$dir" --arg s "$session" \
+              --arg t "$title" --arg st "$state" \
+              '{dir:$d,session:$s,title:$t,state:$st}'
+          done
+        } | jq -s '.' > "$tmp" && mv "$tmp" "$sd/snapshot.json" || true
+      }
+
       reposition_all() {
         local mon mw mh scale ox oy lw lh col_w
         mon=$(hyprctl monitors -j | jq 'map(select(.focused))[0] // .[0]')
@@ -289,6 +310,7 @@ $first_msg" 2>/dev/null | head -1 | tr -d '"' | cut -c1-40) || true
             find "${stateDir}" -maxdepth 1 -name "$cln_sid-*.sock" -delete 2>/dev/null || true
           fi
         done
+        save_snapshot
       }
 
       sleep 1
@@ -585,6 +607,40 @@ $first_msg" 2>/dev/null | head -1 | tr -d '"' | cut -c1-40) || true
     '';
   };
 
+  # ── Restore agents from last session ─────────────────────────────────────────
+
+  smartRestore = pkgs.writeShellApplication {
+    name = "claude-agents-restore";
+    runtimeInputs = [ pkgs.jq pkgs.coreutils pkgs.libnotify pkgs.hyprland spawner ];
+    text = ''
+      snapshot="''${XDG_STATE_HOME:-$HOME/.local/state}/claude-agents/snapshot.json"
+      if [ ! -f "$snapshot" ]; then
+        notify-send "Claude Agents" "No saved session found"
+        exit 0
+      fi
+
+      count=$(jq 'length' "$snapshot")
+      if [ "$count" -eq 0 ]; then
+        notify-send "Claude Agents" "Last session had no open agents"
+        exit 0
+      fi
+
+      existing=$(hyprctl clients -j 2>/dev/null \
+        | jq '[.[] | select(.class | startswith("claude-agent-"))] | length' 2>/dev/null \
+        || printf '0')
+      if [ "$existing" -gt 0 ]; then
+        notify-send "Claude Agents" "$existing agent(s) already open — close them before restoring"
+        exit 0
+      fi
+
+      while IFS=$'\t' read -r dir session title; do
+        claude-agent-spawn "$dir" "$session" "$title"
+      done < <(jq -r '.[] | [.dir, .session, .title] | join("\t")' "$snapshot")
+
+      notify-send "Claude Agents" "Restored $count agent(s) from last session"
+    '';
+  };
+
   # ── Hover-to-expand daemon ────────────────────────────────────────────────────
   # Listens to Hyprland socket2 activewindowv2 events (follow_mouse=1 makes
   # these fire on hover). When an agent window is hovered it expands to 50% of
@@ -836,7 +892,7 @@ in {
     mkEnableOption "Claude Code agent management with Hyprland workspace integration";
 
   config = mkIf cfg.enable {
-    home.packages = [ watcher spawner smartO smartP smartI smartRestart hoverDaemon ];
+    home.packages = [ watcher spawner smartO smartP smartI smartRestart smartRestore hoverDaemon ];
 
     home.file.".claude/settings.json" = {
       force = true;
@@ -901,6 +957,7 @@ in {
           "SUPER, P, exec, ${smartP}/bin/claude-agents-smart-p"
           "SUPER, I, exec, ${smartI}/bin/claude-agents-smart-i"
           "SUPER SHIFT, O, exec, ${smartRestart}/bin/claude-agents-restart"
+          "SUPER SHIFT, R, exec, ${smartRestore}/bin/claude-agents-restore"
         ];
       };
     };
