@@ -14,9 +14,10 @@
         ports  = [ "127.0.0.1:8000:8000" ];
         volumes = [ "/srv/data/site-api:/data" ];
         environment = {
-          JOBS_DB_PATH   = "/data/jobs.db";
-          MODELFIT_DB    = "/data/modelfit_sessions.db";
-          RESUME_DB_PATH = "/data/resume.db";
+          JOBS_DB_PATH    = "/data/jobs.db";
+          MODELFIT_DB     = "/data/modelfit_sessions.db";
+          RESUME_DB_PATH  = "/data/resume.db";
+          FINANCE_DB_PATH = "/data/finance.db";
         };
         labels."io.containers.autoupdate" = "registry";
       };
@@ -44,6 +45,14 @@
         reverse_proxy 127.0.0.1:8000
       }
       handle /api/resume/saved* {
+        import require_auth
+        reverse_proxy 127.0.0.1:8000
+      }
+      handle /apps/finance* {
+        import require_auth
+        reverse_proxy 127.0.0.1:3001
+      }
+      handle /api/finance* {
         import require_auth
         reverse_proxy 127.0.0.1:8000
       }

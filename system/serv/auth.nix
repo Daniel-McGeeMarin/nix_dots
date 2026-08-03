@@ -35,6 +35,8 @@
             { domain = "mcgeedan.com"; resources = [ "^/api/jobs/queue(/.*)?$" "^/api/jobs/refresh(/.*)?$" "^/api/jobs/enrich(/.*)?$" "^/api/jobs/custom-mapper" ]; policy = "one_factor"; }
             # Saved resume storage is personal — require login
             { domain = "mcgeedan.com"; resources = [ "^/api/resume/saved(/.*)?$" ]; policy = "one_factor"; }
+            # Finance tracker — fully private
+            { domain = "mcgeedan.com"; resources = [ "^/apps/finance(/.*)?$" "^/api/finance(/.*)?$" ]; policy = "one_factor"; }
             # Rest of the main site is public
             { domain = "mcgeedan.com"; policy = "bypass"; }
             # Everything else on subdomains requires one-factor login
