@@ -13,10 +13,35 @@
   boot.kernelModules = [ "binder_linux" ];
 
   networking.hostName = "XiaNix";
+  networking.extraHosts = "127.0.0.1 host.docker.internal";
+  # Allow Podman bridge containers (supabase_network_graphide → podman1) to
+  # reach host services like auth-shim on :8081 for the OAuth token exchange.
+  networking.firewall.trustedInterfaces = [ "podman1" ];
 
   head = {
     enable = true;
     gaming = true;
+  };
+
+  # Exclude tailscaled from the Mullvad tunnel so Tailscale P2P/DERP works.
+  # The split-tunnel exclusion is PID-scoped, so we re-add it every time
+  # either daemon (re)starts.
+  systemd.services.mullvad-tailscale-exclude = {
+    description = "Exclude tailscaled PID from Mullvad split tunnel";
+    after = [ "mullvad-daemon.service" "tailscaled.service" ];
+    bindsTo = [ "mullvad-daemon.service" "tailscaled.service" ];
+    wantedBy = [ "tailscaled.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStart = pkgs.writeShellScript "mullvad-exclude-tailscale" ''
+        PID=$(${pkgs.procps}/bin/pgrep -x tailscaled)
+        ${pkgs.mullvad}/bin/mullvad split-tunnel add "$PID"
+      '';
+      ExecStop = pkgs.writeShellScript "mullvad-unexclude-tailscale" ''
+        ${pkgs.mullvad}/bin/mullvad split-tunnel clear
+      '';
+    };
   };
 
   services = {
