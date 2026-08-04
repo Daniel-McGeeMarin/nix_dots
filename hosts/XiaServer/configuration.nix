@@ -28,6 +28,7 @@
   serv.apps.site.enable = true;
   serv.forgejo.enable = true;
   serv.graphide.enable = true;
+  serv.graphide-web.enable = false; # flip to true when site is ready to go live
   services.openssh.settings.PasswordAuthentication = false;
 
   services.displayManager.autoLogin = {
