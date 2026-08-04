@@ -1,4 +1,4 @@
-{ config, lib, pkgs, osConfig, ... }:
+{ config, lib, pkgs, inputs, osConfig, ... }:
 {
   options.desktop.enable = lib.mkEnableOption "Enable desktop";
 
@@ -42,7 +42,7 @@
       syncplay                               # synchronized media playback
 
       # ── Communications ────────────────────────────────────────────────────────
-      signal-desktop
+      inputs.nixpkgs-unstable.legacyPackages.${pkgs.stdenv.hostPlatform.system}.signal-desktop
       element-desktop
 
       # ── Media creation & viewing ──────────────────────────────────────────────
