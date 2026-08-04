@@ -7,6 +7,12 @@
   ];
 
   networking.networkmanager.enable = true;
+  networking.networkmanager.dns = "systemd-resolved";
+
+  services.resolved = {
+    enable = true;
+    dnssec = "false";
+  };
 
   # automatic-timezoned.enable — disabled until nixpkgs#321121 is resolved
   services.printing.drivers = [ pkgs.gutenprint ];
