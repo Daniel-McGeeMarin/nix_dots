@@ -12,6 +12,7 @@
   programming.enable = true;
   ai.enable = false;
   ai.claudeCode.enable = true;
+  ai.codex.enable = true;
   programs.claudeAgents.enable = true;
 
   desktop = {
