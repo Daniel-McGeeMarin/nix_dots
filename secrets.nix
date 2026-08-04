@@ -2,7 +2,8 @@ let
   xiaserver     = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINWFmoYiRIbUToYku4tbARtl7W0OLx+lSt2cwV0iSaj1";
   xiaserverUser = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDbmhHJ1xWI+bq3WB9cdjuingSb/XJnSIvFcXZgPGHhU XiaServer@XiaServer";
 in {
-  "secrets/cloudflare-tunnel.age".publicKeys    = [ xiaserver xiaserverUser ];
+  "secrets/cloudflare-tunnel.age".publicKeys         = [ xiaserver xiaserverUser ];
+  "secrets/cloudflare-tunnel-graphide.age".publicKeys = [ xiaserver xiaserverUser ];
   "secrets/authelia-jwt.age".publicKeys        = [ xiaserver xiaserverUser ];
   "secrets/authelia-session.age".publicKeys    = [ xiaserver xiaserverUser ];
   "secrets/authelia-storage.age".publicKeys    = [ xiaserver xiaserverUser ];
