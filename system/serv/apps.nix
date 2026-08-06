@@ -18,6 +18,7 @@
           MODELFIT_DB     = "/data/modelfit_sessions.db";
           RESUME_DB_PATH  = "/data/resume.db";
           FINANCE_DB_PATH = "/data/finance.db";
+          SURVEY_DB_PATH  = "/data/survey.db";
         };
         labels."io.containers.autoupdate" = "registry";
       };
@@ -53,6 +54,14 @@
         reverse_proxy 127.0.0.1:3001
       }
       handle /api/finance* {
+        import require_auth
+        reverse_proxy 127.0.0.1:8000
+      }
+      handle /survey/results* {
+        import require_auth
+        reverse_proxy 127.0.0.1:3001
+      }
+      handle /api/survey/results* {
         import require_auth
         reverse_proxy 127.0.0.1:8000
       }
