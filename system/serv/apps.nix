@@ -17,8 +17,21 @@
           JOBS_DB_PATH    = "/data/jobs.db";
           MODELFIT_DB     = "/data/modelfit_sessions.db";
           RESUME_DB_PATH  = "/data/resume.db";
-          FINANCE_DB_PATH = "/data/finance.db";
           SURVEY_DB_PATH  = "/data/survey.db";
+        };
+        labels."io.containers.autoupdate" = "registry";
+      };
+      finance-web = {
+        image  = "ghcr.io/daniel-mcgeemarin/mcgeeinfov2-finance-web:latest";
+        ports  = [ "127.0.0.1:3002:80" ];
+        labels."io.containers.autoupdate" = "registry";
+      };
+      finance-api = {
+        image  = "ghcr.io/daniel-mcgeemarin/mcgeeinfov2-finance-api:latest";
+        ports  = [ "127.0.0.1:8001:8000" ];
+        volumes = [ "/srv/data/finance-api:/data" ];
+        environment = {
+          FINANCE_DB_PATH = "/data/finance.db";
         };
         labels."io.containers.autoupdate" = "registry";
       };
@@ -49,14 +62,6 @@
         import require_auth
         reverse_proxy 127.0.0.1:8000
       }
-      handle /apps/finance* {
-        import require_auth
-        reverse_proxy 127.0.0.1:3001
-      }
-      handle /api/finance* {
-        import require_auth
-        reverse_proxy 127.0.0.1:8000
-      }
       handle /survey/results* {
         import require_auth
         reverse_proxy 127.0.0.1:3001
@@ -74,6 +79,16 @@
       }
       handle {
         reverse_proxy 127.0.0.1:3001
+      }
+    '';
+
+    services.caddy.virtualHosts."http://finances.mcgeedan.com".extraConfig = ''
+      import require_auth
+      handle /api/* {
+        reverse_proxy 127.0.0.1:8001
+      }
+      handle {
+        reverse_proxy 127.0.0.1:3002
       }
     '';
 
