@@ -23,7 +23,7 @@
       };
       finance-web = {
         image  = "ghcr.io/daniel-mcgeemarin/mcgeeinfov2-finance-web:latest";
-        ports  = [ "127.0.0.1:3003:80" ];
+        ports  = [ "127.0.0.1:3010:80" ];
         labels."io.containers.autoupdate" = "registry";
       };
       finance-api = {
@@ -88,7 +88,7 @@
         reverse_proxy 127.0.0.1:8001
       }
       handle {
-        reverse_proxy 127.0.0.1:3003
+        reverse_proxy 127.0.0.1:3010
       }
     '';
 
