@@ -18,6 +18,7 @@
   desktop = {
     enable = true;
     gaming.enable = true;
+    workmic.enable = true;
   };
 
   home.packages = [

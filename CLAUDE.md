@@ -58,6 +58,7 @@ Four overlays in `flake.nix`, available in every module:
 | `head.gaming` | system | gamemode, gamescope, uinput |
 | `desktop.enable` | home | Hyprland, caelestia, apps, comms, office, media |
 | `desktop.gaming.enable` | home | Flatpak Steam, Lutris, Prism |
+| `desktop.workmic.enable` | home | Push-to-talk mic gating (SUPER+SPACE) |
 | `desktop.japanese.enable` | home | Japanese fonts/input |
 | `programming.enable` | home | Dev tools, Python, R |
 | `ai.enable` | home | aichat, aiclip script |
