@@ -6,7 +6,7 @@ in
   options.desktop.gaming.enable = lib.mkEnableOption "Enable gaming";
   config = lib.mkIf config.desktop.gaming.enable {
     home.packages = with pkgs; [
-      pkgs.r2modman
+      inputs.nixpkgs-unstable.legacyPackages.${pkgs.system}.r2modman
       steam-run
       (pkgs.writeShellScriptBin "steam" ''
         ${pkgs.flatpak}/bin/flatpak run com.valvesoftware.Steam -silent "$@"

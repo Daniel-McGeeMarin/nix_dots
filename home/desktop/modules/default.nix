@@ -2,6 +2,6 @@
 {
   imports = [
     ./gaming.nix
-    ./workmic.nix
+    ./workmic
   ];
 }

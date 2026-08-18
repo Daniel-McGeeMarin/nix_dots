@@ -1,10 +1,18 @@
-{ pkgs, lib, config, ... }:
+{ pkgs, lib, config, inputs, ... }:
 let
   cfg = config.desktop.workmic;
 
+  quickshell = inputs.caelestia-shell.inputs.quickshell.packages.${pkgs.stdenv.hostPlatform.system}.default;
+
+  # quickshell -p <dir> looks for shell.qml inside it
+  indicatorDir = pkgs.writeTextDir "shell.qml" (builtins.readFile ./indicator.qml);
+
+  sounds = "${pkgs.sound-theme-freedesktop}/share/sounds/freedesktop/stereo";
+
   workmic = pkgs.writeShellApplication {
     name = "workmic";
-    runtimeInputs = [ pkgs.pulseaudio pkgs.libnotify pkgs.coreutils pkgs.gawk pkgs.procps ];
+    runtimeInputs = [ pkgs.pulseaudio pkgs.libnotify pkgs.coreutils pkgs.gawk pkgs.procps ]
+      ++ lib.optional cfg.indicator quickshell;
     text = ''
       # Push-to-talk gate for microphone capture.
       #
@@ -25,9 +33,14 @@ let
       state_dir="''${XDG_RUNTIME_DIR:-/tmp}/workmic"
       armed="$state_dir/armed"        # exists while PTT mode is on; holds pre-arm per-app mute state
       talking="$state_dir/talking"    # exists while the key is held down
+      state_file="$state_dir/state"   # off | armed | talking — read by the indicator
       nid_file="$state_dir/nid"       # notification id, so we only ever occupy one slot
       watch_pid="$state_dir/watch.pid"
       mkdir -p "$state_dir"
+
+      indicator_enabled=${lib.boolToString cfg.indicator}
+      sound_enabled=${lib.boolToString cfg.sound}
+      indicator_qml=${indicatorDir}
 
       # "<id> <app.name> <yes|no>" per active capture stream
       capture_streams() {
@@ -45,6 +58,25 @@ let
           [ -n "$id" ] || continue
           pactl set-source-output-mute "$id" "$1" 2>/dev/null || true
         done < <(capture_streams)
+      }
+
+      write_state() { printf '%s' "$1" > "$state_file"; }
+
+      play() { # $1 = sound file, fired detached so it never delays the gate
+        [ "$sound_enabled" = true ] || return 0
+        paplay --volume=${toString (builtins.floor (65536 * cfg.soundVolume / 100))} "$1" >/dev/null 2>&1 &
+      }
+
+      indicator_start() {
+        [ "$indicator_enabled" = true ] || return 0
+        pgrep -f "$indicator_qml" >/dev/null 2>&1 && return 0
+        WORKMIC_POSITION=${cfg.indicatorPosition} \
+          setsid quickshell -p "$indicator_qml" >/dev/null 2>&1 &
+      }
+
+      indicator_stop() {
+        [ "$indicator_enabled" = true ] || return 0
+        pkill -f "$indicator_qml" 2>/dev/null || true
       }
 
       # Replace the previous workmic notification rather than stacking a new one.
@@ -65,25 +97,34 @@ let
         fi
       }
 
+      disarm() {
+        stop_watcher
+        # Unmute everything except apps the user already had muted before arming.
+        while read -r id app _; do
+          [ -n "$id" ] || continue
+          if grep -qx "$app yes" "$armed" 2>/dev/null; then continue; fi
+          pactl set-source-output-mute "$id" 0 2>/dev/null || true
+        done < <(capture_streams)
+        rm -f "$armed" "$talking"
+        write_state off
+        indicator_stop
+      }
+
       case "''${1:-status}" in
         toggle)
           if [ -e "$armed" ]; then
-            stop_watcher
-            # Unmute everything except apps the user already had muted before arming.
-            while read -r id app _; do
-              [ -n "$id" ] || continue
-              if grep -qx "$app yes" "$armed" 2>/dev/null; then continue; fi
-              pactl set-source-output-mute "$id" 0 2>/dev/null || true
-            done < <(capture_streams)
-            rm -f "$armed" "$talking"
+            disarm
+            play ${sounds}/audio-volume-change.oga
             notify critical 5000 "Push-to-talk OFF" "MIC IS LIVE — nothing is gating it now"
           else
             capture_streams | awk '{print $2, $3}' > "$armed"
-            rm -f "$talking"
+            rm -f "$talking" "$watch_pid"
             set_all 1
-            rm -f "$watch_pid"
+            write_state armed
+            indicator_start
             setsid "$0" watch >/dev/null 2>&1 &
-            notify critical 5000 "PUSH-TO-TALK ARMED" "Mic muted — hold SUPER+SPACE to talk"
+            play ${sounds}/audio-volume-change.oga
+            notify critical 5000 "PUSH-TO-TALK ARMED" "Mic muted — hold ${cfg.mod}+${cfg.key} to talk"
           fi
           ;;
 
@@ -91,15 +132,19 @@ let
           [ -e "$armed" ] || exit 0
           if [ -e "$talking" ]; then exit 0; fi   # key repeat / double fire
           touch "$talking"
-          set_all 0
-          notify critical 0 "MIC LIVE" "Transmitting — release to mute"
+          set_all 0                                # unmute first — never clip the start of a word
+          write_state talking
+          play ${sounds}/device-added.oga
+          [ "$indicator_enabled" = true ] || notify critical 0 "MIC LIVE" "Transmitting — release to mute"
           ;;
 
         release)
           [ -e "$armed" ] || exit 0
           rm -f "$talking"
           set_all 1
-          notify low 1500 "Mic muted" "Push-to-talk still armed"
+          write_state armed
+          play ${sounds}/device-removed.oga
+          [ "$indicator_enabled" = true ] || notify low 1500 "Mic muted" "Push-to-talk still armed"
           ;;
 
         watch)
@@ -125,6 +170,8 @@ let
           stop_watcher
           rm -f "$armed" "$talking"
           set_all 0
+          write_state off
+          indicator_stop
           notify normal 3000 "Push-to-talk reset" "All capture streams unmuted"
           ;;
 
@@ -159,6 +206,30 @@ in
       type = lib.types.str;
       default = "SPACE";
       description = "Key held to transmit.";
+    };
+
+    indicator = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Show an on-screen pill while armed, turning red while transmitting.";
+    };
+
+    indicatorPosition = lib.mkOption {
+      type = lib.types.enum [ "bottom-right" "bottom-left" "bottom-center" "top-right" "top-left" "top-center" ];
+      default = "bottom-right";
+      description = "Screen corner or edge the indicator sits in.";
+    };
+
+    sound = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Play a rising chirp when the mic opens and a falling one when it closes.";
+    };
+
+    soundVolume = lib.mkOption {
+      type = lib.types.ints.between 1 100;
+      default = 40;
+      description = "Playback volume for the cue sounds, in percent.";
     };
   };
 
