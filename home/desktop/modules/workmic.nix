@@ -4,24 +4,48 @@ let
 
   workmic = pkgs.writeShellApplication {
     name = "workmic";
-    runtimeInputs = [ pkgs.pulseaudio pkgs.libnotify pkgs.coreutils pkgs.gnugrep ];
+    runtimeInputs = [ pkgs.pulseaudio pkgs.libnotify pkgs.coreutils pkgs.gawk pkgs.procps ];
     text = ''
-      # Push-to-talk gate for the default PipeWire source.
+      # Push-to-talk gate for microphone capture.
       #
-      #   workmic toggle   arm / disarm PTT mode (mic is force-muted while armed)
+      #   workmic toggle   arm / disarm PTT mode (capture stays muted while armed)
       #   workmic talk     key down  — unmute, but only while armed
       #   workmic release  key up    — remute
       #   workmic status   print current state
+      #   workmic reset    unmute everything (clears a stuck stream-restore mute)
+      #   workmic watch    internal: mute capture streams that appear while armed
+      #
+      # This gates each application's *capture stream* (pulse source-output), never
+      # the source device itself. Muting the device emits a PA source-change event;
+      # Signal's RingRTC uses cubeb's pulse backend, which reacts to those by tearing
+      # down and re-initialising its recording stream — every press and release, which
+      # is enough to kill a live call. Stream mutes only emit source-output events,
+      # which cubeb does not subscribe to.
 
       state_dir="''${XDG_RUNTIME_DIR:-/tmp}/workmic"
-      armed="$state_dir/armed"        # exists while PTT mode is on; holds pre-arm mute state
+      armed="$state_dir/armed"        # exists while PTT mode is on; holds pre-arm per-app mute state
       talking="$state_dir/talking"    # exists while the key is held down
       nid_file="$state_dir/nid"       # notification id, so we only ever occupy one slot
+      watch_pid="$state_dir/watch.pid"
       mkdir -p "$state_dir"
 
-      mic_mute()   { pactl set-source-mute @DEFAULT_SOURCE@ 1; }
-      mic_unmute() { pactl set-source-mute @DEFAULT_SOURCE@ 0; }
-      mic_state()  { pactl get-source-mute @DEFAULT_SOURCE@ | grep -q yes && echo yes || echo no; }
+      # "<id> <app.name> <yes|no>" per active capture stream
+      capture_streams() {
+        pactl list source-outputs | awk '
+          /^Source Output #/ { id = substr($3, 2); app = "?"; mute = "no" }
+          /^\tMute:/         { mute = $2 }
+          /application\.name = / { gsub(/"/, "", $3); app = $3 }
+          /^$/ { if (id != "") { print id, app, mute; id = "" } }
+          END  { if (id != "") print id, app, mute }
+        '
+      }
+
+      set_all() { # 1 = mute, 0 = unmute
+        while read -r id _ _; do
+          [ -n "$id" ] || continue
+          pactl set-source-output-mute "$id" "$1" 2>/dev/null || true
+        done < <(capture_streams)
+      }
 
       # Replace the previous workmic notification rather than stacking a new one.
       notify() { # urgency timeout title body
@@ -32,21 +56,33 @@ let
         printf '%s' "$new" > "$nid_file"
       }
 
+      stop_watcher() {
+        if [ -e "$watch_pid" ]; then
+          local pid
+          pid=$(cat "$watch_pid")
+          kill -- -"$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true
+          rm -f "$watch_pid"
+        fi
+      }
+
       case "''${1:-status}" in
         toggle)
           if [ -e "$armed" ]; then
-            # Disarm: put the mic back the way we found it.
-            if [ "$(cat "$armed")" = yes ]; then mic_mute; else mic_unmute; fi
+            stop_watcher
+            # Unmute everything except apps the user already had muted before arming.
+            while read -r id app _; do
+              [ -n "$id" ] || continue
+              if grep -qx "$app yes" "$armed" 2>/dev/null; then continue; fi
+              pactl set-source-output-mute "$id" 0 2>/dev/null || true
+            done < <(capture_streams)
             rm -f "$armed" "$talking"
-            if [ "$(mic_state)" = yes ]; then
-              notify normal 4000 "Push-to-talk OFF" "Mic restored — still muted"
-            else
-              notify critical 5000 "Push-to-talk OFF" "MIC IS LIVE — nothing is gating it now"
-            fi
+            notify critical 5000 "Push-to-talk OFF" "MIC IS LIVE — nothing is gating it now"
           else
-            mic_state > "$armed"
+            capture_streams | awk '{print $2, $3}' > "$armed"
             rm -f "$talking"
-            mic_mute
+            set_all 1
+            rm -f "$watch_pid"
+            setsid "$0" watch >/dev/null 2>&1 &
             notify critical 5000 "PUSH-TO-TALK ARMED" "Mic muted — hold SUPER+SPACE to talk"
           fi
           ;;
@@ -55,27 +91,54 @@ let
           [ -e "$armed" ] || exit 0
           if [ -e "$talking" ]; then exit 0; fi   # key repeat / double fire
           touch "$talking"
-          mic_unmute
+          set_all 0
           notify critical 0 "MIC LIVE" "Transmitting — release to mute"
           ;;
 
         release)
           [ -e "$armed" ] || exit 0
           rm -f "$talking"
-          mic_mute
+          set_all 1
           notify low 1500 "Mic muted" "Push-to-talk still armed"
+          ;;
+
+        watch)
+          # An app that starts capturing while armed would otherwise come up hot —
+          # e.g. joining a call after arming, or RingRTC rebuilding its stream.
+          # Only 'new' events: our own mutes emit 'change', which would feed back.
+          echo $$ > "$watch_pid"
+          pactl subscribe 2>/dev/null | while read -r line; do
+            [ -e "$armed" ] || exit 0
+            case "$line" in
+              *"'new' on source-output"*)
+                if [ -e "$talking" ]; then continue; fi
+                set_all 1
+                ;;
+            esac
+          done
+          ;;
+
+        reset)
+          # Escape hatch: pulse's stream-restore remembers mute per application name,
+          # so dying while armed can leave an app muted on its next launch. Run this
+          # with the affected app capturing to clear it.
+          stop_watcher
+          rm -f "$armed" "$talking"
+          set_all 0
+          notify normal 3000 "Push-to-talk reset" "All capture streams unmuted"
           ;;
 
         status)
           if [ -e "$armed" ]; then
-            echo "armed, $([ -e "$talking" ] && echo talking || echo idle) (mic muted: $(mic_state))"
+            echo "armed, $([ -e "$talking" ] && echo talking || echo idle)"
           else
-            echo "off (mic muted: $(mic_state))"
+            echo "off"
           fi
+          capture_streams | awk '{print "  stream #" $1 " " $2 " muted=" $3}'
           ;;
 
         *)
-          echo "usage: workmic {toggle|talk|release|status}" >&2
+          echo "usage: workmic {toggle|talk|release|status|reset}" >&2
           exit 1
           ;;
       esac
