@@ -10,7 +10,7 @@
   };
   config = lib.mkMerge [
     (lib.mkIf config.ai.claudeCode.enable {
-      home.packages = [ pkgs.claude-code ];
+      home.packages = [ pkgs.unstable.unfree.claude-code ];
     })
     (lib.mkIf config.ai.codex.enable {
       home.packages = [ pkgs.codex ];
