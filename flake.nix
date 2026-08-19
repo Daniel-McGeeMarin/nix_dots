@@ -44,7 +44,7 @@
       secrets = import (builtins.getEnv "HOME" + "/nixos/local.nix");
 
       overlay-unstable = final: prev: {
-        unstable = import nixpkgs-unstable.legacyPackages.${system};
+        unstable = nixpkgs-unstable.legacyPackages.${system};
       };
       overlay-unfree = final: prev: {
         unfree = import nixpkgs {
@@ -53,9 +53,11 @@
         };
       };
       overlay-unstable-unfree = final: prev: {
-        unstable.unfree = import nixpkgs-unstable {
-          inherit system;
-          config.allowUnfree = true;
+        unstable = prev.unstable // {
+          unfree = import nixpkgs-unstable {
+            inherit system;
+            config.allowUnfree = true;
+          };
         };
       };
       # See nixpkgs-electron-pin input above for explanation.
