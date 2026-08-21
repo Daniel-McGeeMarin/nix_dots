@@ -74,7 +74,11 @@ let
       "--cpus=${toString cfg.cpuLimit}"
       "--pids-limit=512"
     ];
-    labels."io.containers.autoupdate" = "registry";
+    # Only when the image actually comes from a registry. podman auto-update
+    # logs a failure every run for a locally built tag it cannot pull.
+    labels = lib.optionalAttrs cfg.autoUpdate {
+      "io.containers.autoupdate" = "registry";
+    };
   };
 
   # Authelia gates the whole vhost. The pod itself runs without a connection
@@ -114,6 +118,16 @@ in
       description = ''
         Fully qualified on purpose: podman refuses short names for any
         container labelled io.containers.autoupdate = "registry".
+      '';
+    };
+
+    autoUpdate = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Label the containers for podman-auto-update, which the timer in
+        apps.nix already runs. Set false when `image` is a tag built on this
+        host rather than pulled, so auto-update does not try to pull it.
       '';
     };
 
