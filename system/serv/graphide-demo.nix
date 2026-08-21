@@ -39,8 +39,8 @@
 #
 # 1. secrets/graphide-demo-env.age (agenix -e), one KEY=value per line:
 #      ANTHROPIC_API_KEY=sk-ant-...      # or OPENROUTER_API_KEY
-# 2. Point demo.graphide.net and auth.graphide.net at the graphide Cloudflare
-#    tunnel.
+# 2. One Cloudflare Tunnel route: *.graphide.net -> this host. That single
+#    wildcard covers every session plus auth.graphide.net.
 # 3. Add guests to /srv/data/authelia/users.yml.
 # 4. serv.graphide-demo.enable = true; and list the sessions.
 
@@ -62,7 +62,7 @@ let
     ports = [ "127.0.0.1:${toString s.port}:8000" ];
     environmentFiles = [ config.age.secrets.graphide-demo-env.path ];
     environment = {
-      DEMO_EMAIL = "${s.name}@demo.graphide.net";
+      DEMO_EMAIL = "${s.name}@${cfg.domain}";
       # Distinct per session so two pods never mint the same user id.
       DEMO_SUB = "00000000-0000-4000-8000-${lib.fixedWidthString 12 "0" (toString (s.index + 1))}";
     };
@@ -108,8 +108,16 @@ in
 
     domain = lib.mkOption {
       type = lib.types.str;
-      default = "demo.graphide.net";
-      description = "Parent domain; each session is a subdomain of it.";
+      default = "graphide.net";
+      description = ''
+        Parent domain; each session is a subdomain of it, so a session named
+        "alice" is served at alice.graphide.net.
+
+        The apex rather than demo.graphide.net on purpose: a DNS wildcard
+        matches exactly one label, so *.graphide.net covers both the sessions
+        and auth.graphide.net, whereas nesting under demo. would need a second
+        wildcard for *.demo.graphide.net. One tunnel route instead of two.
+      '';
     };
 
     image = lib.mkOption {

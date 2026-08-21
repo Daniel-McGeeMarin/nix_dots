@@ -29,6 +29,12 @@
   serv.forgejo.enable = true;
   serv.graphide.enable = true;
   serv.graphide-web.enable = true;
+
+  # One throwaway browser IDE per name, at <name>.graphide.net behind Authelia.
+  # Each is recycled hourly, which is what expires a guest link: the container
+  # comes back with a fresh database, workspace and token.
+  serv.graphide-demo.enable = true;
+  serv.graphide-demo.sessions = [ "demo" "guest" ];
   services.openssh.settings.PasswordAuthentication = false;
 
   services.displayManager.autoLogin = {
