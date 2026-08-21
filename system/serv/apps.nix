@@ -3,7 +3,7 @@
   options.serv.apps.site.enable = lib.mkEnableOption "personal site";
 
   config = lib.mkIf config.serv.apps.site.enable {
-    age.secrets.finance-plaid-env = { file = ../../secrets/finance-plaid-env.age; mode = "0444"; };
+    age.secrets.finance-plaid-env = { file = ../../secrets/finance-plaid-env.age; mode = "0400"; };
 
     virtualisation.oci-containers.containers = {
       site-web = {
