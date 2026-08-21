@@ -239,8 +239,13 @@ in
       bind J tabnext
       bind K tabprev
 
-      autocmd DocStart ^http(s?)://youtube.com js tri.excmds.urlmodify("-t", "youtube.com", "inv.nadeko.net")
-      autocmd DocStart ^http(s?):// js tri.excmds.urlmodify("-t", "youtube.com", "inv.nadeko.net")
+      # Tridactyl persists autocmds in its own extension storage, so dropping
+      # an `autocmd` line from this rc does NOT remove it from a profile that
+      # already sourced it. This clears the youtube.com -> inv.nadeko.net
+      # urlmodify autocmds that used to live here (the second one fired on
+      # every page load, which made the redirect impossible to escape from
+      # inside Firefox). Keep this line unless you add autocmds below it.
+      unset autocmds
     '';
   };
 }
