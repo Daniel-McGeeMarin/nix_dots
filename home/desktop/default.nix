@@ -26,7 +26,7 @@
       # ── Browsers & editors ────────────────────────────────────────────────────
       brave
       vscodium
-      unfree.code-cursor
+      unstable.unfree.code-cursor
 
       # ── System & desktop ──────────────────────────────────────────────────────
       brightnessctl
