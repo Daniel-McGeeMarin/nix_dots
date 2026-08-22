@@ -3,10 +3,20 @@
   options.serv.auth.enable = lib.mkEnableOption "Authelia SSO";
 
   config = lib.mkIf config.serv.auth.enable {
-    age.secrets = {
-      authelia-jwt     = { file = ../../secrets/authelia-jwt.age;     mode = "0400"; };
-      authelia-session = { file = ../../secrets/authelia-session.age; mode = "0400"; };
-      authelia-storage = { file = ../../secrets/authelia-storage.age; mode = "0400"; };
+    # Owned by the authelia user, not root: the module's validate-config
+    # pre-start opens these paths directly as that user, so 0400 root-owned
+    # fails closed at startup rather than at first request.
+    age.secrets = let
+      forAuthelia = file: {
+        inherit file;
+        mode = "0400";
+        owner = config.services.authelia.instances.main.user;
+        group = config.services.authelia.instances.main.group;
+      };
+    in {
+      authelia-jwt     = forAuthelia ../../secrets/authelia-jwt.age;
+      authelia-session = forAuthelia ../../secrets/authelia-session.age;
+      authelia-storage = forAuthelia ../../secrets/authelia-storage.age;
     };
 
     services.authelia.instances.main = {
