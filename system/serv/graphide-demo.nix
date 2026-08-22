@@ -324,7 +324,21 @@ in
           description = "Rebuild the Graphide demo pod when its sources change";
           after = [ "network-online.target" "graphide-demo-network.service" ];
           wants = [ "network-online.target" ];
-          path = [ pkgs.git pkgs.podman pkgs.openssh pkgs.coreutils ];
+          # bash because build-local.sh is a bash script and a systemd unit's
+          # PATH contains only what is listed here; gnutar/gzip because podman
+          # shells out to them while assembling the build context.
+          path = [
+            pkgs.bash
+            pkgs.git
+            pkgs.podman
+            pkgs.openssh
+            pkgs.coreutils
+            pkgs.gnutar
+            pkgs.gzip
+            pkgs.gnugrep
+            pkgs.gnused
+            pkgs.findutils
+          ];
           serviceConfig = {
             Type = "oneshot";
             # The build is long and must not be killed halfway by a timer tick.
