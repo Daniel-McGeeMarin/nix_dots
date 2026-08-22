@@ -193,12 +193,12 @@ in
 
       monolithUrl = lib.mkOption {
         type = lib.types.str;
-        default = "git@github.com:GraphideHQ/monolith.git";
+        default = "https://github.com/GraphideHQ/monolith.git";
       };
 
       gredUrl = lib.mkOption {
         type = lib.types.str;
-        default = "git@github.com:GraphideHQ/gred.git";
+        default = "https://github.com/GraphideHQ/gred.git";
       };
 
       branch = lib.mkOption {
@@ -207,18 +207,21 @@ in
         description = "The two repos do not share a default branch name.";
       };
 
-      deployKeyFile = lib.mkOption {
+      tokenFile = lib.mkOption {
         type = lib.types.nullOr lib.types.path;
         default = null;
         description = ''
-          SSH private key able to read both repos. Defaults to the
-          agenix-managed secrets/graphide-demo-deploy-key.age, which this
-          module declares for you when autoBuild is on; set it to another path
-          to supply your own, or to null to rely on ambient SSH config.
+          File holding a GitHub token (fine-grained PAT, read-only, scoped to
+          both repos; or a classic PAT with repo scope) able to clone both.
+          Defaults to the agenix-managed
+          secrets/graphide-demo-token.age, which this module declares for you
+          when autoBuild is on; set it to another path to supply your own.
 
-          Both repos are private, so some key is required. Note GitHub scopes
-          a deploy key to a single repository, so reading two needs either the
-          same key registered on both or a machine user.
+          A PAT rather than a deploy key: GitHub org policy can (and here
+          does) disable deploy keys org-wide as "use GitHub Apps instead", a
+          restriction that does not apply to personal access tokens. A
+          fine-grained PAT scoped read-only to exactly these two repositories
+          gets the same blast radius a deploy key would have given.
         '';
       };
 
@@ -267,12 +270,12 @@ in
         file = ../../secrets/graphide-demo-env.age;
         mode = "0400";
       };
-    } // lib.optionalAttrs (cfg.autoBuild.enable && cfg.autoBuild.deployKeyFile == null) {
+    } // lib.optionalAttrs (cfg.autoBuild.enable && cfg.autoBuild.tokenFile == null) {
       # Only declared when autoBuild needs it — agenix fails the whole
       # activation for a secrets file that does not exist, so a host not using
       # autoBuild must not be made to carry one.
-      graphide-demo-deploy-key = {
-        file = ../../secrets/graphide-demo-deploy-key.age;
+      graphide-demo-token = {
+        file = ../../secrets/graphide-demo-token.age;
         mode = "0400";
       };
     };
@@ -334,11 +337,29 @@ in
           in ''
             set -euo pipefail
             ${let
-                key = if cfg.autoBuild.deployKeyFile != null
-                      then toString cfg.autoBuild.deployKeyFile
-                      else config.age.secrets.graphide-demo-deploy-key.path;
+                tok = if cfg.autoBuild.tokenFile != null
+                      then toString cfg.autoBuild.tokenFile
+                      else config.age.secrets.graphide-demo-token.path;
               in ''
-              export GIT_SSH_COMMAND="ssh -i ${key} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+              # A bare token is not a valid Basic-auth value; git wants
+              # base64("x-access-token:<token>"). GIT_CONFIG_VALUE_0 is an
+              # environment variable, not a CLI argument, so this does not
+              # appear in `ps` — /proc/<pid>/environ is root-only regardless.
+              #
+              # `http.extraheader=@<file>` looks like file indirection but is
+              # not: git sends the literal string "@/path/to/file" as the
+              # header value. Verified the hard way — GitHub silently ignored
+              # the malformed header and served a public repo anonymously,
+              # which would have meant a private clone 401ing while looking
+              # identical to "not yet built" rather than to a credential
+              # failure. The header value itself has to be the exported var.
+              export GIT_CONFIG_COUNT=1
+              export GIT_CONFIG_KEY_0=http.extraheader
+              export GIT_CONFIG_VALUE_0="Authorization: Basic $(printf 'x-access-token:%s' "$(cat ${tok})" | base64 -w0)"
+              # No TTY on a systemd service — without this, an expired or bad
+              # token hangs at an interactive credential prompt that can never
+              # be answered, rather than failing into the journal.
+              export GIT_TERMINAL_PROMPT=0
             ''}
             mkdir -p ${src}
 
