@@ -164,6 +164,70 @@ in
       default = 2;
     };
 
+    autoBuild = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = ''
+          Poll the source repos and rebuild the image on this host when they
+          change, instead of pulling a prebuilt one from a registry.
+
+          The other services here take images from GHCR because CI builds and
+          pushes them. This is the same idea without the round trip: it wants
+          no GitHub Actions minutes and no registry, which also means it keeps
+          working when Actions is unavailable. The cost is that the build runs
+          on this box and nothing gates it — CI's smoke test does not exist
+          here, so a broken commit becomes a broken pod. The build is staged
+          to a temporary tag and only promoted on success, so a failed build
+          leaves the running pods alone.
+
+          Implies a local image, so set image/autoUpdate accordingly.
+        '';
+      };
+
+      interval = lib.mkOption {
+        type = lib.types.str;
+        default = "*:0/5";
+        description = "systemd OnCalendar expression. Default is every 5 minutes.";
+      };
+
+      monolithUrl = lib.mkOption {
+        type = lib.types.str;
+        default = "git@github.com:GraphideHQ/monolith.git";
+      };
+
+      gredUrl = lib.mkOption {
+        type = lib.types.str;
+        default = "git@github.com:GraphideHQ/gred.git";
+      };
+
+      branch = lib.mkOption {
+        type = lib.types.attrsOf lib.types.str;
+        default = { monolith = "master"; gred = "main"; };
+        description = "The two repos do not share a default branch name.";
+      };
+
+      deployKeyFile = lib.mkOption {
+        type = lib.types.nullOr lib.types.path;
+        default = null;
+        description = ''
+          SSH private key able to read both repos. Defaults to the
+          agenix-managed secrets/graphide-demo-deploy-key.age, which this
+          module declares for you when autoBuild is on; set it to another path
+          to supply your own, or to null to rely on ambient SSH config.
+
+          Both repos are private, so some key is required. Note GitHub scopes
+          a deploy key to a single repository, so reading two needs either the
+          same key registered on both or a machine user.
+        '';
+      };
+
+      srcDir = lib.mkOption {
+        type = lib.types.path;
+        default = "/srv/data/graphide-demo/src";
+      };
+    };
+
     recycle = {
       enable = lib.mkOption {
         type = lib.types.bool;
@@ -198,9 +262,19 @@ in
       }
     ];
 
-    age.secrets.graphide-demo-env = {
-      file = ../../secrets/graphide-demo-env.age;
-      mode = "0400";
+    age.secrets = {
+      graphide-demo-env = {
+        file = ../../secrets/graphide-demo-env.age;
+        mode = "0400";
+      };
+    } // lib.optionalAttrs (cfg.autoBuild.enable && cfg.autoBuild.deployKeyFile == null) {
+      # Only declared when autoBuild needs it — agenix fails the whole
+      # activation for a secrets file that does not exist, so a host not using
+      # autoBuild must not be made to carry one.
+      graphide-demo-deploy-key = {
+        file = ../../secrets/graphide-demo-deploy-key.age;
+        mode = "0400";
+      };
     };
 
     # oci-containers has no notion of networks, so create it once at boot.
@@ -233,6 +307,80 @@ in
           after = [ "graphide-demo-network.service" "graphide-ghcr-login.service" ];
           requires = [ "graphide-demo-network.service" ];
         }) sessionList))
+
+      # Poll both repos and rebuild when either moves.
+      #
+      # Staged deliberately: the build goes to a scratch tag and is only
+      # promoted to the real one after it succeeds, so a broken commit upstream
+      # leaves the running pods untouched rather than replacing them with an
+      # image that does not boot. There is no smoke test here — that lives in
+      # CI — so "it built" is the only gate, which is exactly why the promotion
+      # is separate from the build.
+      (lib.mkIf cfg.autoBuild.enable {
+        graphide-demo-autobuild = {
+          description = "Rebuild the Graphide demo pod when its sources change";
+          after = [ "network-online.target" "graphide-demo-network.service" ];
+          wants = [ "network-online.target" ];
+          path = [ pkgs.git pkgs.podman pkgs.openssh pkgs.coreutils ];
+          serviceConfig = {
+            Type = "oneshot";
+            # The build is long and must not be killed halfway by a timer tick.
+            TimeoutStartSec = "60min";
+          };
+          script = let
+            src = cfg.autoBuild.srcDir;
+            monoBranch = cfg.autoBuild.branch.monolith or "master";
+            gredBranch = cfg.autoBuild.branch.gred or "main";
+          in ''
+            set -euo pipefail
+            ${let
+                key = if cfg.autoBuild.deployKeyFile != null
+                      then toString cfg.autoBuild.deployKeyFile
+                      else config.age.secrets.graphide-demo-deploy-key.path;
+              in ''
+              export GIT_SSH_COMMAND="ssh -i ${key} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+            ''}
+            mkdir -p ${src}
+
+            sync_repo() {
+              local url="$1" dir="$2" branch="$3"
+              if [ ! -d "$dir/.git" ]; then
+                echo "cloning $url"
+                git clone --branch "$branch" "$url" "$dir"
+              else
+                git -C "$dir" fetch --quiet origin "$branch"
+                git -C "$dir" checkout --quiet -B "$branch" "origin/$branch"
+              fi
+              git -C "$dir" rev-parse HEAD
+            }
+
+            mono_sha=$(sync_repo "${cfg.autoBuild.monolithUrl}" "${src}/monolith" "${monoBranch}")
+            gred_sha=$(sync_repo "${cfg.autoBuild.gredUrl}"     "${src}/gred"     "${gredBranch}")
+            current="$mono_sha-$gred_sha"
+
+            stamp="${src}/.last-built"
+            if [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$current" ]; then
+              echo "no change since last build ($current)"
+              exit 0
+            fi
+
+            echo "building $current"
+            # Staging tag: promoted only on success, so the running pods keep
+            # whatever last worked if this build fails.
+            staging="localhost/graphide-demo:building"
+            TAG="$staging" GRED_DIR="${src}/gred" \
+              bash "${src}/monolith/deploy/demo-pod/build-local.sh"
+
+            podman tag "$staging" "${cfg.image}"
+            echo "$current" > "$stamp"
+
+            ${lib.concatMapStringsSep "\n" (s:
+              ''systemctl restart podman-graphide-demo-${s.name}.service || true''
+            ) sessionList}
+            echo "rebuilt and restarted at $current"
+          '';
+        };
+      })
 
       # What the recycle timers actually trigger. Restarting is the expiry
       # mechanism: the container comes back with a fresh database, a fresh
@@ -278,7 +426,18 @@ in
       }) sessionList);
     };
 
-    systemd.timers = lib.mkIf cfg.recycle.enable (builtins.listToAttrs (map (s:
+    systemd.timers = lib.mkMerge [
+      (lib.mkIf cfg.autoBuild.enable {
+        graphide-demo-autobuild = {
+          wantedBy = [ "timers.target" ];
+          timerConfig = {
+            OnCalendar = cfg.autoBuild.interval;
+            Persistent = true;
+            RandomizedDelaySec = "60";
+          };
+        };
+      })
+      (lib.mkIf cfg.recycle.enable (builtins.listToAttrs (map (s:
       lib.nameValuePair "graphide-demo-recycle-${s.name}" {
         wantedBy = [ "timers.target" ];
         timerConfig = {
@@ -286,6 +445,7 @@ in
           Persistent = false;
           RandomizedDelaySec = "5m";
         };
-      }) sessionList));
+      }) sessionList)))
+    ];
   };
 }
