@@ -74,6 +74,14 @@ in
   serv.graphide-demo.image = "localhost/graphide-demo:latest";
   serv.graphide-demo.autoUpdate = false;
   serv.graphide-demo.autoBuild.enable = true;
+
+  # Keep what guests do, and open a real project rather than an empty folder.
+  # This is a deliberate trade: the hourly wipe was what expired a guest's
+  # access to their own session, so with it off, whatever one visitor leaves in
+  # a workspace is what the next one opens.
+  serv.graphide-demo.persist = true;
+  serv.graphide-demo.recycle.enable = false;
+  serv.graphide-demo.seedDir = "/srv/data/graphide-demo/seed";
   services.openssh.settings.PasswordAuthentication = false;
 
   services.displayManager.autoLogin = {

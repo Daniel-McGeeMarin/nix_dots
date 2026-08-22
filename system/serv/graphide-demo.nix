@@ -56,10 +56,24 @@ let
 
   sessionList = lib.imap0 (i: name: { inherit name; index = i; port = portFor i; }) cfg.sessions;
 
+  sessionDir = s: "${cfg.stateDir}/${s.name}";
+
+  # Without these the database, the workspace and the IDE's settings live in the
+  # container's writable layer, which oci-containers discards on every restart.
+  # Only the IDE's User directory is persisted, not its extensions: the
+  # entrypoint reinstalls the extension each boot so a rebuilt image actually
+  # takes effect.
+  volumesFor = s: lib.optionals cfg.persist [
+    "${sessionDir s}/data:/data"
+    "${sessionDir s}/workspace:/workspace"
+    "${sessionDir s}/user:/opt/codium-data/server/data/User"
+  ] ++ lib.optional (cfg.seedDir != null) "${cfg.seedDir}:/seed:ro";
+
   containerFor = s: lib.nameValuePair "graphide-demo-${s.name}" {
     image = cfg.image;
     # Loopback only. Caddy reaches it; nothing else on the network can.
     ports = [ "127.0.0.1:${toString s.port}:8000" ];
+    volumes = volumesFor s;
     environmentFiles = [ config.age.secrets.graphide-demo-env.path ];
     environment = {
       DEMO_EMAIL = "${s.name}@${cfg.domain}";
@@ -103,6 +117,46 @@ in
       description = ''
         One container per name, reachable at <name>.<domain>. Names are the
         subdomain, so keep them DNS-safe.
+      '';
+    };
+
+    persist = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Keep each session's database, workspace and editor settings across
+        restarts by mounting them from stateDir.
+
+        Off by default because it gives up the property that made handing out
+        a link acceptable: with ephemeral pods, a restart is what expires a
+        guest's access to whatever they did, and the next visitor cannot see
+        it. Persisting means anything one guest leaves in the workspace — or
+        any credential they paste into a file — is there for the next.
+
+        Also disable recycle.enable, or the hourly restart still runs and the
+        only thing persistence buys is a slower boot.
+      '';
+    };
+
+    stateDir = lib.mkOption {
+      type = lib.types.str;
+      default = "/srv/data/graphide-demo/sessions";
+      description = "Parent of the per-session state directories.";
+    };
+
+    seedDir = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      example = "/srv/data/graphide-demo/seed";
+      description = ''
+        A project to open instead of an empty workspace, bind-mounted
+        read-only and copied in on first boot. Host-side rather than baked
+        into the image so changing the demo project needs no rebuild, and so
+        the project need not be committed to either source repo.
+
+        Copy it in with rsync and exclude the heavy build artefacts:
+          rsync -a --delete --exclude node_modules --exclude .next \
+            ~/project/ root@host:/srv/data/graphide-demo/seed/
       '';
     };
 
@@ -275,6 +329,28 @@ in
         message = "serv.graphide-demo.sessions has duplicates; each name is a subdomain.";
       }
     ];
+
+    warnings = lib.optional (cfg.persist && cfg.recycle.enable) ''
+      serv.graphide-demo has both persist and recycle.enable set. The hourly
+      restart still happens, so state survives it and the only effect of
+      recycling is a slower boot. Set recycle.enable = false.
+    '';
+
+    # 1000 is the demo user inside the image. Rootful podman without a userns
+    # remap means container UID 1000 is host UID 1000, so the container can only
+    # write these if they are owned by that number.
+    systemd.tmpfiles.rules =
+      lib.optionals cfg.persist
+        ([ "d ${cfg.stateDir} 0750 root root -" ]
+         ++ lib.concatMap (s: [
+           "d ${sessionDir s}           0750 1000 1000 -"
+           "d ${sessionDir s}/data      0700 1000 1000 -"
+           "d ${sessionDir s}/workspace 0750 1000 1000 -"
+           "d ${sessionDir s}/user      0750 1000 1000 -"
+         ]) sessionList)
+      # Read-only to the pods, so root can own it and a guest cannot edit the
+      # project every later pod is seeded from.
+      ++ lib.optional (cfg.seedDir != null) "d ${cfg.seedDir} 0755 root root -";
 
     age.secrets = {
       graphide-demo-env = {
