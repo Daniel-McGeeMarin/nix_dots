@@ -338,6 +338,7 @@ in
             pkgs.gnugrep
             pkgs.gnused
             pkgs.findutils
+            pkgs.systemd
           ];
           serviceConfig = {
             Type = "oneshot";
@@ -402,15 +403,21 @@ in
             echo "building $current"
             # Staging tag: promoted only on success, so the running pods keep
             # whatever last worked if this build fails.
+            #
+            # Absolute store path, not `bash` on PATH: a systemd unit's PATH
+            # is only what this module lists, and grepping ExecStart cannot
+            # tell you whether `path` changed — that hash is the script body
+            # alone. Pinning the interpreter here makes the next missing-tool
+            # failure a missing file in the closure, not a 127 in the journal.
             staging="localhost/graphide-demo:building"
             TAG="$staging" GRED_DIR="${src}/gred" \
-              bash "${src}/monolith/deploy/demo-pod/build-local.sh"
+              ${lib.getExe pkgs.bash} "${src}/monolith/deploy/demo-pod/build-local.sh"
 
             podman tag "$staging" "${cfg.image}"
             echo "$current" > "$stamp"
 
             ${lib.concatMapStringsSep "\n" (s:
-              ''systemctl restart podman-graphide-demo-${s.name}.service || true''
+              ''${pkgs.systemd}/bin/systemctl restart podman-graphide-demo-${s.name}.service || true''
             ) sessionList}
             echo "rebuilt and restarted at $current"
           '';
