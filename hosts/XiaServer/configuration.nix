@@ -56,6 +56,20 @@ in
   serv.forgejo.enable = true;
   serv.graphide.enable = true;
   serv.graphide-web.enable = true;
+
+  # One throwaway browser IDE per name, at <name>.graphide.net behind Authelia.
+  # Each is recycled hourly, which is what expires a guest link: the container
+  # comes back with a fresh database, workspace and token.
+  serv.graphide-demo.enable = true;
+  serv.graphide-demo.sessions = [ "demo" "guest" ];
+
+  # Build on this host from the repos rather than pulling a prebuilt image.
+  # The other services take images from GHCR because CI publishes them; this
+  # needs no Actions minutes and no registry, so it keeps working when Actions
+  # is unavailable. A local tag cannot be pulled, hence autoUpdate = false.
+  serv.graphide-demo.image = "localhost/graphide-demo:latest";
+  serv.graphide-demo.autoUpdate = false;
+  serv.graphide-demo.autoBuild.enable = true;
   services.openssh.settings.PasswordAuthentication = false;
 
   services.displayManager.autoLogin = {

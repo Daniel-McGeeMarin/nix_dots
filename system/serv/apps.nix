@@ -3,6 +3,8 @@
   options.serv.apps.site.enable = lib.mkEnableOption "personal site";
 
   config = lib.mkIf config.serv.apps.site.enable {
+    age.secrets.finance-plaid-env = { file = ../../secrets/finance-plaid-env.age; mode = "0400"; };
+
     virtualisation.oci-containers.containers = {
       site-web = {
         image  = "ghcr.io/daniel-mcgeemarin/mcgeeinfov2-web:latest";
@@ -30,8 +32,10 @@
         image  = "ghcr.io/daniel-mcgeemarin/mcgeeinfov2-finance-api:latest";
         ports  = [ "127.0.0.1:8001:8000" ];
         volumes = [ "/srv/data/finance-api:/data" ];
+        environmentFiles = [ config.age.secrets.finance-plaid-env.path ];
         environment = {
           FINANCE_DB_PATH = "/data/finance.db";
+          PLAID_ENV       = "production";
         };
         labels."io.containers.autoupdate" = "registry";
       };

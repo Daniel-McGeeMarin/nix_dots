@@ -5,7 +5,7 @@
   config = lib.mkIf config.serv.dashboard.enable {
     age.secrets.homarr-env = {
       file = ../../secrets/homarr-env.age;
-      mode = "0444";
+      mode = "0400";
     };
 
     systemd.tmpfiles.rules = [

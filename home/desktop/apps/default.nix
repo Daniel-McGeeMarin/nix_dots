@@ -6,6 +6,7 @@
     ./kitty.nix
     ./mpv.nix
     ./ncmpcpp.nix
+    ./orca.nix
     ./owncloudclient.nix
     ./zathura.nix
   ];

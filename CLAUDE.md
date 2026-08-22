@@ -58,6 +58,7 @@ Four overlays in `flake.nix`, available in every module:
 | `head.gaming` | system | gamemode, gamescope, uinput |
 | `desktop.enable` | home | Hyprland, caelestia, apps, comms, office, media |
 | `desktop.gaming.enable` | home | Flatpak Steam, Lutris, Prism |
+| `desktop.workmic.enable` | home | Push-to-talk mic gating (SUPER+SPACE) |
 | `desktop.japanese.enable` | home | Japanese fonts/input |
 | `programming.enable` | home | Dev tools, Python, R |
 | `ai.enable` | home | aichat, aiclip script |
@@ -65,6 +66,15 @@ Four overlays in `flake.nix`, available in every module:
 | `sync.enable` | home | KDE Connect / Bluetooth |
 | `media.enable` | home | media CLI tools |
 | `tui.enable` | home | btop, ncmpcpp, ytfzf (default: true) |
+
+### Adding a package
+
+A plain package with no options, service, or extra config (dotfiles, wrapper scripts, systemd units, etc.) does **not** get its own `.nix` file — add it to the `home.packages` list in the relevant `default.nix` instead:
+- Desktop GUI apps → `home/desktop/default.nix` (see the "Browsers & editors" section, e.g. `vscodium`, `unfree.code-cursor`)
+- CLI dev tools → `home/term/modules/programming/default.nix`
+- General CLI tools → `home/term/default.nix`
+
+Only give a package its own file under `apps/`, `modules/`, or similar when it needs real config — a wrapper derivation (unpackaged upstream, e.g. an AppImage like `orca.nix`), non-trivial `programs.*`/`services.*` settings, or its own enable option.
 
 ### Secrets
 

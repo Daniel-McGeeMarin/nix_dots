@@ -27,6 +27,20 @@ in
       "move 1200 10, class:^(nixswitch-term)$"
       "pin, class:^(nixswitch-term)$"
 
+      ### AppAssistDesktop job browser (external Brave window) ###
+      # AppAssistDesktop launches Brave with --class=AppAssistJobBrowser and
+      # drives it via CDP. Position/resize is dispatched from the app on every
+      # resize/move; these rules take care of the compositor chrome so the
+      # Brave window sits seamlessly over the app's center panel.
+      "float, class:^(AppAssistJobBrowser)$"
+      "noborder, class:^(AppAssistJobBrowser)$"
+      "noshadow, class:^(AppAssistJobBrowser)$"
+      "noanim, class:^(AppAssistJobBrowser)$"
+      "noinitialfocus, class:^(AppAssistJobBrowser)$"
+      # Setup window (spawned via the "Browser Setup" button) is a regular
+      # Brave with full chrome — user installs/logs into Simplify there.
+      "float, class:^(AppAssistJobBrowserSetup)$"
+
       ### Generic ###
       "suppressevent maximize, class:.*"
       "nofocus,class:^$,title:^$,xwayland:1,floating:1,fullscreen:0,pinned:0"

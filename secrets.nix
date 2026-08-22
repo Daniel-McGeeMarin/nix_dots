@@ -13,4 +13,5 @@ in {
   "secrets/ocis-admin-password.age".publicKeys  = [ xiaserver xiaserverUser ];
   "secrets/graphide-api-env.age".publicKeys     = [ xiaserver xiaserverUser ];
   "secrets/ghcr-token.age".publicKeys           = [ xiaserver xiaserverUser ];
+  "secrets/finance-plaid-env.age".publicKeys    = [ xiaserver xiaserverUser ];
 }

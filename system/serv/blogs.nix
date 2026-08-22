@@ -4,8 +4,8 @@
 
   config = lib.mkIf config.serv.blogs.enable {
     age.secrets = {
-      ghost-public-env  = { file = ../../secrets/ghost-public-env.age;  mode = "0444"; };
-      ghost-private-env = { file = ../../secrets/ghost-private-env.age; mode = "0444"; };
+      ghost-public-env  = { file = ../../secrets/ghost-public-env.age;  mode = "0400"; };
+      ghost-private-env = { file = ../../secrets/ghost-private-env.age; mode = "0400"; };
     };
 
     virtualisation.oci-containers.containers = {

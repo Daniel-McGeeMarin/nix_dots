@@ -16,6 +16,8 @@
       "io.missioncenter.MissionCenter"       # system monitor
       "net.cozic.joplin_desktop"             # notes
       "md.obsidian.Obsidian"                 # notes (sandboxed — use Flatseal to restrict to ~/Documents)
+      # ── Comms ─────────────────────────────────────────────────────────────────
+      "app.openbubbles.OpenBubbles"          # iMessage client (needs an OpenBubbles/BlueBubbles server)
       # ── Media ─────────────────────────────────────────────────────────────────
       "org.qbittorrent.qBittorrent"
     ];
@@ -24,6 +26,7 @@
       # ── Browsers & editors ────────────────────────────────────────────────────
       brave
       vscodium
+      unstable.unfree.code-cursor
 
       # ── System & desktop ──────────────────────────────────────────────────────
       brightnessctl
@@ -44,6 +47,7 @@
       # ── Communications ────────────────────────────────────────────────────────
       inputs.nixpkgs-unstable.legacyPackages.${pkgs.stdenv.hostPlatform.system}.signal-desktop
       element-desktop
+      unstable.unfree.zoom-us                # remote control only works in an X11 session
 
       # ── Media creation & viewing ──────────────────────────────────────────────
       obs-studio

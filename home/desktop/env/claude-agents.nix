@@ -83,7 +83,7 @@ let
 
   hookStop = pkgs.writeShellApplication {
     name = "claude-agent-hook-stop";
-    runtimeInputs = [ pkgs.jq pkgs.coreutils pkgs.claude-code ];
+    runtimeInputs = [ pkgs.jq pkgs.coreutils pkgs.unstable.unfree.claude-code ];
     text = ''
       input=$(cat)
       claude_sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
@@ -357,9 +357,9 @@ $first_msg" 2>/dev/null | head -1 | tr -d '"' | cut -c1-40) || true
       fi
       printf '%s' "$title" > "${stateDir}/$sid.title"
       if [ -n "$resume_session" ]; then
-        set -- "${pkgs.claude-code}/bin/claude" --resume "$resume_session"
+        set -- "${pkgs.unstable.unfree.claude-code}/bin/claude" --resume "$resume_session"
       else
-        set -- "${pkgs.claude-code}/bin/claude"
+        set -- "${pkgs.unstable.unfree.claude-code}/bin/claude"
       fi
       CLAUDE_AGENT_SID="$sid" setsid --fork ${pkgs.kitty}/bin/kitty \
         --class "claude-agent-$sid" \
@@ -887,6 +887,82 @@ $first_msg" 2>/dev/null | head -1 | tr -d '"' | cut -c1-40) || true
     '';
   };
 
+  # ── settings.json ────────────────────────────────────────────────────────────
+  # Deliberately NOT a home.file symlink. Orca (home/desktop/apps/orca.nix)
+  # installs its own agent-status hooks into ~/.claude/settings.json, and
+  # resolves symlinks to their target before writing — which is read-only
+  # /nix/store when Home Manager owns the file, so its install fails with EROFS.
+  #
+  # Instead the file is a real, writable file that activation re-merges every
+  # switch: our hooks (identified by hookMarker) are refreshed to their current
+  # store paths, and anything foreign — Orca's entries, a statusLine, hand-edits
+  # — is preserved untouched. Re-merging matters because the commands below are
+  # store paths that change whenever a hook script does; seeding the file once
+  # would leave them pointing at garbage-collected paths.
+  hookMarker = "/bin/claude-agent-hook-";
+
+  hmSettings = pkgs.writeText "claude-agents-settings.json" (builtins.toJSON {
+    hooks = {
+      SessionStart        = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookSessionStart}/bin/claude-agent-hook-session-start"; }]; }];
+      UserPromptSubmit    = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookUserPromptSubmit}/bin/claude-agent-hook-user-prompt-submit"; }]; }];
+      Notification        = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookNotification}/bin/claude-agent-hook-notification"; }]; }];
+      PostToolUse         = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookPostToolUse}/bin/claude-agent-hook-post-tool-use"; }]; }];
+      PostToolUseFailure  = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookPostToolUseFailure}/bin/claude-agent-hook-post-tool-use-failure"; }]; }];
+      Stop                = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookStop}/bin/claude-agent-hook-stop"; }]; }];
+    };
+  });
+
+  settingsMerge = pkgs.writeShellApplication {
+    name = "claude-agents-settings-merge";
+    runtimeInputs = [ pkgs.jq pkgs.coreutils ];
+    text = ''
+      target="$HOME/.claude/settings.json"
+      mkdir -p "$HOME/.claude"
+
+      # Migrate off the old Home Manager symlink.
+      if [ -L "$target" ]; then
+        rm -f "$target"
+      fi
+
+      # No usable file to merge into — start from ours.
+      if [ ! -e "$target" ] || ! jq -e . "$target" >/dev/null 2>&1; then
+        if [ -e "$target" ]; then
+          echo "claude-agents: $target is not valid JSON, saving as .corrupt.bak" >&2
+          mv -f "$target" "$target.corrupt.bak"
+        fi
+        install -m 644 "${hmSettings}" "$target"
+        exit 0
+      fi
+
+      tmp=$(mktemp "$HOME/.claude/.settings.json.XXXXXX")
+      if jq -S \
+           --arg marker "${hookMarker}" \
+           --slurpfile want "${hmSettings}" '
+             # Drop only our own hook entries, then any group left empty.
+             def strip_ours:
+               map(.hooks = ((.hooks // [])
+                             | map(select(((.command // "") | contains($marker)) | not))))
+               | map(select(((.hooks // []) | length) > 0));
+
+             ($want[0].hooks) as $ours
+             | .hooks = ((.hooks // {})
+                         | with_entries(.value |= (if type == "array" then strip_ours else . end)))
+             | reduce ($ours | keys_unsorted[]) as $event (
+                 .;
+                 .hooks[$event] = ((.hooks[$event] // []) + $ours[$event])
+               )
+             | .hooks |= with_entries(select((.value | length) > 0))
+           ' "$target" > "$tmp"; then
+        chmod 644 "$tmp"
+        mv -f "$tmp" "$target"
+      else
+        rm -f "$tmp"
+        echo "claude-agents: failed to merge $target, left unchanged" >&2
+        exit 1
+      fi
+    '';
+  };
+
 in {
   options.programs.claudeAgents.enable =
     mkEnableOption "Claude Code agent management with Hyprland workspace integration";
@@ -894,19 +970,11 @@ in {
   config = mkIf cfg.enable {
     home.packages = [ watcher spawner smartO smartP smartI smartRestart smartRestore hoverDaemon ];
 
-    home.file.".claude/settings.json" = {
-      force = true;
-      text = builtins.toJSON {
-        hooks = {
-          SessionStart        = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookSessionStart}/bin/claude-agent-hook-session-start"; }]; }];
-          UserPromptSubmit    = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookUserPromptSubmit}/bin/claude-agent-hook-user-prompt-submit"; }]; }];
-          Notification        = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookNotification}/bin/claude-agent-hook-notification"; }]; }];
-          PostToolUse         = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookPostToolUse}/bin/claude-agent-hook-post-tool-use"; }]; }];
-          PostToolUseFailure  = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookPostToolUseFailure}/bin/claude-agent-hook-post-tool-use-failure"; }]; }];
-          Stop                = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookStop}/bin/claude-agent-hook-stop"; }]; }];
-        };
-      };
-    };
+    # Runs after linkGeneration so it lands after HM has cleaned up the old
+    # symlink from the previous generation.
+    home.activation.claudeAgentsSettings = hm.dag.entryAfter [ "linkGeneration" ] ''
+      $DRY_RUN_CMD ${settingsMerge}/bin/claude-agents-settings-merge
+    '';
 
     systemd.user.services.claude-agents-watcher = {
       Unit = {
@@ -957,7 +1025,7 @@ in {
           "SUPER, P, exec, ${smartP}/bin/claude-agents-smart-p"
           "SUPER, I, exec, ${smartI}/bin/claude-agents-smart-i"
           "SUPER SHIFT, O, exec, ${smartRestart}/bin/claude-agents-restart"
-          "SUPER SHIFT, R, exec, ${smartRestore}/bin/claude-agents-restore"
+          "SUPER SHIFT, I, exec, ${smartRestore}/bin/claude-agents-restore"
         ];
       };
     };
