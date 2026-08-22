@@ -67,6 +67,15 @@ Four overlays in `flake.nix`, available in every module:
 | `media.enable` | home | media CLI tools |
 | `tui.enable` | home | btop, ncmpcpp, ytfzf (default: true) |
 
+### Adding a package
+
+A plain package with no options, service, or extra config (dotfiles, wrapper scripts, systemd units, etc.) does **not** get its own `.nix` file — add it to the `home.packages` list in the relevant `default.nix` instead:
+- Desktop GUI apps → `home/desktop/default.nix` (see the "Browsers & editors" section, e.g. `vscodium`, `unfree.code-cursor`)
+- CLI dev tools → `home/term/modules/programming/default.nix`
+- General CLI tools → `home/term/default.nix`
+
+Only give a package its own file under `apps/`, `modules/`, or similar when it needs real config — a wrapper derivation (unpackaged upstream, e.g. an AppImage like `orca.nix`), non-trivial `programs.*`/`services.*` settings, or its own enable option.
+
 ### Secrets
 
 `secrets.nix` is git-ignored, injected as a flake input, and available in every module as `secrets`. Expected shape:
