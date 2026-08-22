@@ -41,16 +41,22 @@
           rules = [
             # Authelia's own login portal must be reachable without auth
             { domain = "auth.mcgeedan.com"; policy = "bypass"; }
+            # Every rule below is scoped to group:admins rather than merely
+            # requiring a login. A rule without a subject admits any
+            # authenticated user, so the moment a second account exists — a
+            # guest invited to a demo pod — an unscoped rule hands it the jobs
+            # queue, saved resumes and every subdomain here.
+            #
             # Jobs admin/queue endpoints require login; the browse view is public
-            { domain = "mcgeedan.com"; resources = [ "^/api/jobs/queue(/.*)?$" "^/api/jobs/refresh(/.*)?$" "^/api/jobs/enrich(/.*)?$" "^/api/jobs/custom-mapper" ]; policy = "one_factor"; }
+            { domain = "mcgeedan.com"; resources = [ "^/api/jobs/queue(/.*)?$" "^/api/jobs/refresh(/.*)?$" "^/api/jobs/enrich(/.*)?$" "^/api/jobs/custom-mapper" ]; policy = "one_factor"; subject = [ "group:admins" ]; }
             # Saved resume storage is personal — require login
-            { domain = "mcgeedan.com"; resources = [ "^/api/resume/saved(/.*)?$" ]; policy = "one_factor"; }
+            { domain = "mcgeedan.com"; resources = [ "^/api/resume/saved(/.*)?$" ]; policy = "one_factor"; subject = [ "group:admins" ]; }
             # Survey results — private admin view
-            { domain = "mcgeedan.com"; resources = [ "^/survey/results(/.*)?$" "^/api/survey/results(/.*)?$" ]; policy = "one_factor"; }
+            { domain = "mcgeedan.com"; resources = [ "^/survey/results(/.*)?$" "^/api/survey/results(/.*)?$" ]; policy = "one_factor"; subject = [ "group:admins" ]; }
             # Rest of the main site is public
             { domain = "mcgeedan.com"; policy = "bypass"; }
             # Everything else on subdomains requires one-factor login
-            { domain = "*.mcgeedan.com"; policy = "one_factor"; }
+            { domain = "*.mcgeedan.com"; policy = "one_factor"; subject = [ "group:admins" ]; }
           ];
         };
 

@@ -106,6 +106,17 @@ in
       '';
     };
 
+    allowedGroups = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ "demo" "admins" ];
+      description = ''
+        Authelia groups admitted to the pods. Load-bearing: an access_control
+        rule with no subject admits every authenticated user, so without this
+        a guest account created for a demo would also reach everything else
+        behind this SSO. Listed groups are OR'd.
+      '';
+    };
+
     domain = lib.mkOption {
       type = lib.types.str;
       default = "graphide.net";
@@ -465,6 +476,7 @@ in
       ] ++ map (s: {
         domain = "${s.name}.${cfg.domain}";
         policy = "one_factor";
+        subject = map (g: "group:${g}") cfg.allowedGroups;
       }) sessionList);
     };
 
