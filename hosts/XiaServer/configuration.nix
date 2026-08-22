@@ -61,7 +61,11 @@ in
   # Each is recycled hourly, which is what expires a guest link: the container
   # comes back with a fresh database, workspace and token.
   serv.graphide-demo.enable = true;
-  serv.graphide-demo.sessions = [ "demo" "guest" ];
+  # Lowercase because Authelia lowercases the request host before matching its
+  # access_control rules, so an uppercase domain there matches nothing and
+  # falls through to the default deny. URLs are case-insensitive, so
+  # DemoBox1.graphide.net still reaches demobox1.
+  serv.graphide-demo.sessions = [ "demobox1" "demobox2" "demobox3" ];
 
   # Build on this host from the repos rather than pulling a prebuilt image.
   # The other services take images from GHCR because CI publishes them; this
