@@ -1,4 +1,11 @@
 { config, lib, pkgs, inputs, ... }:
+let
+  hostIdentityMarker = "/var/lib/nixos-host-identity";
+  expectedHost = "XiaServer";
+  markerExists = (builtins.tryEval (builtins.pathExists hostIdentityMarker)).value or false;
+  markerContent = if markerExists then ((builtins.tryEval (builtins.readFile hostIdentityMarker)).value or "") else "";
+  currentIdentity = lib.removeSuffix "\n" markerContent;
+in
 {
   imports = [
     ../../system
@@ -12,6 +19,26 @@
 
   networking.hostName = "XiaServer";
   networking.hostId = "9933a4ba";
+
+  assertions = [
+    {
+      assertion = currentIdentity == "" || currentIdentity == expectedHost;
+      message = ''
+        Host-identity guard: refusing to build closure for '${expectedHost}'.
+        ${hostIdentityMarker} says this machine is '${currentIdentity}'.
+        You almost certainly ran
+            nixos-rebuild switch --flake .#${expectedHost}
+        on the wrong box. Did you mean .#${currentIdentity}?
+        If you truly want to reconfigure this machine's identity, run
+            sudo rm ${hostIdentityMarker}
+        and rebuild again.
+      '';
+    }
+  ];
+
+  system.activationScripts.hostIdentityMarker.text = ''
+    [ -f ${hostIdentityMarker} ] || echo ${expectedHost} > ${hostIdentityMarker}
+  '';
 
   head = {
     enable = true;

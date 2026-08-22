@@ -1,4 +1,11 @@
 { config, lib, pkgs, inputs, ... }:
+let
+  hostIdentityMarker = "/var/lib/nixos-host-identity";
+  expectedHost = "XiaNix";
+  markerExists = (builtins.tryEval (builtins.pathExists hostIdentityMarker)).value or false;
+  markerContent = if markerExists then ((builtins.tryEval (builtins.readFile hostIdentityMarker)).value or "") else "";
+  currentIdentity = lib.removeSuffix "\n" markerContent;
+in
 {
   imports = [
     ../../system
@@ -13,6 +20,26 @@
   boot.kernelModules = [ "binder_linux" ];
 
   networking.hostName = "XiaNix";
+
+  assertions = [
+    {
+      assertion = currentIdentity == "" || currentIdentity == expectedHost;
+      message = ''
+        Host-identity guard: refusing to build closure for '${expectedHost}'.
+        ${hostIdentityMarker} says this machine is '${currentIdentity}'.
+        You almost certainly ran
+            nixos-rebuild switch --flake .#${expectedHost}
+        on the wrong box. Did you mean .#${currentIdentity}?
+        If you truly want to reconfigure this machine's identity, run
+            sudo rm ${hostIdentityMarker}
+        and rebuild again.
+      '';
+    }
+  ];
+
+  system.activationScripts.hostIdentityMarker.text = ''
+    [ -f ${hostIdentityMarker} ] || echo ${expectedHost} > ${hostIdentityMarker}
+  '';
   networking.extraHosts = "127.0.0.1 host.docker.internal";
   # Allow Podman bridge containers (supabase_network_graphide → podman1) to
   # reach host services like auth-shim on :8081 for the OAuth token exchange.
