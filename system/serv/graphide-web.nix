@@ -7,27 +7,36 @@
 # 1. Secrets — one age-encrypted file in secrets/:
 #
 #    secrets/website-api-env.age  (edit with: agenix -e secrets/website-api-env.age)
-#      DATABASE_URL=postgres://graphide:<password>@127.0.0.1:5432/graphide
-#                                  # the same cluster graphide.nix's postgres
-#                                  # container serves; reachable on loopback
-#                                  # only because both use host networking
+#      DATABASE_URL=postgres://postgres.<ref>:<password>@<region>.pooler.supabase.com:5432/postgres
+#                                  # Supabase, NOT the local cluster in
+#                                  # graphide.nix. The survey data is the one
+#                                  # thing here we cannot lose to a dead disk,
+#                                  # and store.go is written against the
+#                                  # pooler's session limits. Taking this from
+#                                  # Supabase's dashboard under Connect >
+#                                  # Session pooler gets the right host.
 #      PORT=8010                   # must match every upstream in this file
 #      DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/<id>/<token>
 #      DEMO_BOXES=demobox1,demobox2,demobox3
 #                                  # keep in sync with serv.graphide-demo.sessions
 #      DEMO_BASE_PORT=8100         # keep in sync with serv.graphide-demo.basePort;
 #                                  # box N is at DEMO_BASE_PORT + N
-#      DEMO_IDLE_GRACE=300         # seconds a box stays claimed after its last
+#      DEMO_IDLE_GRACE=5m          # how long a box stays claimed after its last
 #                                  # ESTABLISHED connection goes away, so a
 #                                  # page reload does not hand the box to
-#                                  # somebody else mid-session
+#                                  # somebody else mid-session. Parsed by Go's
+#                                  # time.ParseDuration, so the unit is not
+#                                  # optional: a bare `300` is a startup error,
+#                                  # not five minutes.
 #      ADMIN_GROUP=admins          # Authelia group allowed past the demo gate
 #                                  # regardless of who else holds the box
 #
 #    Must be encrypted to the target host's SSH key, which means registering the
-#    path in secrets.nix *before* running agenix -e. Until the file exists,
-#    evaluation of this host fails: agenix copies the file into the store, so a
-#    declared-but-missing secret is a build error, not a runtime one.
+#    path in secrets.nix *before* running agenix -e. Until the file exists, this
+#    host evaluates and builds fine and then dies in activation, when agenix
+#    tries to decrypt a path that is not there — so `nix build` proving green
+#    says nothing about whether the switch will land. The same omission left
+#    XiaServer undeployable for a while; see the finance secrets in apps.nix.
 #
 # 2. GHCR image — ghcr.io/graphidehq/website-api:latest, like every other
 #    graphide image, is PRIVATE. The credentials come from
