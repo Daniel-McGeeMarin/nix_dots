@@ -177,11 +177,37 @@
             header_up X-Forwarded-Proto https
           }
         }
+        # Admin force-release of a stuck demo box. It needs its own gated block
+        # rather than relying on the API's own check, because that check reads
+        # Remote-Groups and the block below is reachable by anyone: without this
+        # block, `curl -H 'Remote-Groups: <admin group>' .../api/demo/release`
+        # evicts whoever is on a box. Authelia's copy_headers overwrites any
+        # client-supplied value, so the header is only trustworthy behind it.
+        handle /api/demo/release* {
+          import require_auth
+          reverse_proxy 127.0.0.1:8010 {
+            header_up X-Forwarded-Proto https
+          }
+        }
         # Public on purpose — this is where survey and feedback submissions
         # land, from visitors who have no account and never will.
+        #
+        # The Remote-* headers are deleted on the way in. website-api derives
+        # identity and admin status from them (isAdmin in api/server.go), and on
+        # this block nothing upstream has authenticated the caller, so anything
+        # they send is a claim about themselves. Deleting them means the API sees
+        # no identity at all here, which is what it should see. The routes that
+        # legitimately carry these headers are unaffected: /api/feedback/results
+        # above gets them from Authelia, and the demo-box gate is called by
+        # forward_auth straight to 127.0.0.1:8010 from the vhosts in
+        # graphide-demo.nix, never through this block.
         handle /api/* {
           reverse_proxy 127.0.0.1:8010 {
             header_up X-Forwarded-Proto https
+            header_up -Remote-User
+            header_up -Remote-Groups
+            header_up -Remote-Name
+            header_up -Remote-Email
           }
         }
         handle {
