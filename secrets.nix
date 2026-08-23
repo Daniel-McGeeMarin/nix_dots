@@ -14,4 +14,6 @@ in {
   "secrets/graphide-api-env.age".publicKeys     = [ xiaserver xiaserverUser ];
   "secrets/ghcr-token.age".publicKeys           = [ xiaserver xiaserverUser ];
   "secrets/finance-plaid-env.age".publicKeys    = [ xiaserver xiaserverUser ];
+  "secrets/finance-import-token.age".publicKeys = [ xiaserver xiaserverUser ];
+  "secrets/finance-ofx-env.age".publicKeys      = [ xiaserver xiaserverUser ];
 }

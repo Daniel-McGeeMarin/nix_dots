@@ -5,6 +5,23 @@
   config = lib.mkIf config.serv.apps.site.enable {
     age.secrets.finance-plaid-env = { file = ../../secrets/finance-plaid-env.age; mode = "0400"; };
 
+    # OFX Direct Connect credentials — talks straight to the bank, no aggregator.
+    #   US_BANK_OFX_USER=...
+    #   US_BANK_OFX_PASSWORD=...
+    #   US_BANK_OFX_ACCOUNTS=CHECKING:<acct>:<routing>,CREDITCARD:<acct>
+    age.secrets.finance-ofx-env = { file = ../../secrets/finance-ofx-env.age; mode = "0400"; };
+
+    # Read by Caddy to gate the extension's import route. Contents:
+    #   FINANCE_IMPORT_TOKEN=<long random string>
+    age.secrets.finance-import-token = {
+      file  = ../../secrets/finance-import-token.age;
+      mode  = "0400";
+      owner = "caddy";
+    };
+
+    systemd.services.caddy.serviceConfig.EnvironmentFile =
+      [ config.age.secrets.finance-import-token.path ];
+
     virtualisation.oci-containers.containers = {
       site-web = {
         image  = "ghcr.io/daniel-mcgeemarin/mcgeeinfov2-web:latest";
@@ -32,7 +49,10 @@
         image  = "ghcr.io/daniel-mcgeemarin/mcgeeinfov2-finance-api:latest";
         ports  = [ "127.0.0.1:8001:8000" ];
         volumes = [ "/srv/data/finance-api:/data" ];
-        environmentFiles = [ config.age.secrets.finance-plaid-env.path ];
+        environmentFiles = [
+          config.age.secrets.finance-plaid-env.path
+          config.age.secrets.finance-ofx-env.path
+        ];
         environment = {
           FINANCE_DB_PATH = "/data/finance.db";
           PLAID_ENV       = "production";
@@ -86,12 +106,26 @@
       }
     '';
 
+    # The browser extension posts statement exports here. It's token-gated rather
+    # than session-gated because the Authelia cookie goes idle after 30 minutes,
+    # which would silently fail the POST. handle blocks are mutually exclusive and
+    # evaluated in order, so require_auth moves inside the two fallthrough blocks.
     services.caddy.virtualHosts."http://finances.mcgeedan.com".extraConfig = ''
-      import require_auth
-      handle /api/* {
+      @ext_import {
+        path /api/finance/import
+        header X-Finance-Token {env.FINANCE_IMPORT_TOKEN}
+      }
+      handle @ext_import {
         reverse_proxy 127.0.0.1:8001
       }
+
+      handle /api/* {
+        import require_auth
+        reverse_proxy 127.0.0.1:8001
+      }
+
       handle {
+        import require_auth
         reverse_proxy 127.0.0.1:3010
       }
     '';
