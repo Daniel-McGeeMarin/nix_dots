@@ -97,9 +97,30 @@ let
 
   # Authelia gates the whole vhost. The pod itself runs without a connection
   # token because it is unreachable except through this proxy.
+  #
+  # Two gates in series, because they answer different questions. Authelia
+  # proves WHO you are; it has no opinion on how many people are already on a
+  # box. The second forward_auth, to website-api's /api/demo/gate, enforces
+  # that only one of you is on a given box at a time — which is a correctness
+  # requirement, not a nicety: a pod is single-workspace and grug's HTTP
+  # surface has no auth at all, so two guests on one pod share the same graph,
+  # the same files, the same agent session and the same shell (see the module
+  # header). The gate identifies the caller from the Remote-User header that
+  # require_auth's `copy_headers` has already added to the request by the time
+  # the second forward_auth runs, which is why the order of these two lines is
+  # not interchangeable.
+  #
+  # New dependency, worth stating plainly: the demo pods now depend on
+  # website-api being up. forward_auth treats an unreachable upstream as a
+  # failure, so if podman-website-api is down every demo box answers 502 even
+  # though the pods themselves are fine. Check `systemctl status
+  # podman-website-api` before debugging a pod that will not load.
   vhostFor = s: lib.nameValuePair "http://${s.name}.${cfg.domain}" {
     extraConfig = ''
       import require_auth
+      forward_auth 127.0.0.1:8010 {
+        uri /api/demo/gate?box=${s.name}
+      }
       reverse_proxy 127.0.0.1:${toString s.port} {
         header_up X-Forwarded-Proto https
       }

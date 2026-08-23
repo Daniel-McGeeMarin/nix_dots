@@ -12,6 +12,15 @@ in {
   "secrets/ghost-private-env.age".publicKeys    = [ xiaserver xiaserverUser ];
   "secrets/ocis-admin-password.age".publicKeys  = [ xiaserver xiaserverUser ];
   "secrets/graphide-api-env.age".publicKeys     = [ xiaserver xiaserverUser ];
+  # Existed on disk but was never registered here, so `agenix -e` on it would
+  # have failed with "no rule for this file" and `agenix -r` silently skipped
+  # it on a key rotation. Registered now with the same recipients as the rest.
+  "secrets/graphide-demo-env.age".publicKeys    = [ xiaserver xiaserverUser ];
+  "secrets/graphide-demo-token.age".publicKeys  = [ xiaserver xiaserverUser ];
+  # Read by the website-api container; contents documented in
+  # system/serv/graphide-web.nix. This entry has to exist before the file can
+  # be created, since agenix takes its recipients from here.
+  "secrets/website-api-env.age".publicKeys      = [ xiaserver xiaserverUser ];
   "secrets/ghcr-token.age".publicKeys           = [ xiaserver xiaserverUser ];
   "secrets/finance-plaid-env.age".publicKeys    = [ xiaserver xiaserverUser ];
   "secrets/finance-import-token.age".publicKeys = [ xiaserver xiaserverUser ];
