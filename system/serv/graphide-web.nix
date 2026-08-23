@@ -181,8 +181,14 @@
         # rather than relying on the API's own check, because that check reads
         # Remote-Groups and the block below is reachable by anyone: without this
         # block, `curl -H 'Remote-Groups: <admin group>' .../api/demo/release`
-        # evicts whoever is on a box. Authelia's copy_headers overwrites any
-        # client-supplied value, so the header is only trustworthy behind it.
+        # evicts whoever is on a box.
+        #
+        # What defeats the forgery is copy_headers in the require_auth snippet:
+        # it sets the four Remote-* headers from Authelia's response, and when
+        # that response omits one it blanks it rather than passing the caller's
+        # through. So this block fails closed even on a bypass. It only
+        # *functions* because the access_control rule below names this path, which
+        # is what makes Authelia authenticate and fill the header in.
         handle /api/demo/release* {
           import require_auth
           reverse_proxy 127.0.0.1:8010 {
@@ -269,14 +275,24 @@
     # graphide.dev gets its own session cookie domain and an auth.graphide.dev
     # portal vhost. That is a deliberate fail-closed: those paths are currently
     # served to anyone who asks.
+    # /api/demo/release is in `resources` for a functional reason rather than a
+    # security one. The Caddy block for it imports require_auth, but a path not
+    # listed here falls through to the domain-wide bypass below, and on a bypass
+    # Authelia authenticates nobody and returns no Remote-* headers. Caddy's
+    # copy_headers blanks the headers it is told to copy when the auth response
+    # omits them — verified against a stub that echoes what arrived, so a forged
+    # Remote-Groups does not survive a bypass either — which means the endpoint
+    # was secure and simultaneously dead: isAdmin saw an empty group list and
+    # returned 403 to real admins too. Naming the path here is what makes
+    # Authelia actually authenticate and populate the header.
     services.authelia.instances.main.settings.access_control.rules = [
       { domain = "graphide.net";
-        resources = [ "^/feedback/results(/.*)?$" "^/api/feedback/results(/.*)?$" ];
+        resources = [ "^/feedback/results(/.*)?$" "^/api/feedback/results(/.*)?$" "^/api/demo/release(/.*)?$" ];
         policy = "one_factor";
         subject = [ "group:admins" ]; }
       { domain = "graphide.net"; policy = "bypass"; }
       { domain = "graphide.dev";
-        resources = [ "^/feedback/results(/.*)?$" "^/api/feedback/results(/.*)?$" ];
+        resources = [ "^/feedback/results(/.*)?$" "^/api/feedback/results(/.*)?$" "^/api/demo/release(/.*)?$" ];
         policy = "one_factor";
         subject = [ "group:admins" ]; }
       { domain = "graphide.dev"; policy = "bypass"; }
