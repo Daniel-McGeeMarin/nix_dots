@@ -1,26 +1,36 @@
 { config, lib, pkgs, ... }:
+let
+  # Both of these secrets were wired up before they were ever created, which left
+  # XiaServer undeployable. The wiring is self-enabling instead: absent secret,
+  # absent feature, and the host still evaluates. Footgun when creating them — a
+  # flake only copies git-tracked files into the store, so a fresh .age file is
+  # invisible to pathExists until it has been `git add`ed.
+  ofxEnvFile      = ../../secrets/finance-ofx-env.age;
+  importTokenFile = ../../secrets/finance-import-token.age;
+  haveOfxEnv      = builtins.pathExists ofxEnvFile;
+  haveImportToken = builtins.pathExists importTokenFile;
+in
 {
   options.serv.apps.site.enable = lib.mkEnableOption "personal site";
 
   config = lib.mkIf config.serv.apps.site.enable {
-    age.secrets.finance-plaid-env = { file = ../../secrets/finance-plaid-env.age; mode = "0400"; };
-
-    # OFX Direct Connect credentials — talks straight to the bank, no aggregator.
-    #   US_BANK_OFX_USER=...
-    #   US_BANK_OFX_PASSWORD=...
-    #   US_BANK_OFX_ACCOUNTS=CHECKING:<acct>:<routing>,CREDITCARD:<acct>
-    age.secrets.finance-ofx-env = { file = ../../secrets/finance-ofx-env.age; mode = "0400"; };
-
-    # Read by Caddy to gate the extension's import route. Contents:
-    #   FINANCE_IMPORT_TOKEN=<long random string>
-    age.secrets.finance-import-token = {
-      file  = ../../secrets/finance-import-token.age;
-      mode  = "0400";
-      owner = "caddy";
-    };
+    age.secrets =
+      # OFX Direct Connect credentials — talks straight to the bank, no aggregator.
+      #   US_BANK_OFX_USER=...
+      #   US_BANK_OFX_PASSWORD=...
+      #   US_BANK_OFX_ACCOUNTS=CHECKING:<acct>:<routing>,CREDITCARD:<acct>
+      lib.optionalAttrs haveOfxEnv {
+        finance-ofx-env = { file = ofxEnvFile; mode = "0400"; };
+      }
+      # Read by Caddy, never by the API, to gate the extension's import route:
+      #   FINANCE_IMPORT_TOKEN=<long random string>
+      # Must be non-empty; see the @ext_import note on the finances vhost below.
+      // lib.optionalAttrs haveImportToken {
+        finance-import-token = { file = importTokenFile; mode = "0400"; owner = "caddy"; };
+      };
 
     systemd.services.caddy.serviceConfig.EnvironmentFile =
-      [ config.age.secrets.finance-import-token.path ];
+      lib.optionals haveImportToken [ config.age.secrets.finance-import-token.path ];
 
     virtualisation.oci-containers.containers = {
       site-web = {
@@ -49,13 +59,10 @@
         image  = "ghcr.io/daniel-mcgeemarin/mcgeeinfov2-finance-api:latest";
         ports  = [ "127.0.0.1:8001:8000" ];
         volumes = [ "/srv/data/finance-api:/data" ];
-        environmentFiles = [
-          config.age.secrets.finance-plaid-env.path
-          config.age.secrets.finance-ofx-env.path
-        ];
+        environmentFiles =
+          lib.optionals haveOfxEnv [ config.age.secrets.finance-ofx-env.path ];
         environment = {
           FINANCE_DB_PATH = "/data/finance.db";
-          PLAID_ENV       = "production";
         };
         labels."io.containers.autoupdate" = "registry";
       };
@@ -110,25 +117,39 @@
     # than session-gated because the Authelia cookie goes idle after 30 minutes,
     # which would silently fail the POST. handle blocks are mutually exclusive and
     # evaluated in order, so require_auth moves inside the two fallthrough blocks.
-    services.caddy.virtualHosts."http://finances.mcgeedan.com".extraConfig = ''
-      @ext_import {
-        path /api/finance/import
-        header X-Finance-Token {env.FINANCE_IMPORT_TOKEN}
-      }
-      handle @ext_import {
-        reverse_proxy 127.0.0.1:8001
-      }
+    #
+    # @ext_import is the only route on this host that skips require_auth, and the
+    # API does no token check of its own — Caddy is the entire gate. An unset
+    # FINANCE_IMPORT_TOKEN expands to the empty string and the matcher stops
+    # meaning anything, which would publish /api/finance/import to the internet
+    # unauthenticated. It is therefore emitted from the same haveImportToken that
+    # declares the secret, so the two cannot exist apart. Never lift this block
+    # out of the conditional, and never point it at a variable the EnvironmentFile
+    # might leave empty. Without the token the extension still works, just on the
+    # Authelia cookie, so the failure mode of leaving it off is a nuisance rather
+    # than an outage.
+    services.caddy.virtualHosts."http://finances.mcgeedan.com".extraConfig =
+      lib.optionalString haveImportToken ''
+        @ext_import {
+          path /api/finance/import
+          header X-Finance-Token {env.FINANCE_IMPORT_TOKEN}
+        }
+        handle @ext_import {
+          reverse_proxy 127.0.0.1:8001
+        }
 
-      handle /api/* {
-        import require_auth
-        reverse_proxy 127.0.0.1:8001
-      }
+      ''
+      + ''
+        handle /api/* {
+          import require_auth
+          reverse_proxy 127.0.0.1:8001
+        }
 
-      handle {
-        import require_auth
-        reverse_proxy 127.0.0.1:3010
-      }
-    '';
+        handle {
+          import require_auth
+          reverse_proxy 127.0.0.1:3010
+        }
+      '';
 
     systemd.timers.podman-auto-update = {
       wantedBy = [ "timers.target" ];

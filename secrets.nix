@@ -22,7 +22,9 @@ in {
   # be created, since agenix takes its recipients from here.
   "secrets/website-api-env.age".publicKeys      = [ xiaserver xiaserverUser ];
   "secrets/ghcr-token.age".publicKeys           = [ xiaserver xiaserverUser ];
-  "secrets/finance-plaid-env.age".publicKeys    = [ xiaserver xiaserverUser ];
+  # Neither file exists yet, and system/serv/apps.nix stays inert until they do.
+  # These entries have to come first regardless, since agenix takes its recipients
+  # from here and refuses to create a file it has no rule for.
   "secrets/finance-import-token.age".publicKeys = [ xiaserver xiaserverUser ];
   "secrets/finance-ofx-env.age".publicKeys      = [ xiaserver xiaserverUser ];
 }
