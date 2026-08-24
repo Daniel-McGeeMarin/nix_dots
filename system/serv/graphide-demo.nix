@@ -56,6 +56,12 @@ let
 
   sessionList = lib.imap0 (i: name: { inherit name; index = i; port = portFor i; }) cfg.sessions;
 
+  # Whether this host makes the patched browser server itself, or expects to
+  # find one. A localhost/ tag cannot come from anywhere else, so it is also
+  # the switch for the unit that builds it. Point forkServerImage at a registry
+  # and that unit simply does not exist.
+  localForkServer = lib.hasPrefix "localhost/" cfg.forkServerImage;
+
   sessionDir = s: "${cfg.stateDir}/${s.name}";
 
   # Without these the database, the workspace and the IDE's settings live in the
@@ -87,7 +93,11 @@ let
   ] ++ lib.optional (cfg.seedDir != null) "${cfg.seedDir}:/seed:ro";
 
   containerFor = s: lib.nameValuePair "graphide-demo-${s.name}" {
-    image = cfg.image;
+    # `sessions` stays a plain list of names because the name IS the subdomain
+    # and everything else about a box is derived from its index. This is the
+    # one dimension a box is allowed to differ in, and it exists so a patched
+    # editor build can be tried on one box while the others keep the stock one.
+    image = cfg.imageFor.${s.name} or cfg.image;
     # Loopback only. Caddy reaches it; nothing else on the network can.
     ports = [ "127.0.0.1:${toString s.port}:8000" ];
     volumes = volumesFor s;
@@ -232,6 +242,59 @@ in
       '';
     };
 
+    imageFor = lib.mkOption {
+      type = lib.types.attrsOf lib.types.str;
+      default = { };
+      example = { demobox1 = "localhost/graphide-demo:fork"; };
+      description = ''
+        Per-session image, keyed by session name. A session not named here uses
+        `image`.
+
+        The demo images differ in exactly one thing: which browser server they
+        carry. `:latest` is stock VSCodium; `:fork` is gred's own build with
+        patches/ applied, which is the only way to see the Graphide title bar,
+        the Home/File/Edit/Advanced menu bar, page mode and the reserved-canvas
+        guarantees in a browser. Both are built on every cycle, so moving a box
+        between them is a config change and not a rebuild.
+      '';
+    };
+
+    forkImage = lib.mkOption {
+      type = lib.types.str;
+      default = "localhost/graphide-demo:fork";
+      description = ''
+        The local tag autoBuild.buildFork promotes. Point `imageFor` entries at
+        this.
+      '';
+    };
+
+    forkServerImage = lib.mkOption {
+      type = lib.types.str;
+      default = "localhost/graphide-reh-web:fork";
+      description = ''
+        The compiled patched browser server, passed to the pod build as
+        SERVER_IMAGE.
+
+        A LOCAL tag by default, because that is how everything else in this
+        service works: autoBuild clones both repos and builds the pod and the
+        extension image on this host, and pulls nothing. Making this one an
+        exception would put a registry, a credential and an outage mode into
+        the only path here that currently has none.
+
+        It is not built by the autobuild either, because compiling reh-web is a
+        35-55 minute VS Code build and has no business inside a five-minute
+        timer. It is populated once, out of band, and only re-made when
+        gred/patches, product.json or branding change:
+
+          nix run .#gred-web                       # in a monolith checkout
+          podman build -f <gred>/build/reh-web-image.Dockerfile --target fork \
+            -t localhost/graphide-reh-web:fork \
+            ~/.cache/graphide/vscode-reh-web-linux-x64
+
+        Set it to a ghcr.io reference on a host that would rather pull one.
+      '';
+    };
+
     autoUpdate = lib.mkOption {
       type = lib.types.bool;
       default = true;
@@ -285,6 +348,32 @@ in
           leaves the running pods alone.
 
           Implies a local image, so set image/autoUpdate accordingly.
+        '';
+      };
+
+      forkServerTimeout = lib.mkOption {
+        type = lib.types.str;
+        default = "180min";
+        description = ''
+          How long the patched-server build is allowed to take. It is a full VS
+          Code compile - 35-55 minutes on a good machine - and it runs in its
+          own unit rather than inside the five-minute autobuild timer, which is
+          the only reason that timer stays five minutes.
+        '';
+      };
+
+      buildFork = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = ''
+          Also build and promote `forkImage` on every cycle: the same pod, with
+          the patched browser server instead of the stock one.
+
+          Cheap. The patched server is pulled as a prebuilt layer, so the
+          second build is a handful of COPYs on top of an image the first build
+          already produced, and it reuses that build's extension image rather
+          than re-running npm ci. Both tags are promoted together or neither
+          is, so the boxes never run a half-updated pair.
         '';
       };
 
@@ -366,6 +455,25 @@ in
         assertion = cfg.sessions == lib.unique cfg.sessions;
         message = "serv.graphide-demo.sessions has duplicates; each name is a subdomain.";
       }
+      {
+        # A key that matches no session does nothing whatsoever: the box you
+        # meant to move stays on the default image and nothing says so.
+        assertion = lib.all (n: lib.elem n cfg.sessions) (lib.attrNames cfg.imageFor);
+        message = ''
+          serv.graphide-demo.imageFor names sessions that are not in `sessions`:
+          ${toString (lib.subtractLists cfg.sessions (lib.attrNames cfg.imageFor))}
+        '';
+      }
+      {
+        assertion = !(lib.any (v: v == cfg.forkImage) (lib.attrValues cfg.imageFor))
+                    || cfg.autoBuild.buildFork
+                    || !cfg.autoBuild.enable;
+        message = ''
+          serv.graphide-demo has a session pinned to forkImage
+          (${cfg.forkImage}) but autoBuild.buildFork is false, so nothing ever
+          builds that tag and the container will fail to start.
+        '';
+      }
     ];
 
     warnings = lib.optional (cfg.persist && cfg.recycle.enable) ''
@@ -446,9 +554,90 @@ in
       # image that does not boot. There is no smoke test here — that lives in
       # CI — so "it built" is the only gate, which is exactly why the promotion
       # is separate from the build.
+      # The patched browser server, built here like everything else.
+      #
+      # Its own unit, not a step in the autobuild, for one reason: this is a
+      # full VS Code compile and the autobuild runs every five minutes. Nothing
+      # waits on it - the autobuild starts it with --no-block when it notices
+      # the image is missing or stale, ships the stock pod as usual, and picks
+      # the new server up on a later cycle.
+      #
+      # Idempotent by patch hash, carried as a LABEL on the image it produces.
+      # A label travels with the image, so this cannot be fooled by a stamp file
+      # that outlived the thing it described.
+      (lib.mkIf (cfg.autoBuild.enable && cfg.autoBuild.buildFork && localForkServer) {
+        graphide-demo-fork-server = {
+          description = "Build the patched Graphide browser server (full VS Code compile)";
+          after = [ "network-online.target" ];
+          wants = [ "network-online.target" ];
+          path = with pkgs; [
+            bash git podman coreutils gnutar gzip gnugrep gnused findutils
+            nodejs_22 python3 gcc gnumake pkg-config
+            krb5 xorg.libxkbfile libsecret
+          ];
+          serviceConfig = {
+            Type = "oneshot";
+            TimeoutStartSec = cfg.autoBuild.forkServerTimeout;
+          };
+          script = let
+            webLibs = with pkgs; [ krb5 xorg.libxkbfile libsecret ];
+            pcPath  = with pkgs; [ krb5 xorg.libxkbfile xorg.xorgproto libsecret glib ];
+          in ''
+            set -euo pipefail
+
+            gred="${cfg.autoBuild.srcDir}/gred"
+            if [ ! -d "$gred/build" ]; then
+              echo "no gred checkout at $gred yet; the autobuild clones it - try again after a cycle" >&2
+              exit 1
+            fi
+
+            want="$(${lib.getExe pkgs.bash} "$gred/build/prepare-src.sh" --hash-only)"
+            have="$(podman image inspect --format '{{index .Labels "graphide.patch-hash"}}' \
+                     "${cfg.forkServerImage}" 2>/dev/null || true)"
+
+            if [ "$want" = "$have" ]; then
+              echo "patched server is already current ($want)"
+              exit 0
+            fi
+            echo "building the patched server; have=''${have:-none} want=$want"
+
+            # node-gyp reads these and runtimeInputs only sets PATH. xorgproto
+            # puts kbproto.pc under share/pkgconfig, and libxkbfile.pc requires
+            # it - that one is why the search path has two halves.
+            export LD_LIBRARY_PATH="${lib.makeLibraryPath webLibs}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+            export PKG_CONFIG_PATH="${lib.makeSearchPathOutput "dev" "lib/pkgconfig" pcPath}:${lib.makeSearchPath "share/pkgconfig" [ pkgs.xorg.xorgproto ]}"
+            export C_INCLUDE_PATH="${lib.makeSearchPathOutput "dev" "include" webLibs}"
+            export CPLUS_INCLUDE_PATH="$C_INCLUDE_PATH"
+
+            # SKIP_TARBALL: the tree is wrapped in an image below, so packaging
+            # it as well is a few hundred MB of nothing on this disk.
+            export BUILD_DIR="${cfg.autoBuild.srcDir}/vscode-src"
+            export SKIP_TARBALL=1
+            ${lib.getExe pkgs.bash} "$gred/build/build-web.sh"
+
+            tree="${cfg.autoBuild.srcDir}/vscode-reh-web-linux-x64"
+            test -x "$tree/bin/graphide-server"
+
+            podman build --network=host \
+              -f "$gred/build/reh-web-image.Dockerfile" --target fork \
+              --label "graphide.patch-hash=$want" \
+              -t "${cfg.forkServerImage}" "$tree"
+
+            echo "patched server tagged ${cfg.forkServerImage} ($want)"
+
+            # The pod that consumes it is the autobuild's business; nudge it
+            # rather than duplicating the pod build in here.
+            ${pkgs.systemd}/bin/systemctl start --no-block graphide-demo-autobuild.service || true
+          '';
+        };
+      })
+
       (lib.mkIf cfg.autoBuild.enable {
         graphide-demo-autobuild = {
           description = "Rebuild the Graphide demo pod when its sources change";
+          # No ghcr-login dependency: forkServerImage defaults to a local tag
+          # and this unit builds everything else from git. A host that points
+          # it at a registry needs to add that ordering itself.
           after = [ "network-online.target" "graphide-demo-network.service" ];
           wants = [ "network-online.target" ];
           # bash because build-local.sh is a bash script and a systemd unit's
@@ -517,12 +706,109 @@ in
               git -C "$dir" rev-parse HEAD
             }
 
-            mono_sha=$(sync_repo "${cfg.autoBuild.monolithUrl}" "${src}/monolith" "${monoBranch}")
-            gred_sha=$(sync_repo "${cfg.autoBuild.gredUrl}"     "${src}/gred"     "${gredBranch}")
-            current="$mono_sha-$gred_sha"
+            sync_repo "${cfg.autoBuild.monolithUrl}" "${src}/monolith" "${monoBranch}" >/dev/null
+            sync_repo "${cfg.autoBuild.gredUrl}"     "${src}/gred"     "${gredBranch}" >/dev/null
+
+            # The last commit that touched anything this IMAGE is built from,
+            # rather than the repo tip.
+            #
+            # The tip is what this used to use, and it meant a docs commit, a
+            # bench yaml or a README typo in either repo triggered a cold CGO
+            # rebuild of grug plus two image builds, every five minutes, on the
+            # machine that serves the demos.
+            #
+            # The monolith list mirrors demo-pod.yml's own push filter. When
+            # you add a path there, add it here - they will not warn you.
+            rev_for() {  # <dir> <branch> <path>...
+              local dir="$1" branch="$2"; shift 2
+              local r
+              r="$(git -C "$dir" log -1 --format=%H "$branch" -- "$@" 2>/dev/null || true)"
+              # Empty means no commit in this history ever touched those paths,
+              # which in practice means the path list is wrong. Returning it
+              # would make every later comparison equal and the boxes would
+              # silently never rebuild again, so this is fatal rather than
+              # tolerated.
+              if [ -z "$r" ]; then
+                echo "FATAL: no commit in $dir touches: $*" >&2
+                echo "  The path list in graphide-demo.nix is wrong. Refusing to" >&2
+                echo "  build, because an empty revision would pin the stamp forever." >&2
+                # `return`, not `exit`: this runs inside $( ), where exit would
+                # only end the subshell. set -e would still abort on the failed
+                # assignment, but only by accident - the explicit `|| exit 1`
+                # below is what actually guarantees it.
+                return 1
+              fi
+              printf '%s' "$r"
+            }
+
+            # Note the gred list has no patches/ or product.json in it, on
+            # purpose. A patch change does not change what is IN this image; it
+            # changes the server image, and that is what server_digest below
+            # tracks. Listing them here would rebuild the pod for something it
+            # does not contain.
+            mono_rev=$(rev_for "${src}/monolith" "${monoBranch}" \
+              deploy/demo-pod grug server/api server/router shared agents go.work go.work.sum) || exit 1
+            gred_rev=$(rev_for "${src}/gred" "${gredBranch}" \
+              extensions/graphide build/ext-image.Dockerfile build/reh-web-stock.Dockerfile) || exit 1
+
+            # The patched server arrives as an image rather than as source, so
+            # a change to it is an input neither revision above can see. Its id
+            # is part of the stamp so a rebuilt one ships.
+            #
+            # have_fork gates the whole fork half. A host that has not made the
+            # server yet is the NORMAL state on a fresh install, and it must not
+            # stop demobox2 and demobox3 from updating - which is exactly what
+            # an unguarded `set -e` build failure here would do, since promotion
+            # happens after both builds.
+            server_digest=none
+            have_fork=0
+            ${lib.optionalString cfg.autoBuild.buildFork ''
+              # Only try the network for a registry reference. A local tag is
+              # made by hand and a pull would just be a slow failure.
+              case "${cfg.forkServerImage}" in
+                localhost/*|"") : ;;
+                *) podman pull -q "${cfg.forkServerImage}" >/dev/null 2>&1 || true ;;
+              esac
+              server_label="$(podman image inspect --format '{{index .Labels "graphide.patch-hash"}}' \
+                                "${cfg.forkServerImage}" 2>/dev/null || true)"
+              want_label="$(${lib.getExe pkgs.bash} "${src}/gred/build/prepare-src.sh" --hash-only 2>/dev/null || echo unknown)"
+
+              have_desc="$server_label"
+              [ -n "$have_desc" ] || have_desc=none
+
+              if [ -n "$server_label" ] && [ "$server_label" = "$want_label" ]; then
+                server_digest="$server_label"
+                have_fork=1
+              else
+                ${lib.optionalString localForkServer ''
+                  # Missing or stale. Kick the builder and carry on: it is a
+                  # full VS Code compile and this unit runs every five minutes,
+                  # so waiting on it here would wedge the stock pod behind it.
+                  echo "patched server needs building (have=$have_desc want=$want_label); starting graphide-demo-fork-server" >&2
+                  ${pkgs.systemd}/bin/systemctl start --no-block graphide-demo-fork-server.service || true
+                ''}
+                ${lib.optionalString (!localForkServer) ''
+                  echo "WARNING: ${cfg.forkServerImage} is absent or stale and is not built here." >&2
+                ''}
+                server_digest="stale-or-absent"
+                echo "         The :fork pod is skipped this cycle; the stock pod still ships." >&2
+              fi
+            ''}
+
+            # v2 because the stamp format changed; bumping it forces exactly
+            # one rebuild everywhere rather than leaving boxes on a stamp that
+            # can no longer match.
+            current="v2-$mono_rev-$gred_rev-$server_digest"
 
             stamp="${src}/.last-built"
-            if [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$current" ]; then
+
+            # Narrowing the trigger means a change to a path not listed above
+            # never ships, and unlike a GitHub workflow this host has no "Run
+            # workflow" button. Touch this file to force one cycle.
+            if [ -f "${src}/.force-rebuild" ]; then
+              rm -f "${src}/.force-rebuild"
+              echo "forced rebuild"
+            elif [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$current" ]; then
               echo "no change since last build ($current)"
               exit 0
             fi
@@ -537,10 +823,33 @@ in
             # alone. Pinning the interpreter here makes the next missing-tool
             # failure a missing file in the closure, not a 127 in the journal.
             staging="localhost/graphide-demo:building"
-            TAG="$staging" GRED_DIR="${src}/gred" \
+            TAG="$staging" VARIANT=stock GRED_DIR="${src}/gred" \
               ${lib.getExe pkgs.bash} "${src}/monolith/deploy/demo-pod/build-local.sh"
 
+            ${lib.optionalString cfg.autoBuild.buildFork ''
+              if [ "$have_fork" = 1 ]; then
+                # SKIP_EXT: the stock build above already produced the extension
+                # image from this same checkout. Rebuilding it would re-run
+                # npm ci for a byte-identical result.
+                staging_fork="localhost/graphide-demo:building-fork"
+                TAG="$staging_fork" VARIANT=fork SKIP_EXT=1 \
+                  FORK_SERVER_IMAGE="${cfg.forkServerImage}" GRED_DIR="${src}/gred" \
+                  ${lib.getExe pkgs.bash} "${src}/monolith/deploy/demo-pod/build-local.sh"
+              fi
+            ''}
+
+            # Promoted together, so the boxes never run a half-updated pair:
+            # demobox1 on a new fork while 2 and 3 sit on an old latest, with
+            # nothing recording which combination is live. Note this is reached
+            # only if every build above succeeded - a fork build that FAILS
+            # still blocks the stock promote, on purpose. A fork server that is
+            # merely ABSENT is the different case, handled above.
             podman tag "$staging" "${cfg.image}"
+            ${lib.optionalString cfg.autoBuild.buildFork ''
+              if [ "$have_fork" = 1 ]; then
+                podman tag "$staging_fork" "${cfg.forkImage}"
+              fi
+            ''}
             echo "$current" > "$stamp"
 
             ${lib.concatMapStringsSep "\n" (s:
