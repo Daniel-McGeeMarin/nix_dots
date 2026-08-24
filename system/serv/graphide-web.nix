@@ -6,6 +6,21 @@
 #
 # 1. Secrets — one age-encrypted file in secrets/:
 #
+#    This file is read by podman as an --env-file, so it is KEY=value lines and
+#    nothing else. That is worth stating because the one mistake made here was
+#    pasting Supabase's connection URI on its own, with no DATABASE_URL= in
+#    front of it: podman finds no `=`, sets no variable, and the API dies with
+#    "DATABASE_URL is required" while the file plainly contains the URL. Three
+#    further traps in the same layer, all invisible on inspection — podman does
+#    not strip surrounding quotes, so "..." ends up inside the value; spaces
+#    around the = become part of the key name; and CRLF endings append a \r to
+#    the value.
+#
+#    Only DATABASE_URL is actually required. Every other setting below already
+#    defaults, in config.go, to the value this host wants, so the shortest
+#    correct file is that one line. They are documented because overriding them
+#    means keeping them in step with the Caddy upstreams and the demo module.
+#
 #    secrets/website-api-env.age  (edit with: agenix -e secrets/website-api-env.age)
 #      DATABASE_URL=postgres://postgres.<ref>:<password>@<region>.pooler.supabase.com:5432/postgres
 #                                  # Supabase, NOT the local cluster in
@@ -15,21 +30,33 @@
 #                                  # pooler's session limits. Taking this from
 #                                  # Supabase's dashboard under Connect >
 #                                  # Session pooler gets the right host.
-#      PORT=8010                   # must match every upstream in this file
+#      PORT=8010                   # optional, and 8010 is already the default.
+#                                  # Must match every upstream in this file.
 #      DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/<id>/<token>
+#                                  # optional; unset means no Discord notice on
+#                                  # a new response or signup, nothing more.
 #      DEMO_BOXES=demobox1,demobox2,demobox3
-#                                  # keep in sync with serv.graphide-demo.sessions
-#      DEMO_BASE_PORT=8100         # keep in sync with serv.graphide-demo.basePort;
-#                                  # box N is at DEMO_BASE_PORT + N
-#      DEMO_IDLE_GRACE=5m          # how long a box stays claimed after its last
+#                                  # optional, and this is the default. Keep in
+#                                  # sync with serv.graphide-demo.sessions.
+#      DEMO_BASE_PORT=8100         # optional, and this is the default. Keep in
+#                                  # sync with serv.graphide-demo.basePort.
+#                                  # Ports go by list position from zero, so
+#                                  # the FIRST box is at DEMO_BASE_PORT itself:
+#                                  # demobox1 is 8100, not 8101. Both this and
+#                                  # graphide-demo.nix index from zero, so they
+#                                  # agree, but the arithmetic is off by one
+#                                  # from the box names.
+#      DEMO_IDLE_GRACE=5m          # optional, and this is the default. How long
+#                                  # a box stays claimed after its last
 #                                  # ESTABLISHED connection goes away, so a
 #                                  # page reload does not hand the box to
 #                                  # somebody else mid-session. Parsed by Go's
 #                                  # time.ParseDuration, so the unit is not
 #                                  # optional: a bare `300` is a startup error,
 #                                  # not five minutes.
-#      ADMIN_GROUP=admins          # Authelia group allowed past the demo gate
-#                                  # regardless of who else holds the box
+#      ADMIN_GROUP=admins          # optional, and this is the default. Authelia
+#                                  # group allowed past the demo gate
+#                                  # regardless of who else holds the box.
 #
 #    Must be encrypted to the target host's SSH key, which means registering the
 #    path in secrets.nix *before* running agenix -e. Until the file exists, this
