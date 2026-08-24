@@ -57,6 +57,19 @@ in
   serv.graphide.enable = true;
   serv.graphide-web.enable = true;
 
+  # Build the website here too, for the reason the demo pods already do it
+  # below. The GHCR path failed in the way that comment predicted: Actions
+  # minutes ran out, CI stopped publishing, and the box sat on `manifest
+  # unknown` for website-api while graphide.net quietly served a build from
+  # 4 August. Nothing was broken except the thing nobody was watching.
+  #
+  # The borrowed clone token is graphide-demo's PAT, which must include the
+  # website repo in its scope.
+  serv.graphide-web.image = "localhost/website:latest";
+  serv.graphide-web.apiImage = "localhost/website-api:latest";
+  serv.graphide-web.autoUpdate = false;
+  serv.graphide-web.autoBuild.enable = true;
+
   # One throwaway browser IDE per name, at <name>.graphide.net behind Authelia.
   # Each is recycled hourly, which is what expires a guest link: the container
   # comes back with a fresh database, workspace and token.
