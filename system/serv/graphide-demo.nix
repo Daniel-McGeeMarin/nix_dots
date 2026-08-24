@@ -264,12 +264,28 @@ in
 
     forkServerImage = lib.mkOption {
       type = lib.types.str;
-      default = "ghcr.io/graphidehq/graphide-reh-web:fork";
+      default = "localhost/graphide-reh-web:fork";
       description = ''
         The compiled patched browser server, passed to the pod build as
-        SERVER_IMAGE. Pulled, never built: compiling it is a 35-55 minute VS
-        Code build and has no business running on the machine that serves the
-        demos, inside a five-minute timer.
+        SERVER_IMAGE.
+
+        A LOCAL tag by default, because that is how everything else in this
+        service works: autoBuild clones both repos and builds the pod and the
+        extension image on this host, and pulls nothing. Making this one an
+        exception would put a registry, a credential and an outage mode into
+        the only path here that currently has none.
+
+        It is not built by the autobuild either, because compiling reh-web is a
+        35-55 minute VS Code build and has no business inside a five-minute
+        timer. It is populated once, out of band, and only re-made when
+        gred/patches, product.json or branding change:
+
+          nix run .#gred-web                       # in a monolith checkout
+          podman build -f <gred>/build/reh-web-image.Dockerfile --target fork \
+            -t localhost/graphide-reh-web:fork \
+            ~/.cache/graphide/vscode-reh-web-linux-x64
+
+        Set it to a ghcr.io reference on a host that would rather pull one.
       '';
     };
 
@@ -432,14 +448,6 @@ in
         '';
       }
       {
-        assertion = !cfg.autoBuild.buildFork || config.serv.graphide.enable;
-        message = ''
-          serv.graphide-demo.autoBuild.buildFork pulls forkServerImage from a
-          private GHCR repo, and graphide-ghcr-login.service - the unit that
-          authenticates podman for it - is defined by serv.graphide.
-        '';
-      }
-      {
         assertion = !(lib.any (v: v == cfg.forkImage) (lib.attrValues cfg.imageFor))
                     || cfg.autoBuild.buildFork
                     || !cfg.autoBuild.enable;
@@ -532,14 +540,10 @@ in
       (lib.mkIf cfg.autoBuild.enable {
         graphide-demo-autobuild = {
           description = "Rebuild the Graphide demo pod when its sources change";
-          # graphide-ghcr-login only when buildFork is on, because that is the
-          # only branch that pulls a private image. The per-pod units already
-          # depend on it; this one did not, and without it the pull of the
-          # patched server 401s. `after` on a unit that does not exist is
-          # silently ignored, so the assertion above is what actually catches a
-          # host where serv.graphide is off.
-          after = [ "network-online.target" "graphide-demo-network.service" ]
-            ++ lib.optional cfg.autoBuild.buildFork "graphide-ghcr-login.service";
+          # No ghcr-login dependency: forkServerImage defaults to a local tag
+          # and this unit builds everything else from git. A host that points
+          # it at a registry needs to add that ordering itself.
+          after = [ "network-online.target" "graphide-demo-network.service" ];
           wants = [ "network-online.target" ];
           # bash because build-local.sh is a bash script and a systemd unit's
           # PATH contains only what is listed here; gnutar/gzip because podman
@@ -653,11 +657,33 @@ in
               extensions/graphide build/ext-image.Dockerfile build/reh-web-stock.Dockerfile) || exit 1
 
             # The patched server arrives as an image rather than as source, so
-            # a new publish of it is an input neither revision above can see.
+            # a change to it is an input neither revision above can see. Its id
+            # is part of the stamp so a rebuilt one ships.
+            #
+            # have_fork gates the whole fork half. A host that has not made the
+            # server yet is the NORMAL state on a fresh install, and it must not
+            # stop demobox2 and demobox3 from updating - which is exactly what
+            # an unguarded `set -e` build failure here would do, since promotion
+            # happens after both builds.
             server_digest=none
+            have_fork=0
             ${lib.optionalString cfg.autoBuild.buildFork ''
-              podman pull -q "${cfg.forkServerImage}" >/dev/null 2>&1 || true
-              server_digest=$(podman image inspect --format '{{.Digest}}' "${cfg.forkServerImage}" 2>/dev/null || echo none)
+              # Only try the network for a registry reference. A local tag is
+              # made by hand and a pull would just be a slow failure.
+              case "${cfg.forkServerImage}" in
+                localhost/*|"") : ;;
+                *) podman pull -q "${cfg.forkServerImage}" >/dev/null 2>&1 || true ;;
+              esac
+              if server_digest=$(podman image inspect --format '{{.Id}}' "${cfg.forkServerImage}" 2>/dev/null); then
+                have_fork=1
+              else
+                server_digest=absent
+                echo "WARNING: ${cfg.forkServerImage} is not present, so the :fork pod will not be" >&2
+                echo "         rebuilt this cycle. The stock pod still ships. Make it with:" >&2
+                echo "           nix run .#gred-web" >&2
+                echo "           podman build -f <gred>/build/reh-web-image.Dockerfile --target fork \\" >&2
+                echo "             -t ${cfg.forkServerImage} ~/.cache/graphide/vscode-reh-web-linux-x64" >&2
+              fi
             ''}
 
             # v2 because the stamp format changed; bumping it forces exactly
@@ -692,21 +718,29 @@ in
               ${lib.getExe pkgs.bash} "${src}/monolith/deploy/demo-pod/build-local.sh"
 
             ${lib.optionalString cfg.autoBuild.buildFork ''
-              # SKIP_EXT: the stock build above already produced the extension
-              # image from this same checkout. Rebuilding it would re-run
-              # npm ci for a byte-identical result.
-              staging_fork="localhost/graphide-demo:building-fork"
-              TAG="$staging_fork" VARIANT=fork SKIP_EXT=1 \
-                FORK_SERVER_IMAGE="${cfg.forkServerImage}" GRED_DIR="${src}/gred" \
-                ${lib.getExe pkgs.bash} "${src}/monolith/deploy/demo-pod/build-local.sh"
+              if [ "$have_fork" = 1 ]; then
+                # SKIP_EXT: the stock build above already produced the extension
+                # image from this same checkout. Rebuilding it would re-run
+                # npm ci for a byte-identical result.
+                staging_fork="localhost/graphide-demo:building-fork"
+                TAG="$staging_fork" VARIANT=fork SKIP_EXT=1 \
+                  FORK_SERVER_IMAGE="${cfg.forkServerImage}" GRED_DIR="${src}/gred" \
+                  ${lib.getExe pkgs.bash} "${src}/monolith/deploy/demo-pod/build-local.sh"
+              fi
             ''}
 
-            # Promotion is one block after every build, so the boxes never run
-            # a half-updated pair: demobox1 on a new fork while 2 and 3 sit on
-            # an old latest, with nothing recording which combination is live.
+            # Promoted together, so the boxes never run a half-updated pair:
+            # demobox1 on a new fork while 2 and 3 sit on an old latest, with
+            # nothing recording which combination is live. Note this is reached
+            # only if every build above succeeded - a fork build that FAILS
+            # still blocks the stock promote, on purpose. A fork server that is
+            # merely ABSENT is the different case, handled above.
             podman tag "$staging" "${cfg.image}"
-            ${lib.optionalString cfg.autoBuild.buildFork
-              ''podman tag "$staging_fork" "${cfg.forkImage}"''}
+            ${lib.optionalString cfg.autoBuild.buildFork ''
+              if [ "$have_fork" = 1 ]; then
+                podman tag "$staging_fork" "${cfg.forkImage}"
+              fi
+            ''}
             echo "$current" > "$stamp"
 
             ${lib.concatMapStringsSep "\n" (s:
