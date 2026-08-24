@@ -88,6 +88,21 @@ in
   serv.graphide-demo.autoUpdate = false;
   serv.graphide-demo.autoBuild.enable = true;
 
+  # demobox1 runs the patched editor; 2 and 3 stay on the stock browser server.
+  #
+  # The two images differ in exactly one thing - which VSCodium server they
+  # carry - and only the patched one has the Graphide title bar, the
+  # Home/File/Edit/Advanced menu bar, full-window page mode and the
+  # reserved-canvas guarantees. Everything else, including the extension, is
+  # identical, so this is a clean A/B rather than two products.
+  #
+  # Both tags are built and promoted on every autobuild cycle, so moving the
+  # other two over later is deleting the `imageFor` line and letting them take
+  # the default - or, if the patched one is to become the default everywhere,
+  # pointing `image` at it. Neither is a rebuild.
+  serv.graphide-demo.autoBuild.buildFork = true;
+  serv.graphide-demo.imageFor.demobox1 = "localhost/graphide-demo:fork";
+
   # Keep what guests do, and open a real project rather than an empty folder.
   # This is a deliberate trade: the hourly wipe was what expired a guest's
   # access to their own session, so with it off, whatever one visitor leaves in
