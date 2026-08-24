@@ -633,15 +633,24 @@ in
                 echo "FATAL: no commit in $dir touches: $*" >&2
                 echo "  The path list in graphide-demo.nix is wrong. Refusing to" >&2
                 echo "  build, because an empty revision would pin the stamp forever." >&2
-                exit 1
+                # `return`, not `exit`: this runs inside $( ), where exit would
+                # only end the subshell. set -e would still abort on the failed
+                # assignment, but only by accident - the explicit `|| exit 1`
+                # below is what actually guarantees it.
+                return 1
               fi
               printf '%s' "$r"
             }
 
+            # Note the gred list has no patches/ or product.json in it, on
+            # purpose. A patch change does not change what is IN this image; it
+            # changes the server image, and that is what server_digest below
+            # tracks. Listing them here would rebuild the pod for something it
+            # does not contain.
             mono_rev=$(rev_for "${src}/monolith" "${monoBranch}" \
-              deploy/demo-pod grug server/api server/router shared agents go.work go.work.sum)
+              deploy/demo-pod grug server/api server/router shared agents go.work go.work.sum) || exit 1
             gred_rev=$(rev_for "${src}/gred" "${gredBranch}" \
-              extensions/graphide build/ext-image.Dockerfile build/reh-web-stock.Dockerfile)
+              extensions/graphide build/ext-image.Dockerfile build/reh-web-stock.Dockerfile) || exit 1
 
             # The patched server arrives as an image rather than as source, so
             # a new publish of it is an input neither revision above can see.
