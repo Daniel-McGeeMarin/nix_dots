@@ -60,13 +60,30 @@ let
 
   # Without these the database, the workspace and the IDE's settings live in the
   # container's writable layer, which oci-containers discards on every restart.
-  # Only the IDE's User directory is persisted, not its extensions: the
-  # entrypoint reinstalls the extension each boot so a rebuilt image actually
-  # takes effect.
+  # Extensions are deliberately not persisted: the entrypoint reinstalls the
+  # extension each boot so a rebuilt image actually takes effect, and they live
+  # in /opt/codium-data/extensions, a sibling of the mount below rather than
+  # inside it.
+  #
+  # The IDE mount is at .../server and not at the User directory it is actually
+  # there to keep, which matters. podman materialises any missing parent of a
+  # mount point inside the container itself, and it creates them root-owned
+  # 0755 — after the image's build-time `chown -R demo:demo /opt/codium-data`
+  # has already run, so nothing corrects them. The pod then runs as demo
+  # (uid 1000). Mounting at server/data/User left server/ and server/data/
+  # root-owned, and the entrypoint's `mkdir -p` of server/data/logs, a sibling
+  # of the mount, died with EACCES; because that script is set -e, one
+  # unwritable directory took down all three pods. Traversal still worked, so
+  # the User mount itself looked fine and the failure surfaced somewhere else
+  # entirely.
+  #
+  # /opt/codium-data does exist in the image and is owned by demo, so mounting
+  # one level down at server/ is the deepest point that requires podman to
+  # invent nothing. Going deeper just moves the same bug down a level.
   volumesFor = s: lib.optionals cfg.persist [
     "${sessionDir s}/data:/data"
     "${sessionDir s}/workspace:/workspace"
-    "${sessionDir s}/user:/opt/codium-data/server/data/User"
+    "${sessionDir s}/codium:/opt/codium-data/server"
   ] ++ lib.optional (cfg.seedDir != null) "${cfg.seedDir}:/seed:ro";
 
   containerFor = s: lib.nameValuePair "graphide-demo-${s.name}" {
@@ -367,7 +384,9 @@ in
            "d ${sessionDir s}           0750 1000 1000 -"
            "d ${sessionDir s}/data      0700 1000 1000 -"
            "d ${sessionDir s}/workspace 0750 1000 1000 -"
-           "d ${sessionDir s}/user      0750 1000 1000 -"
+           # Owned by 1000 so that everything codium-server creates beneath it
+           # inherits a writable parent; see the mount note on volumesFor.
+           "d ${sessionDir s}/codium    0750 1000 1000 -"
          ]) sessionList)
       # Read-only to the pods, so root can own it and a guest cannot edit the
       # project every later pod is seeded from.
