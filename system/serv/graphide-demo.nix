@@ -56,6 +56,12 @@ let
 
   sessionList = lib.imap0 (i: name: { inherit name; index = i; port = portFor i; }) cfg.sessions;
 
+  # Whether this host makes the patched browser server itself, or expects to
+  # find one. A localhost/ tag cannot come from anywhere else, so it is also
+  # the switch for the unit that builds it. Point forkServerImage at a registry
+  # and that unit simply does not exist.
+  localForkServer = lib.hasPrefix "localhost/" cfg.forkServerImage;
+
   sessionDir = s: "${cfg.stateDir}/${s.name}";
 
   # Without these the database, the workspace and the IDE's settings live in the
@@ -345,6 +351,17 @@ in
         '';
       };
 
+      forkServerTimeout = lib.mkOption {
+        type = lib.types.str;
+        default = "180min";
+        description = ''
+          How long the patched-server build is allowed to take. It is a full VS
+          Code compile - 35-55 minutes on a good machine - and it runs in its
+          own unit rather than inside the five-minute autobuild timer, which is
+          the only reason that timer stays five minutes.
+        '';
+      };
+
       buildFork = lib.mkOption {
         type = lib.types.bool;
         default = false;
@@ -537,6 +554,84 @@ in
       # image that does not boot. There is no smoke test here — that lives in
       # CI — so "it built" is the only gate, which is exactly why the promotion
       # is separate from the build.
+      # The patched browser server, built here like everything else.
+      #
+      # Its own unit, not a step in the autobuild, for one reason: this is a
+      # full VS Code compile and the autobuild runs every five minutes. Nothing
+      # waits on it - the autobuild starts it with --no-block when it notices
+      # the image is missing or stale, ships the stock pod as usual, and picks
+      # the new server up on a later cycle.
+      #
+      # Idempotent by patch hash, carried as a LABEL on the image it produces.
+      # A label travels with the image, so this cannot be fooled by a stamp file
+      # that outlived the thing it described.
+      (lib.mkIf (cfg.autoBuild.enable && cfg.autoBuild.buildFork && localForkServer) {
+        graphide-demo-fork-server = {
+          description = "Build the patched Graphide browser server (full VS Code compile)";
+          after = [ "network-online.target" ];
+          wants = [ "network-online.target" ];
+          path = with pkgs; [
+            bash git podman coreutils gnutar gzip gnugrep gnused findutils
+            nodejs_22 python3 gcc gnumake pkg-config
+            krb5 xorg.libxkbfile libsecret
+          ];
+          serviceConfig = {
+            Type = "oneshot";
+            TimeoutStartSec = cfg.autoBuild.forkServerTimeout;
+          };
+          script = let
+            webLibs = with pkgs; [ krb5 xorg.libxkbfile libsecret ];
+            pcPath  = with pkgs; [ krb5 xorg.libxkbfile xorg.xorgproto libsecret glib ];
+          in ''
+            set -euo pipefail
+
+            gred="${cfg.autoBuild.srcDir}/gred"
+            if [ ! -d "$gred/build" ]; then
+              echo "no gred checkout at $gred yet; the autobuild clones it - try again after a cycle" >&2
+              exit 1
+            fi
+
+            want="$(${lib.getExe pkgs.bash} "$gred/build/prepare-src.sh" --hash-only)"
+            have="$(podman image inspect --format '{{index .Labels "graphide.patch-hash"}}' \
+                     "${cfg.forkServerImage}" 2>/dev/null || true)"
+
+            if [ "$want" = "$have" ]; then
+              echo "patched server is already current ($want)"
+              exit 0
+            fi
+            echo "building the patched server; have=''${have:-none} want=$want"
+
+            # node-gyp reads these and runtimeInputs only sets PATH. xorgproto
+            # puts kbproto.pc under share/pkgconfig, and libxkbfile.pc requires
+            # it - that one is why the search path has two halves.
+            export LD_LIBRARY_PATH="${lib.makeLibraryPath webLibs}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+            export PKG_CONFIG_PATH="${lib.makeSearchPathOutput "dev" "lib/pkgconfig" pcPath}:${lib.makeSearchPath "share/pkgconfig" [ pkgs.xorg.xorgproto ]}"
+            export C_INCLUDE_PATH="${lib.makeSearchPathOutput "dev" "include" webLibs}"
+            export CPLUS_INCLUDE_PATH="$C_INCLUDE_PATH"
+
+            # SKIP_TARBALL: the tree is wrapped in an image below, so packaging
+            # it as well is a few hundred MB of nothing on this disk.
+            export BUILD_DIR="${cfg.autoBuild.srcDir}/vscode-src"
+            export SKIP_TARBALL=1
+            ${lib.getExe pkgs.bash} "$gred/build/build-web.sh"
+
+            tree="${cfg.autoBuild.srcDir}/vscode-reh-web-linux-x64"
+            test -x "$tree/bin/graphide-server"
+
+            podman build --network=host \
+              -f "$gred/build/reh-web-image.Dockerfile" --target fork \
+              --label "graphide.patch-hash=$want" \
+              -t "${cfg.forkServerImage}" "$tree"
+
+            echo "patched server tagged ${cfg.forkServerImage} ($want)"
+
+            # The pod that consumes it is the autobuild's business; nudge it
+            # rather than duplicating the pod build in here.
+            ${pkgs.systemd}/bin/systemctl start --no-block graphide-demo-autobuild.service || true
+          '';
+        };
+      })
+
       (lib.mkIf cfg.autoBuild.enable {
         graphide-demo-autobuild = {
           description = "Rebuild the Graphide demo pod when its sources change";
@@ -674,15 +769,29 @@ in
                 localhost/*|"") : ;;
                 *) podman pull -q "${cfg.forkServerImage}" >/dev/null 2>&1 || true ;;
               esac
-              if server_digest=$(podman image inspect --format '{{.Id}}' "${cfg.forkServerImage}" 2>/dev/null); then
+              server_label="$(podman image inspect --format '{{index .Labels "graphide.patch-hash"}}' \
+                                "${cfg.forkServerImage}" 2>/dev/null || true)"
+              want_label="$(${lib.getExe pkgs.bash} "${src}/gred/build/prepare-src.sh" --hash-only 2>/dev/null || echo unknown)"
+
+              have_desc="$server_label"
+              [ -n "$have_desc" ] || have_desc=none
+
+              if [ -n "$server_label" ] && [ "$server_label" = "$want_label" ]; then
+                server_digest="$server_label"
                 have_fork=1
               else
-                server_digest=absent
-                echo "WARNING: ${cfg.forkServerImage} is not present, so the :fork pod will not be" >&2
-                echo "         rebuilt this cycle. The stock pod still ships. Make it with:" >&2
-                echo "           nix run .#gred-web" >&2
-                echo "           podman build -f <gred>/build/reh-web-image.Dockerfile --target fork \\" >&2
-                echo "             -t ${cfg.forkServerImage} ~/.cache/graphide/vscode-reh-web-linux-x64" >&2
+                ${lib.optionalString localForkServer ''
+                  # Missing or stale. Kick the builder and carry on: it is a
+                  # full VS Code compile and this unit runs every five minutes,
+                  # so waiting on it here would wedge the stock pod behind it.
+                  echo "patched server needs building (have=$have_desc want=$want_label); starting graphide-demo-fork-server" >&2
+                  ${pkgs.systemd}/bin/systemctl start --no-block graphide-demo-fork-server.service || true
+                ''}
+                ${lib.optionalString (!localForkServer) ''
+                  echo "WARNING: ${cfg.forkServerImage} is absent or stale and is not built here." >&2
+                ''}
+                server_digest="stale-or-absent"
+                echo "         The :fork pod is skipped this cycle; the stock pod still ships." >&2
               fi
             ''}
 
