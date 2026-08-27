@@ -11,6 +11,7 @@ in
     ../../system
     ./hardware-configuration.nix
     ./gram.nix
+    ./resources.nix
   ];
 
   boot.extraModprobeConfig = ''
@@ -125,6 +126,15 @@ in
     blueman
     alsa-utils
     kdePackages.breeze-icons
+
+    # Signal is installed per-user via Home Manager, but it ships polkit action
+    # definitions (org.signalapp.*) that its backup/export flows authenticate
+    # against. polkitd only reads actions out of the *system* profile, so from a
+    # Home Manager install those actions are never registered and every request
+    # fails with "an error occurred while requesting system authentication".
+    # Installing it here too registers them; same store path, so no extra cost.
+    # Keep in sync with home/desktop/default.nix.
+    unstable.signal-desktop
   ];
 
   time.timeZone = "America/Los_Angeles";

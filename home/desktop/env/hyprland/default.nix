@@ -102,6 +102,25 @@ in
     '')
   ];
 
+  # Polkit authentication agent for the session. Without one running, any app
+  # that asks polkit to verify the user gets an immediate error instead of a
+  # password prompt -- Signal Desktop's "Desktop backups" setup is one such app.
+  systemd.user.services.hyprpolkitagent = {
+    Unit = {
+      Description = "Hyprland polkit authentication agent";
+      PartOf = [ "graphical-session.target" ];
+      After = [ "graphical-session.target" ];
+      ConditionEnvironment = "WAYLAND_DISPLAY";
+    };
+    Service = {
+      ExecStart = "${pkgs.hyprpolkitagent}/libexec/hyprpolkitagent";
+      Slice = "session.slice";
+      TimeoutStopSec = "5sec";
+      Restart = "on-failure";
+    };
+    Install.WantedBy = [ "graphical-session.target" ];
+  };
+
   wayland.windowManager.hyprland = {
     enable = true;
     plugins = [
