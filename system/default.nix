@@ -46,13 +46,26 @@
   nix.settings.connect-timeout = 30;
   nix.gc = {
     automatic = true;
-    dates = "weekly";
+    dates = "daily";
     options = "--delete-older-than 7d";
   };
   nix.optimise = {
     automatic = true;
     dates = [ "weekly" ];
   };
+
+  # Collect on low disk, not just on the daily timer. min-free triggers a GC
+  # mid-build once free space drops below it, which is what actually protects a
+  # nearly-full root; the daily timer alone cannot react to a large build.
+  nix.settings.min-free = 5 * 1024 * 1024 * 1024;
+  nix.settings.max-free = 20 * 1024 * 1024 * 1024;
+
+  # The journal had grown to 3.4 GB: the default cap is 10% of the filesystem,
+  # which on a 126 GB root is 12.6 GB before it would ever rotate.
+  services.journald.extraConfig = ''
+    SystemMaxUse=500M
+    SystemMaxFileSize=50M
+  '';
 
   programs = {
     gnupg.agent = {
