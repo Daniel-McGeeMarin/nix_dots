@@ -87,6 +87,7 @@ pys = "source ./venv/bin/activate";
               local cmd
               cmd=$(fc -ln 1 | fzf --height 40% --reverse --prompt='history> ') || return
               print -S -- "$cmd"
+              print -P "%F{green}→ %f$cmd"
               eval -- "$cmd"
             }
 
