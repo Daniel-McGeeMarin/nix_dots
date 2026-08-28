@@ -13,6 +13,7 @@
   ai.enable = false;
   ai.claudeCode.enable = true;
   ai.codex.enable = true;
+  ai.privatellm.enable = true;
   programs.claudeAgents.enable = true;
 
   desktop = {
