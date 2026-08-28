@@ -8,6 +8,7 @@
     ./ncmpcpp.nix
     ./orca.nix
     ./owncloudclient.nix
+    ./paseo.nix
     ./zathura.nix
   ];
 
