@@ -36,6 +36,14 @@
 
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
   nix.settings.auto-optimise-store = true;
+
+  # Nix's default connect-timeout of 5s covers DNS resolution too, and the first
+  # lookup of a cold hostname here regularly takes longer than that. Nix then
+  # retries, and the retry trips a Nix bug: the redirect github.com ->
+  # codeload.github.com is seen as the URI "changing final destination during
+  # transfer", which is fatal. So a slow DNS reply aborted the whole rebuild.
+  # 30s is generous enough that the retry path is never entered.
+  nix.settings.connect-timeout = 30;
   nix.gc = {
     automatic = true;
     dates = "weekly";
