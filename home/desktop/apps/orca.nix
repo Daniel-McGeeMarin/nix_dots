@@ -4,11 +4,11 @@
 # appimageTools. Binary is `orca-ide` (pkgs.orca is the GNOME screen reader).
 let
   pname = "orca-ide";
-  version = "1.4.184";
+  version = "1.4.190";
 
   src = pkgs.fetchurl {
     url = "https://github.com/stablyai/orca/releases/download/v${version}/orca-linux.AppImage";
-    hash = "sha256-we74NUJ9DVCsGCQmsSiwIRfMQEOmO/A+g+5VeJQ/T6g=";
+    hash = "sha256-9bMhV22ckJ+eaYeqO9IOj/nyFNiBtDxxCSgcvIeHjN4=";
   };
 
   contents = pkgs.appimageTools.extract { inherit pname version src; };
