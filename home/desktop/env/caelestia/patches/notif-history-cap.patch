@@ -1,0 +1,37 @@
+--- a/services/Notifs.qml
++++ b/services/Notifs.qml
+@@ -14,6 +14,14 @@
+ Singleton {
+     id: root
+
++    // Upstream keeps every never-dismissed notification forever. notClosed
++    // is a filter() binding re-evaluated on every list mutation, and
++    // clearing closes notifications one at a time -- with thousands stored,
++    // a single "clear all" becomes an O(n^2) UI freeze severe enough to
++    // look like a crash. Capping history bounds the worst case instead of
++    // rewriting the close-loop algorithm.
++    readonly property int maxHistory: 200
++
+     property list<NotifData> list: []
+     readonly property list<NotifData> notClosed: list.filter(n => !n.closed)
+     readonly property list<NotifData> popups: list.filter(n => n.popup)
+@@ -56,7 +64,7 @@
+         id: saveTimer
+
+         interval: 1000
+-        onTriggered: storage.setText(JSON.stringify(root.notClosed.map(n => ({
++        onTriggered: storage.setText(JSON.stringify(root.notClosed.slice(0, root.maxHistory).map(n => ({
+                     time: n.time,
+                     id: n.id,
+                     summary: n.summary,
+@@ -109,7 +117,9 @@
+         path: `${Paths.state}/notifs.json`
+         onLoaded: {
+             const data = JSON.parse(text());
+-            for (const notif of data) {
++            data.sort((a, b) => b.time - a.time);
++            const capped = data.slice(0, root.maxHistory);
++            for (const notif of capped) {
+                 const properties = Object.assign({}, notif);
+
+                 // Backwards compatibility for old notifications

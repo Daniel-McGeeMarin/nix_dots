@@ -50,6 +50,105 @@ in
           exec ${config.programs.firefox.finalPackage}/bin/firefox --private-window "http://127.0.0.1:${toString port}"
         '';
       })
+
+      # Paste a long conversation in (clipboard or stdin); it's split into
+      # chunks and fed through the local server one at a time, maintaining
+      # a running bulleted digest so nothing gets dropped even when the
+      # whole thing wouldn't fit in one context window. Never touches
+      # disk except the final digest, which goes to stdout + clipboard --
+      # same "print/copy, don't persist" shape as everything else here.
+      (pkgs.writeShellApplication {
+        name = "privatellm-digest";
+        runtimeInputs = [ pkgs.curl pkgs.jq pkgs.wl-clipboard pkgs.libnotify ];
+        text = ''
+          chunk_chars=4800  # ~1200 tokens; leaves headroom in the 16384-token
+                             # context for the growing digest + response.
+
+          system_prompt='You maintain a running bulleted digest of a long business
+          conversation between cofounders. You are given the CURRENT DIGEST (may be
+          empty) and the NEXT PORTION of the conversation. Merge in every new
+          important business item: decisions, numbers, deadlines, action items,
+          risks, commitments, strategy. Never drop an existing bullet unless this
+          new portion clearly supersedes or corrects it, in which case update it in
+          place. Keep every concrete fact exactly as stated -- names, amounts,
+          dates, companies. Do NOT anonymize or generalize facts. Only clean up
+          the phrasing: strip casual tone, filler, jokes, and swearing, and write
+          each bullet as clean neutral prose. Ignore anything with no business
+          substance. Respond with ONLY the complete updated digest as a bulleted
+          list, nothing else.'
+
+          if [ -t 0 ]; then
+            input="$(wl-paste 2>/dev/null || true)"
+          else
+            input="$(cat)"
+          fi
+
+          if [ -z "$input" ]; then
+            notify-send "privatellm-digest" "Nothing to process (clipboard/stdin was empty)."
+            exit 1
+          fi
+
+          # Split into chunks on line boundaries, then hard-slice any single
+          # line still over the limit so oddly-formatted pastes (no newlines)
+          # can't produce one giant unsplit chunk.
+          mapfile -t raw_lines <<< "$input"
+          chunks=()
+          current=""
+          for line in "''${raw_lines[@]}"; do
+            while [ "''${#line}" -gt "$chunk_chars" ]; do
+              chunks+=("''${line:0:$chunk_chars}")
+              line="''${line:$chunk_chars}"
+            done
+            candidate="$current"$'\n'"$line"
+            if [ "''${#candidate}" -gt "$chunk_chars" ] && [ -n "$current" ]; then
+              chunks+=("$current")
+              current="$line"
+            else
+              current="$candidate"
+            fi
+          done
+          [ -n "$current" ] && chunks+=("$current")
+
+          total="''${#chunks[@]}"
+          digest=""
+          i=0
+          for chunk in "''${chunks[@]}"; do
+            i=$((i + 1))
+            echo "[$i/$total] processing chunk..." >&2
+
+            user_msg="CURRENT DIGEST:
+          ''${digest:-(empty -- this is the first chunk)}
+
+          NEW PORTION:
+          $chunk
+
+          Respond with ONLY the complete, updated digest as a bulleted list."
+
+            payload="$(jq -n --arg sys "$system_prompt" --arg content "$user_msg" \
+              '{model: "gemma3", messages: [{role: "system", content: $sys}, {role: "user", content: $content}], max_tokens: 4096, stream: false}')"
+
+            response="$(curl -s --max-time 180 "http://127.0.0.1:${toString port}/v1/chat/completions" -d "$payload")"
+            new_digest="$(printf '%s' "$response" | jq -r '.choices[0].message.content // empty')"
+            finish_reason="$(printf '%s' "$response" | jq -r '.choices[0].finish_reason // empty')"
+
+            if [ -z "$new_digest" ]; then
+              echo "error: empty response on chunk $i/$total -- is privatellm-server running? (systemctl --user status privatellm-server)" >&2
+              exit 1
+            fi
+            if [ "$finish_reason" = "length" ]; then
+              echo "warning: chunk $i/$total's response hit the token limit and may be truncated" >&2
+            fi
+
+            digest="$new_digest"
+          done
+
+          printf '%s\n' "$digest"
+          printf '%s' "$digest" | wl-copy
+          notify-send "privatellm-digest" "Done -- digest copied to clipboard ($total chunks processed)."
+
+          unset input raw_lines chunks current digest new_digest response payload user_msg
+        '';
+      })
     ];
 
     xdg.desktopEntries."privatellm-chat" = {
