@@ -176,12 +176,21 @@ in
     # ~120 MB each. Nothing cleans these up on its own.
     "R! /tmp/puppeteer_dev_firefox_profile-* - - - 1d"
 
-    # The gred fork checkout. Every entry point defaults to /tmp/vscode-src
-    # (gred-patch-dev, apply-patches.sh, apply-branding.sh), but the tree is
-    # 3 GB and holds uncommitted work, so it lives on /home and /tmp only holds
-    # a symlink. tmpfiles processes parents before children, so this is
-    # recreated after cleanOnBoot empties /tmp. Keeps the documented workflow
-    # working unchanged while keeping the bytes off root.
+    # The gred fork checkout: 3 GB, 20-35 minutes to build, and it holds
+    # uncommitted work, so it must not sit anywhere cleanOnBoot can reach.
+    #
+    # Nothing defaults to /tmp/vscode-src any more. Every script in
+    # gred/build/ has always defaulted to $XDG_CACHE_HOME/graphide/vscode-src,
+    # and as of monolith 99943ab so does gred-patch-dev, which keys a
+    # per-checkout sibling: .../graphide/vscode-src-<8 hex of the checkout>.
+    #
+    # This line is now only a compatibility shim for a BUILD_DIR=/tmp/vscode-src
+    # typed by hand. Keep it, but do not treat it as the mechanism that makes
+    # the fork tree survive a reboot — it maps one exact path, so between
+    # gred 533f6f4 and monolith 99943ab the keyed trees it did NOT match were
+    # silently deleted on every boot. The parent directory is the mechanism.
+    # tmpfiles processes parents before children, so this is recreated after
+    # cleanOnBoot empties /tmp.
     "L /tmp/vscode-src - - - - /home/xia/.cache/graphide/vscode-src"
   ];
 
