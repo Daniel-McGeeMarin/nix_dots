@@ -7,11 +7,6 @@
       file = ../../secrets/cloudflare-tunnel.age;
       owner = "cloudflared";
     };
-    age.secrets.cloudflare-tunnel-graphide = {
-      file = ../../secrets/cloudflare-tunnel-graphide.age;
-      owner = "cloudflared";
-    };
-
     users.users.cloudflared = {
       isSystemUser = true;
       group = "cloudflared";
@@ -39,24 +34,9 @@
       };
     };
 
-    systemd.services.cloudflared-graphide = {
-      description = "Cloudflare Tunnel (graphide account)";
-      after = [ "network-online.target" "agenix.service" ];
-      wants = [ "network-online.target" ];
-      wantedBy = [ "multi-user.target" ];
-      serviceConfig = {
-        EnvironmentFile = config.age.secrets.cloudflare-tunnel-graphide.path;
-        ExecStart = "${pkgs.cloudflared}/bin/cloudflared tunnel --no-autoupdate run";
-        Restart = "on-failure";
-        RestartSec = "5s";
-        User = "cloudflared";
-        Group = "cloudflared";
-        NoNewPrivileges = true;
-        PrivateTmp = true;
-        ProtectSystem = "strict";
-        ProtectHome = true;
-      };
-    };
+    # The graphide.net tunnel used to be declared here too. It now lives in
+    # system/graphide/network.nix alongside the Caddy it feeds, so the two
+    # estates share nothing on the ingress path.
 
     services.caddy = {
       enable = true;

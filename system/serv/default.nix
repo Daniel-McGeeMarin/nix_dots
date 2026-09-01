@@ -13,6 +13,8 @@
 #     `serv.enable = false` was a lockout.
 #   - podman and the auto-update timer, now system/podman.nix, because the
 #     Graphide stack needs both and must not depend on the estate being on.
+#   - the whole Graphide stack, now system/graphide. It shares a machine with
+#     this and nothing else: its own domain, tunnel, Caddy and data.
 {
   imports = [
     ./network.nix
@@ -23,9 +25,6 @@
     ./onlyoffice.nix
     ./apps.nix
     ./forgejo.nix
-    ./graphide.nix
-    ./graphide-web.nix
-    ./graphide-demo.nix
   ];
 
   options.serv.enable = lib.mkEnableOption "the whole mcgeedan.com service estate";

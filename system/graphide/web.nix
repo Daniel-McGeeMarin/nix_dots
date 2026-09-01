@@ -37,9 +37,9 @@
 #                                  # a new response or signup, nothing more.
 #      DEMO_BOXES=demobox1,demobox2,demobox3
 #                                  # optional, and this is the default. Keep in
-#                                  # sync with serv.graphide-demo.sessions.
+#                                  # sync with graphide.demo.sessions.
 #      DEMO_BASE_PORT=8100         # optional, and this is the default. Keep in
-#                                  # sync with serv.graphide-demo.basePort.
+#                                  # sync with graphide.demo.basePort.
 #                                  # Ports go by list position from zero, so
 #                                  # the FIRST box is at DEMO_BASE_PORT itself:
 #                                  # demobox1 is 8100, not 8101. Both this and
@@ -84,18 +84,18 @@
 #       graphide-demo already does for the pods. Needs no Actions minutes and
 #       no registry, so it survives (a)'s failure mode. Set:
 #
-#         serv.graphide-web.autoBuild.enable = true;
-#         serv.graphide-web.image      = "localhost/website:latest";
-#         serv.graphide-web.apiImage   = "localhost/website-api:latest";
-#         serv.graphide-web.autoUpdate = false;
+#         graphide.web.autoBuild.enable = true;
+#         graphide.web.image      = "localhost/website:latest";
+#         graphide.web.apiImage   = "localhost/website-api:latest";
+#         graphide.web.autoUpdate = false;
 #
 #       The clone needs a token for the private repo. By default it borrows the
 #       PAT graphide-demo.nix declares, which must be re-scoped in GitHub to
 #       include the website repo — re-scoping does not change the token, so the
 #       .age file stays as is. Assertions below catch both mistakes.
 #
-# 3. Enable — set serv.graphide-web.enable = true in the host's
-#    configuration.nix. serv.graphide.enable and serv.auth.enable must be on
+# 3. Enable — set graphide.web.enable = true in the host's
+#    configuration.nix. graphide.api.enable and serv.auth.enable must be on
 #    too; see the assertions.
 #
 # == Key design decisions and gotchas ==
@@ -110,10 +110,10 @@
 
 { config, lib, pkgs, ... }:
 let
-  cfg = config.serv.graphide-web;
+  cfg = config.graphide.web;
 in
 {
-  options.serv.graphide-web = {
+  options.graphide.web = {
     enable = lib.mkEnableOption "Graphide marketing site";
 
     image = lib.mkOption {
@@ -138,7 +138,7 @@ in
       '';
     };
 
-    # Deliberately the same shape as serv.graphide-demo.autoBuild. The demo pods
+    # Deliberately the same shape as graphide.demo.autoBuild. The demo pods
     # already solved this problem and the two should read alike.
     autoBuild = {
       enable = lib.mkOption {
@@ -207,37 +207,37 @@ in
   config = lib.mkIf cfg.enable {
     assertions = [
       {
-        assertion = config.serv.graphide.enable;
+        assertion = config.graphide.registry.enable;
         message = ''
-          serv.graphide-web requires serv.graphide.enable — both images are in
+          graphide.web requires graphide.registry.enable — both images are in
           the private GHCR registry and graphide-ghcr-login.service, which the
-          containers here order themselves behind, is defined in graphide.nix.
+          containers here order themselves behind, is defined in registry.nix.
           Without it the `requires` below points at a unit that does not exist
           and both containers fail to start.
         '';
       }
       {
-        assertion = config.serv.auth.enable;
+        assertion = config.graphide.auth.enable;
         message = ''
-          serv.graphide-web requires serv.auth.enable — the feedback-results
+          graphide.web requires graphide.auth.enable — the feedback-results
           routes below `import require_auth`, a Caddy snippet defined in
-          auth.nix, and an undefined snippet is a Caddy config parse error that
-          takes down every other vhost with it.
+          ./auth.nix, and an undefined snippet is a Caddy config parse error
+          that takes down every vhost on Graphide's Caddy with it.
         '';
       }
       {
         assertion = !cfg.autoBuild.enable
                     || cfg.autoBuild.tokenFile != null
-                    || config.serv.graphide-demo.autoBuild.enable;
+                    || config.graphide.demo.autoBuild.enable;
         message = ''
-          serv.graphide-web.autoBuild needs a GitHub token to clone the private
+          graphide.web.autoBuild needs a GitHub token to clone the private
           website repo. With tokenFile unset it borrows the one
           graphide-demo.nix declares, and that module only declares it when its
           own autoBuild is on — so as written the secret does not exist and
           activation will fail on a missing decryption target.
 
-          Either set serv.graphide-demo.autoBuild.enable = true, or point
-          serv.graphide-web.autoBuild.tokenFile at your own token file.
+          Either set graphide.demo.autoBuild.enable = true, or point
+          graphide.web.autoBuild.tokenFile at your own token file.
 
           Note also that the borrowed PAT is fine-grained and scoped to
           monolith and gred. It must be re-scoped in GitHub to include the
@@ -249,11 +249,11 @@ in
       {
         assertion = !cfg.autoBuild.enable || !cfg.autoUpdate;
         message = ''
-          serv.graphide-web has autoBuild and autoUpdate on together. Those
+          graphide.web has autoBuild and autoUpdate on together. Those
           contradict: autoBuild produces a localhost/ tag and autoUpdate asks
           podman-auto-update to pull it from a registry that does not have it,
           which fails on every timer tick. Set autoUpdate = false, as
-          serv.graphide-demo does.
+          graphide.demo does.
         '';
       }
     ];
@@ -444,7 +444,7 @@ in
     # graphide.dev is kept identical to graphide.net on purpose. It served the
     # same container before this change and the two drifting apart is how one
     # of them ends up with an unprotected results page.
-    services.caddy.virtualHosts = let
+    graphide.network.virtualHosts = let
       # The private admin views: the rendered results page comes from the static
       # site, the data behind it from website-api. Both need the same gate, or
       # the page is protected and the JSON it fetches is not.
@@ -517,69 +517,10 @@ in
       '';
     };
 
-    # Authelia's default_policy is deny, and until now NOTHING on the apex ever
-    # called forward_auth, so the total absence of a rule for graphide.net was
-    # invisible. The `import require_auth` above changes that: Authelia is now
-    # consulted for the results paths, and a request that matches no rule falls
-    # through to the default deny — which would lock out admins too, since deny
-    # is deny for everybody. These rules are the other half of that change and
-    # must not be separated from it.
-    #
-    # Where this lands in the merged list: NixOS concatenates list definitions
-    # in priority order (mkBefore = 500, plain = 1000, mkAfter = 1500).
-    # auth.nix defines the base rules plainly; graphide-demo.nix defines the
-    # auth.graphide.net bypass and the per-pod rules with lib.mkBefore. This
-    # definition is deliberately left at the default priority so it can never
-    # get in front of the demo-pod gate and weaken it. The merged order comes
-    # out as:
-    #
-    #   1. auth.graphide.net bypass + demobox1..3   (graphide-demo.nix, mkBefore)
-    #   2. these four rules                          (here, default priority)
-    #   3. auth.mcgeedan.com .. *.mcgeedan.com       (auth.nix, default priority)
-    #
-    # Position relative to block 3 is immaterial either way: Authelia matches
-    # `domain` exactly unless it is a wildcard, so no mcgeedan rule — not even
-    # `*.mcgeedan.com` — can match a graphide domain. Likewise a bare
-    # `graphide.net` here does not match `demoboxN.graphide.net`, so block 1
-    # keeps its own rules regardless.
-    #
-    # What genuinely matters is the order *within* this list: a bypass for the
-    # whole domain placed before the resource rule would make the results pages
-    # public, and Authelia takes the first matching rule.
-    #
-    # subject = group:admins rather than a bare one_factor: an unscoped rule
-    # admits any authenticated user, and demo guests have accounts in the same
-    # Authelia — see the same argument spelled out in auth.nix.
-    #
-    # CAVEAT for graphide.dev: session.cookies has entries for mcgeedan.com and
-    # graphide.net only, so Authelia has no session domain covering
-    # graphide.dev and cannot issue it a cookie. The bypass rule is unaffected
-    # (a bypass never needs a session), but the two results paths on
-    # graphide.dev will 401 rather than redirect to a login portal until
-    # graphide.dev gets its own session cookie domain and an auth.graphide.dev
-    # portal vhost. That is a deliberate fail-closed: those paths are currently
-    # served to anyone who asks.
-    # /api/demo/release is in `resources` for a functional reason rather than a
-    # security one. The Caddy block for it imports require_auth, but a path not
-    # listed here falls through to the domain-wide bypass below, and on a bypass
-    # Authelia authenticates nobody and returns no Remote-* headers. Caddy's
-    # copy_headers blanks the headers it is told to copy when the auth response
-    # omits them — verified against a stub that echoes what arrived, so a forged
-    # Remote-Groups does not survive a bypass either — which means the endpoint
-    # was secure and simultaneously dead: isAdmin saw an empty group list and
-    # returned 403 to real admins too. Naming the path here is what makes
-    # Authelia actually authenticate and populate the header.
-    services.authelia.instances.main.settings.access_control.rules = [
-      { domain = "graphide.net";
-        resources = [ "^/feedback/results(/.*)?$" "^/api/feedback/results(/.*)?$" "^/api/demo/release(/.*)?$" ];
-        policy = "one_factor";
-        subject = [ "group:admins" ]; }
-      { domain = "graphide.net"; policy = "bypass"; }
-      { domain = "graphide.dev";
-        resources = [ "^/feedback/results(/.*)?$" "^/api/feedback/results(/.*)?$" "^/api/demo/release(/.*)?$" ];
-        policy = "one_factor";
-        subject = [ "group:admins" ]; }
-      { domain = "graphide.dev"; policy = "bypass"; }
-    ];
+    # The Authelia access_control rules for these apexes used to live here,
+    # beneath a forty-line comment reasoning about how they merged with the ones
+    # in graphide-demo.nix and system/serv/auth.nix at three different
+    # priorities. They are now one ordered list in ./auth.nix, which is both
+    # easier to read and the only place this tree mentions Authelia.
   };
 }

@@ -42,12 +42,12 @@
 # 2. One Cloudflare Tunnel route: *.graphide.net -> this host. That single
 #    wildcard covers every session plus auth.graphide.net.
 # 3. Add guests to /srv/data/authelia/users.yml.
-# 4. serv.graphide-demo.enable = true; and list the sessions.
+# 4. graphide.demo.enable = true; and list the sessions.
 
 { config, lib, pkgs, ... }:
 
 let
-  cfg = config.serv.graphide-demo;
+  cfg = config.graphide.demo;
 
   # Ports are assigned from a base rather than configured per session: they are
   # loopback-only plumbing between Caddy and podman, and nothing outside this
@@ -155,7 +155,7 @@ let
   };
 in
 {
-  options.serv.graphide-demo = {
+  options.graphide.demo = {
     enable = lib.mkEnableOption "Graphide demo pods";
 
     sessions = lib.mkOption {
@@ -445,22 +445,23 @@ in
   config = lib.mkIf cfg.enable {
     assertions = [
       {
-        assertion = config.serv.auth.enable;
+        assertion = config.graphide.auth.enable;
         message = ''
-          serv.graphide-demo requires serv.auth.enable — the pods hand out a
-          shell and Authelia is the only thing in front of them.
+          graphide.demo requires graphide.auth.enable — the pods hand out a
+          shell and the gate in front of them is the only thing between a
+          stranger and it.
         '';
       }
       {
         assertion = cfg.sessions == lib.unique cfg.sessions;
-        message = "serv.graphide-demo.sessions has duplicates; each name is a subdomain.";
+        message = "graphide.demo.sessions has duplicates; each name is a subdomain.";
       }
       {
         # A key that matches no session does nothing whatsoever: the box you
         # meant to move stays on the default image and nothing says so.
         assertion = lib.all (n: lib.elem n cfg.sessions) (lib.attrNames cfg.imageFor);
         message = ''
-          serv.graphide-demo.imageFor names sessions that are not in `sessions`:
+          graphide.demo.imageFor names sessions that are not in `sessions`:
           ${toString (lib.subtractLists cfg.sessions (lib.attrNames cfg.imageFor))}
         '';
       }
@@ -469,7 +470,7 @@ in
                     || cfg.autoBuild.buildFork
                     || !cfg.autoBuild.enable;
         message = ''
-          serv.graphide-demo has a session pinned to forkImage
+          graphide.demo has a session pinned to forkImage
           (${cfg.forkImage}) but autoBuild.buildFork is false, so nothing ever
           builds that tag and the container will fail to start.
         '';
@@ -477,7 +478,7 @@ in
     ];
 
     warnings = lib.optional (cfg.persist && cfg.recycle.enable) ''
-      serv.graphide-demo has both persist and recycle.enable set. The hourly
+      graphide.demo has both persist and recycle.enable set. The hourly
       restart still happens, so state survives it and the only effect of
       recycling is a slower boot. Set recycle.enable = false.
     '';
@@ -876,34 +877,11 @@ in
     virtualisation.oci-containers.containers =
       builtins.listToAttrs (map containerFor sessionList);
 
-    services.caddy.virtualHosts = lib.mkMerge [
-      (builtins.listToAttrs (map vhostFor sessionList))
-      {
-        "http://auth.graphide.net".extraConfig = ''
-          reverse_proxy 127.0.0.1:9091
-        '';
-      }
-    ];
-
-    # Authelia's existing cookie is scoped to mcgeedan.com and does not cover a
-    # different apex, so graphide.net needs its own session config and portal.
-    services.authelia.instances.main.settings = {
-      session.cookies = lib.mkAfter [{
-        domain = "graphide.net";
-        authelia_url = "https://auth.graphide.net";
-        default_redirection_url = "https://graphide.net";
-        expiration = "2h";
-        inactivity = "30m";
-      }];
-
-      access_control.rules = lib.mkBefore ([
-        { domain = "auth.graphide.net"; policy = "bypass"; }
-      ] ++ map (s: {
-        domain = "${s.name}.${cfg.domain}";
-        policy = "one_factor";
-        subject = map (g: "group:${g}") cfg.allowedGroups;
-      }) sessionList);
-    };
+    # One vhost per pod, onto Graphide's own Caddy. The login portal and every
+    # Authelia rule that mentions these boxes now live in ./auth.nix, which is
+    # the single file that knows Authelia exists.
+    graphide.network.virtualHosts =
+      builtins.listToAttrs (map vhostFor sessionList);
 
     systemd.timers = lib.mkMerge [
       (lib.mkIf cfg.autoBuild.enable {

@@ -33,7 +33,7 @@
 #    pushed automatically by the deploy.yml workflow in the monolith repo
 #    on every push to master. The image must exist before first boot.
 #
-# 4. Enable — set serv.graphide.enable = true in the host's configuration.nix.
+# 4. Enable — set graphide.api.enable = true in the host's configuration.nix.
 #
 # == Key design decisions and gotchas ==
 #
@@ -64,17 +64,12 @@
 
 { config, lib, pkgs, ... }:
 {
-  options.serv.graphide.enable = lib.mkEnableOption "Graphide API server";
+  options.graphide.api.enable = lib.mkEnableOption "Graphide API server";
 
-  config = lib.mkIf config.serv.graphide.enable {
+  config = lib.mkIf config.graphide.api.enable {
     age.secrets = {
       graphide-api-env = {
         file = ../../secrets/graphide-api-env.age;
-        mode = "0400";
-      };
-      # Classic PAT with read:packages scope, no expiration.
-      ghcr-token = {
-        file = ../../secrets/ghcr-token.age;
         mode = "0400";
       };
     };
@@ -93,23 +88,9 @@
       ];
     };
 
-    # Log into GHCR once at boot so both the container start and the
-    # podman-auto-update timer can pull the private image.
-    systemd.services.graphide-ghcr-login = {
-      description = "Authenticate Podman with GHCR";
-      after       = [ "agenix.service" "network-online.target" ];
-      wants       = [ "network-online.target" ];
-      wantedBy    = [ "multi-user.target" ];
-      script = ''
-        ${pkgs.podman}/bin/podman login ghcr.io \
-          --username Daniel-McGeeMarin \
-          --password-stdin < ${config.age.secrets.ghcr-token.path}
-      '';
-      serviceConfig = {
-        Type            = "oneshot";
-        RemainAfterExit = true;
-      };
-    };
+    # graphide-ghcr-login lives in ./registry.nix. It used to be declared here,
+    # which gave the marketing site and the demo pods a hard dependency on the
+    # API server module for a reason that had nothing to do with the API server.
 
     # All three containers use host networking so they reach each other
     # via 127.0.0.1 without a separate Podman network or pod.
@@ -177,10 +158,28 @@
       requires = [ "graphide-ghcr-login.service" "graphide-pg-ready.service" ];
     };
 
-    services.caddy.virtualHosts."http://graphideapi.mcgeedan.com".extraConfig = ''
-      reverse_proxy 127.0.0.1:8080 {
-        header_up X-Forwarded-Proto https
-      }
-    '';
+    # api.graphide.net is the name to use. It costs nothing to add -- the
+    # tunnel already routes *.graphide.net to this box, so no DNS record and no
+    # ingress rule is needed -- and it puts the API on the Graphide apex where
+    # the rest of the stack lives.
+    #
+    # graphideapi.mcgeedan.com is kept because clients still use it, but be
+    # clear about what it now needs: it is a mcgeedan.com hostname, so it
+    # arrives through the mcgeedan TUNNEL, which is declared in
+    # system/serv/network.nix and stops with `serv.enable = false`. Even with
+    # that tunnel up, its ingress rule points at :80 -- the shared Caddy, which
+    # no longer has this vhost. To keep the old name alive, add an ingress rule
+    # for it pointing at 127.0.0.1:${toString config.graphide.network.port}.
+    # Otherwise migrate clients to api.graphide.net and delete this entry.
+    graphide.network.virtualHosts = let
+      apiProxy = ''
+        reverse_proxy 127.0.0.1:8080 {
+          header_up X-Forwarded-Proto https
+        }
+      '';
+    in {
+      "http://api.graphide.net".extraConfig = apiProxy;
+      "http://graphideapi.mcgeedan.com".extraConfig = apiProxy;
+    };
   };
 }
