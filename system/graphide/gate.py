@@ -59,61 +59,134 @@ BUSY = splash(
 ADMIN_PAGE = """<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Demo links</title>
+<title>Demo boxes</title>
 <style>
-  :root { color-scheme: dark; }
-  body { font: 16px/1.45 system-ui, sans-serif; max-width: 40em; margin: 8vh auto; padding: 0 1.5rem 4rem; color: #e8e8e8; background: #111; }
-  h1 { font-size: 1.4rem; font-weight: 600; }
-  p.hint { color: #9a9a9a; }
-  .box { display: flex; justify-content: space-between; gap: 1rem; padding: .7rem 0; border-bottom: 1px solid #2a2a2a; }
-  .busy { color: #f0b429; }
-  .free { color: #6dd38b; }
-  label { display: block; margin: 1rem 0 .3rem; color: #bbb; font-size: .9rem; }
+  :root { color-scheme: dark; --bg: #0f0f10; --card: #18181a; --line: #2c2c30; --text: #ececec; --muted: #9a9aa3; --ok: #6dd38b; --warn: #e6b84f; --bad: #ff8a8a; --accent: #e8e8e8; }
+  * { box-sizing: border-box; }
+  body { font: 15px/1.45 system-ui, sans-serif; margin: 0; color: var(--text); background: var(--bg); }
+  main { max-width: 52rem; margin: 0 auto; padding: 2.4rem 1.4rem 4rem; }
+  header { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-bottom: 1.6rem; }
+  h1 { font-size: 1.35rem; font-weight: 600; margin: 0; }
+  h2 { font-size: .78rem; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 2rem 0 .7rem; }
+  .hint { color: var(--muted); margin: 0; font-size: .92rem; }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: .7rem; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: .95rem 1rem; }
+  .card .top { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
+  .card .name { font-weight: 600; }
+  .pill { font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+  .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); } .muted { color: var(--muted); }
+  .guest { margin: .45rem 0 0; color: var(--muted); font-size: .9rem; min-height: 1.2em; }
+  form.mint { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.05rem 1.1rem; display: grid; grid-template-columns: 1fr 1fr; gap: .75rem 1rem; }
+  label { display: block; font-size: .8rem; color: var(--muted); margin-bottom: .3rem; }
   input, select, button { font: inherit; }
-  input, select { width: 100%; box-sizing: border-box; padding: .5rem .6rem; border: 1px solid #333; background: #1a1a1a; color: inherit; border-radius: 6px; }
-  button { margin-top: 1.2rem; padding: .55rem 1rem; border: 0; border-radius: 6px; background: #e8e8e8; color: #111; font-weight: 600; cursor: pointer; }
-  button:disabled { opacity: .5; cursor: default; }
-  #out { margin-top: 1.4rem; padding: 1rem; background: #1a1a1a; border-radius: 6px; word-break: break-all; display: none; }
-  #out a { color: #8cb4ff; }
-  .err { color: #ff8a8a; }
+  input, select { width: 100%; padding: .5rem .6rem; border: 1px solid var(--line); background: #121214; color: inherit; border-radius: 7px; }
+  .wide { grid-column: 1 / -1; }
+  button.primary { grid-column: 1 / -1; margin-top: .2rem; padding: .6rem 1rem; border: 0; border-radius: 8px; background: var(--accent); color: #111; font-weight: 650; cursor: pointer; }
+  button.primary:disabled { opacity: .5; cursor: default; }
+  button.ghost { padding: .28rem .55rem; border: 1px solid var(--line); background: transparent; color: var(--text); border-radius: 6px; cursor: pointer; font-size: .82rem; }
+  button.ghost:hover { background: #222; }
+  button.danger { color: var(--bad); border-color: #5a3030; }
+  .flash { display: none; margin-top: .9rem; padding: .85rem 1rem; background: var(--card); border: 1px solid var(--line); border-radius: 10px; word-break: break-all; }
+  .flash a { color: #8cb4ff; }
+  .err { color: var(--bad); }
+  .links { display: flex; flex-direction: column; gap: .55rem; }
+  .row { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: .8rem 1rem; display: grid; grid-template-columns: 1fr auto; gap: .5rem 1rem; align-items: center; }
+  .row .meta { color: var(--muted); font-size: .85rem; margin-top: .15rem; }
+  .row .actions { display: flex; gap: .4rem; flex-shrink: 0; }
+  .empty { color: var(--muted); }
+  @media (max-width: 700px) {
+    .cards, form.mint, .row { grid-template-columns: 1fr; }
+    header { flex-direction: column; }
+  }
 </style>
-<h1>Demo links</h1>
-<p class="hint">Signed in as admin. A link logs the guest into one box and nowhere else. No Authelia account for them.</p>
-<div id="status">Loading boxes…</div>
-<form id="f">
-  <label for="box">Box</label>
-  <select id="box" name="box" required></select>
-  <label for="ttl">Expires</label>
-  <select id="ttl" name="ttl">
-    <option value="4h">4 hours</option>
-    <option value="12h" selected>12 hours</option>
-    <option value="1d">1 day</option>
-  </select>
-  <label for="label">Label (optional)</label>
-  <input id="label" name="label" placeholder="press, friend, …" autocomplete="off">
-  <button type="submit">Mint link</button>
-</form>
-<div id="out"></div>
+<main>
+  <header>
+    <h1>Demo boxes</h1>
+    <p class="hint">A minted link logs a guest into one box. They never see Authelia.</p>
+  </header>
+  <h2>Now</h2>
+  <div class="cards" id="boxes">Loading…</div>
+  <h2>Mint</h2>
+  <form class="mint" id="f">
+    <div>
+      <label for="box">Box</label>
+      <select id="box" name="box" required></select>
+    </div>
+    <div>
+      <label for="ttl">Expires</label>
+      <select id="ttl" name="ttl">
+        <option value="12h">12 hours</option>
+        <option value="1d">1 day</option>
+        <option value="3d">3 days</option>
+        <option value="7d" selected>1 week</option>
+        <option value="14d">2 weeks</option>
+      </select>
+    </div>
+    <div class="wide">
+      <label for="label">Label</label>
+      <input id="label" name="label" placeholder="press, friend, partner…" autocomplete="off">
+    </div>
+    <button class="primary" type="submit">Mint link</button>
+  </form>
+  <div class="flash" id="out"></div>
+  <h2>Issued links</h2>
+  <div class="links" id="links"><p class="empty">None yet.</p></div>
+</main>
 <script>
 function esc(s) {
-  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
+function when(ts) {
+  if (!ts) return "";
+  return new Date(ts * 1000).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+function linkStatus(link, boxes) {
+  if (link.revoked) return "revoked";
+  if (link.exp * 1000 < Date.now()) return "expired";
+  const box = boxes.find(b => b.name === link.box);
+  if (box && box.sid === link.sid && box.busy) return "live";
+  return "open";
+}
+const STATUS_CLASS = { live: "ok", open: "muted", expired: "muted", revoked: "bad" };
+const STATUS_LABEL = { live: "in use", open: "not yet used", expired: "expired", revoked: "revoked" };
+
 async function load() {
   const res = await fetch("/api/demo/status", { credentials: "same-origin" });
   if (!res.ok) throw new Error("status " + res.status);
   const data = await res.json();
-  const status = document.getElementById("status");
   const sel = document.getElementById("box");
+  const prev = sel.value;
   sel.innerHTML = "";
-  status.innerHTML = data.boxes.map(b => {
+  document.getElementById("boxes").innerHTML = data.boxes.map(b => {
     const o = document.createElement("option");
     o.value = b.name;
     o.textContent = b.name;
     sel.appendChild(o);
-    const mark = b.busy ? "in use" : "free";
-    const extra = b.label ? " · " + esc(b.label) : "";
-    return '<div class="box"><span>' + esc(b.name) + extra + '</span><span class="' + (b.busy ? "busy" : "free") + '">' + mark + "</span></div>";
-  }).join("") || "<p>No boxes configured.</p>";
+    const guest = b.busy && b.label ? esc(b.label) : (b.busy ? "Someone is on this box" : "Idle");
+    return '<div class="card"><div class="top"><span class="name">' + esc(b.name) + '</span><span class="pill ' + (b.busy ? "warn" : "ok") + '">' + (b.busy ? "in use" : "free") + '</span></div><p class="guest">' + guest + "</p></div>";
+  }).join("") || '<p class="empty">No boxes configured.</p>';
+  if (prev) sel.value = prev;
+  const links = (data.links || []).slice().sort((a, b) => b.minted_at - a.minted_at);
+  const host = document.getElementById("links");
+  if (!links.length) {
+    host.innerHTML = '<p class="empty">None yet. Mint one above.</p>';
+    return;
+  }
+  host.innerHTML = links.map(link => {
+    const st = linkStatus(link, data.boxes);
+    const actions = st === "revoked" || st === "expired"
+      ? ""
+      : '<button class="ghost" data-copy="' + esc(link.url) + '">Copy</button>' +
+        '<button class="ghost danger" data-revoke="' + esc(link.sid) + '">Revoke</button>';
+    return '<div class="row"><div><strong>' + esc(link.label || "untitled") + '</strong> · ' + esc(link.box) +
+      ' <span class="pill ' + STATUS_CLASS[st] + '">' + STATUS_LABEL[st] + '</span>' +
+      '<div class="meta">Expires ' + when(link.exp) + '</div></div><div class="actions">' + actions + "</div></div>";
+  }).join("");
 }
 document.getElementById("f").addEventListener("submit", async (ev) => {
   ev.preventDefault();
@@ -141,6 +214,7 @@ document.getElementById("f").addEventListener("submit", async (ev) => {
     a.href = data.url;
     a.textContent = data.url;
     out.appendChild(a);
+    try { await navigator.clipboard.writeText(data.url); } catch (_) {}
   } catch (err) {
     out.replaceChildren();
     const span = document.createElement("span");
@@ -152,9 +226,26 @@ document.getElementById("f").addEventListener("submit", async (ev) => {
     load().catch(() => {});
   }
 });
+document.getElementById("links").addEventListener("click", async (ev) => {
+  const copy = ev.target.closest("[data-copy]");
+  if (copy) {
+    try { await navigator.clipboard.writeText(copy.getAttribute("data-copy")); copy.textContent = "Copied"; } catch (_) {}
+    return;
+  }
+  const rev = ev.target.closest("[data-revoke]");
+  if (!rev) return;
+  if (!confirm("Revoke this link? Anyone using it will be locked out.")) return;
+  const res = await fetch("/api/demo/revoke", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sid: rev.getAttribute("data-revoke") }),
+  });
+  if (!res.ok) alert(await res.text());
+  load().catch(() => {});
+});
 load().catch(err => {
-  document.getElementById("status").textContent = err.message;
-  document.getElementById("status").className = "err";
+  document.getElementById("boxes").innerHTML = '<p class="err">' + esc(err.message) + "</p>";
 });
 </script>
 """
@@ -169,14 +260,22 @@ def b64url_decode(text: str) -> bytes:
     return base64.urlsafe_b64decode(text + pad)
 
 
+MAX_TTL = 14 * 86400
+LINK_KEEP = 14 * 86400
+
+
 def parse_duration(text: str) -> int:
     if text.isdigit():
-        return int(text)
-    units = {"s": 1, "m": 60, "h": 3600, "d": 86400}
-    unit = text[-1]
-    if unit not in units:
-        raise ValueError("ttl must look like 4h, 30m, 12h")
-    return int(text[:-1]) * units[unit]
+        seconds = int(text)
+    else:
+        units = {"s": 1, "m": 60, "h": 3600, "d": 86400}
+        unit = text[-1]
+        if unit not in units:
+            raise ValueError("ttl must look like 4h, 7d, 14d")
+        seconds = int(text[:-1]) * units[unit]
+    if seconds <= 0:
+        raise ValueError("ttl must be positive")
+    return min(seconds, MAX_TTL)
 
 
 def load_key(hex_key: str) -> bytes:
@@ -275,9 +374,41 @@ def tcp_established(port: int) -> int:
 def load_state(path: str) -> dict:
     try:
         with open(path, encoding="utf-8") as handle:
-            return json.load(handle)
+            raw = json.load(handle)
     except (OSError, json.JSONDecodeError):
-        return {}
+        raw = {}
+    if not isinstance(raw, dict):
+        raw = {}
+    if "occupancy" in raw or "links" in raw:
+        return {
+            "occupancy": raw.get("occupancy") or {},
+            "links": raw.get("links") or [],
+        }
+    occupancy = {
+        key: value
+        for key, value in raw.items()
+        if isinstance(value, dict) and "sid" in value
+    }
+    return {"occupancy": occupancy, "links": []}
+
+
+def prune_links(state: dict, now: float) -> None:
+    cutoff = now - LINK_KEEP
+    state["links"] = [
+        link for link in state.get("links", []) if int(link.get("exp", 0)) >= cutoff
+    ]
+
+
+def link_for(state: dict, sid: str) -> dict | None:
+    for link in state.get("links", []):
+        if link.get("sid") == sid:
+            return link
+    return None
+
+
+def is_revoked(state: dict, sid: str) -> bool:
+    link = link_for(state, sid)
+    return bool(link and link.get("revoked"))
 
 
 def save_state(path: str, state: dict) -> None:
@@ -313,11 +444,13 @@ class Gate:
     def claim_url(self, token: str, box: str) -> str:
         return f"https://{box}.{self.domain}/__claim?t={token}"
 
-    def mint(self, box: str, ttl: int, label: str) -> str:
+    def mint(self, box: str, ttl: int, label: str) -> tuple:
         if box not in self.boxes:
             raise ValueError(f"unknown box {box}")
-        token = sign(mint_payload(box, ttl, label), self.key)
-        return self.claim_url(token, box)
+        payload = mint_payload(box, ttl, label)
+        token = sign(payload, self.key)
+        url = self.claim_url(token, box)
+        return url, payload
 
 
 def make_handler(gate: Gate):
@@ -378,6 +511,9 @@ def make_handler(gate: Gate):
             if parsed.path == "/api/demo/mint":
                 self._mint()
                 return
+            if parsed.path == "/api/demo/revoke":
+                self._revoke()
+                return
             self._send(404, "not found\n", "text/plain; charset=utf-8")
 
         def _mint(self):
@@ -389,14 +525,56 @@ def make_handler(gate: Gate):
             try:
                 body = json.loads(raw.decode("utf-8") or "{}")
                 box = body["box"]
-                ttl = parse_duration(str(body.get("ttl", "12h")))
+                ttl = parse_duration(str(body.get("ttl", "7d")))
                 label = str(body.get("label", ""))
-                url = gate.mint(box, ttl, label)
+                url, payload = gate.mint(box, ttl, label)
             except (KeyError, ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
                 self._send(400, f"{exc}\n", "text/plain; charset=utf-8")
                 return
-            payload = json.dumps({"url": url}).encode()
-            self._send(200, payload, "application/json")
+            now = time.time()
+            with STATE_LOCK:
+                state = load_state(gate.state_path)
+                prune_links(state, now)
+                state["links"].append({
+                    "sid": payload["sid"],
+                    "box": box,
+                    "label": payload.get("label", ""),
+                    "exp": payload["exp"],
+                    "minted_at": int(now),
+                    "revoked": False,
+                    "url": url,
+                })
+                save_state(gate.state_path, state)
+            self._send(200, json.dumps({"url": url, "sid": payload["sid"]}), "application/json")
+
+        def _revoke(self):
+            if not self._is_admin():
+                self._send(403, "admin only\n", "text/plain; charset=utf-8")
+                return
+            length = int(self.headers.get("Content-Length", "0") or "0")
+            raw = self.rfile.read(length) if length else b"{}"
+            try:
+                body = json.loads(raw.decode("utf-8") or "{}")
+                sid = body["sid"]
+            except (KeyError, ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                self._send(400, f"{exc}\n", "text/plain; charset=utf-8")
+                return
+            now = time.time()
+            with STATE_LOCK:
+                state = load_state(gate.state_path)
+                link = link_for(state, sid)
+                if not link:
+                    self._send(404, "unknown link\n", "text/plain; charset=utf-8")
+                    return
+                link["revoked"] = True
+                occupancy = state["occupancy"]
+                box = link.get("box")
+                occupant = occupancy.get(box) if box else None
+                if occupant and occupant.get("sid") == sid:
+                    occupancy.pop(box, None)
+                prune_links(state, now)
+                save_state(gate.state_path, state)
+            self._send(200, json.dumps({"ok": True}), "application/json")
 
         def _status(self):
             if not self._is_admin():
@@ -406,17 +584,21 @@ def make_handler(gate: Gate):
             boxes = []
             with STATE_LOCK:
                 state = load_state(gate.state_path)
+                occupancy = state["occupancy"]
                 for name, port in gate.boxes.items():
-                    entry = state.get(name)
+                    entry = occupancy.get(name)
                     if entry:
                         refresh_tcp(entry, port, now)
                     boxes.append({
                         "name": name,
                         "busy": is_busy(entry, port, gate.grace, now),
                         "label": (entry or {}).get("label", ""),
+                        "sid": (entry or {}).get("sid", ""),
                     })
+                prune_links(state, now)
                 save_state(gate.state_path, state)
-            self._send(200, json.dumps({"boxes": boxes}), "application/json")
+                links = list(state["links"])
+            self._send(200, json.dumps({"boxes": boxes, "links": links}), "application/json")
 
         def _claim(self, parsed):
             token = (parse_qs(parsed.query).get("t") or [None])[0]
@@ -436,7 +618,11 @@ def make_handler(gate: Gate):
             port = gate.boxes[box]
             with STATE_LOCK:
                 state = load_state(gate.state_path)
-                occupant = state.get(box)
+                if is_revoked(state, payload["sid"]):
+                    self._send(401, INVITE_ONLY)
+                    return
+                occupancy = state["occupancy"]
+                occupant = occupancy.get(box)
                 if occupant:
                     refresh_tcp(occupant, port, now)
                 if (
@@ -449,7 +635,7 @@ def make_handler(gate: Gate):
                 last_tcp = occupant.get("last_tcp", 0) if occupant else 0
                 if tcp_established(port) > 0:
                     last_tcp = now
-                state[box] = {
+                occupancy[box] = {
                     "sid": payload["sid"],
                     "label": payload.get("label", ""),
                     "exp": payload["exp"],
@@ -481,9 +667,13 @@ def make_handler(gate: Gate):
             port = gate.boxes[box]
             with STATE_LOCK:
                 state = load_state(gate.state_path)
-                occupant = state.get(box)
-                refresh_tcp(occupant, port, now) if occupant else None
-                occupant = state.get(box)
+                if is_revoked(state, payload["sid"]):
+                    self._send(401, INVITE_ONLY)
+                    return
+                occupancy = state["occupancy"]
+                occupant = occupancy.get(box)
+                if occupant:
+                    refresh_tcp(occupant, port, now)
                 if not occupant or occupant.get("sid") != payload["sid"]:
                     if occupant and is_busy(occupant, port, gate.grace, now):
                         self._send(401, BUSY)
@@ -502,8 +692,13 @@ def cmd_selftest() -> int:
     token = sign(mint_payload("demobox1", 60, "t"), key)
     payload = verify(token, key)
     assert payload["box"] == "demobox1"
+    assert parse_duration("7d") == 7 * 86400
+    assert parse_duration("14d") == MAX_TTL
+    assert parse_duration("30d") == MAX_TTL
+    body, mac = token.split(".", 1)
+    forged = f"{body}.{('A' if mac[0] != 'A' else 'B')}{mac[1:]}"
     try:
-        verify(token[:-1] + ("A" if token[-1] != "A" else "B"), key)
+        verify(forged, key)
     except ValueError:
         print("selftest ok")
         return 0
@@ -514,7 +709,7 @@ def cmd_mint(args) -> int:
     key = read_key_file(args.key_file) if args.key_file else load_key(args.key)
     boxes = parse_boxes(args.boxes) if ":" in args.boxes else {b: 0 for b in args.boxes.split(",") if b}
     gate = Gate(key, boxes, args.domain, "/dev/null", 0)
-    url = gate.mint(args.box, parse_duration(args.ttl), args.label)
+    url, _payload = gate.mint(args.box, parse_duration(args.ttl), args.label)
     print(url)
     return 0
 
@@ -544,7 +739,7 @@ def main(argv=None) -> int:
 
     mint_p = sub.add_parser("mint", help="print a magic link")
     mint_p.add_argument("--box", required=True)
-    mint_p.add_argument("--ttl", default="12h")
+    mint_p.add_argument("--ttl", default="7d")
     mint_p.add_argument("--label", default="")
     mint_p.add_argument("--domain", default=os.environ.get("DEMO_DOMAIN", "graphide.net"))
     mint_p.add_argument("--boxes", default=os.environ.get("DEMO_BOXES", "demobox1,demobox2,demobox3"))

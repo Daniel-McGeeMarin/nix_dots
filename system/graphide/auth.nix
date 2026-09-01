@@ -32,6 +32,7 @@ let
     "^/api/demo/release(/.*)?$"
     "^/api/demo/mint(/.*)?$"
     "^/api/demo/status(/.*)?$"
+    "^/api/demo/revoke(/.*)?$"
     "^/demo(/.*)?$"
   ];
 

@@ -551,6 +551,12 @@ in
             header_up X-Forwarded-Proto https
           }
         }
+        handle /api/demo/revoke* {
+          import require_auth
+          reverse_proxy 127.0.0.1:8011 {
+            header_up X-Forwarded-Proto https
+          }
+        }
         handle /demo* {
           import require_auth
           reverse_proxy 127.0.0.1:8011 {
