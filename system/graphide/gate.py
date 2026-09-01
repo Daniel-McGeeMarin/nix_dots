@@ -57,80 +57,133 @@ BUSY = splash(
 )
 
 ADMIN_PAGE = """<!doctype html>
+<html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Demo boxes</title>
+<meta name="theme-color" content="#0a1218">
+<title>Demo boxes · Graphide</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  :root { color-scheme: dark; --bg: #0f0f10; --card: #18181a; --line: #2c2c30; --text: #ececec; --muted: #9a9aa3; --ok: #6dd38b; --warn: #e6b84f; --bad: #ff8a8a; --accent: #e8e8e8; }
-  * { box-sizing: border-box; }
-  body { font: 15px/1.45 system-ui, sans-serif; margin: 0; color: var(--text); background: var(--bg); }
-  main { max-width: 52rem; margin: 0 auto; padding: 2.4rem 1.4rem 4rem; }
-  header { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-bottom: 1.6rem; }
-  h1 { font-size: 1.35rem; font-weight: 600; margin: 0; }
-  h2 { font-size: .78rem; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 2rem 0 .7rem; }
-  .hint { color: var(--muted); margin: 0; font-size: .92rem; }
-  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: .7rem; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: .95rem 1rem; }
-  .card .top { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
-  .card .name { font-weight: 600; }
-  .pill { font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
-  .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); } .muted { color: var(--muted); }
-  .guest { margin: .45rem 0 0; color: var(--muted); font-size: .9rem; min-height: 1.2em; }
-  form.mint { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.05rem 1.1rem; display: grid; grid-template-columns: 1fr 1fr; gap: .75rem 1rem; }
-  label { display: block; font-size: .8rem; color: var(--muted); margin-bottom: .3rem; }
-  input, select, button { font: inherit; }
-  input, select { width: 100%; padding: .5rem .6rem; border: 1px solid var(--line); background: #121214; color: inherit; border-radius: 7px; }
-  .wide { grid-column: 1 / -1; }
-  button.primary { grid-column: 1 / -1; margin-top: .2rem; padding: .6rem 1rem; border: 0; border-radius: 8px; background: var(--accent); color: #111; font-weight: 650; cursor: pointer; }
-  button.primary:disabled { opacity: .5; cursor: default; }
-  button.ghost { padding: .28rem .55rem; border: 1px solid var(--line); background: transparent; color: var(--text); border-radius: 6px; cursor: pointer; font-size: .82rem; }
-  button.ghost:hover { background: #222; }
-  button.danger { color: var(--bad); border-color: #5a3030; }
-  .flash { display: none; margin-top: .9rem; padding: .85rem 1rem; background: var(--card); border: 1px solid var(--line); border-radius: 10px; word-break: break-all; }
-  .flash a { color: #8cb4ff; }
-  .err { color: var(--bad); }
-  .links { display: flex; flex-direction: column; gap: .55rem; }
-  .row { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: .8rem 1rem; display: grid; grid-template-columns: 1fr auto; gap: .5rem 1rem; align-items: center; }
-  .row .meta { color: var(--muted); font-size: .85rem; margin-top: .15rem; }
-  .row .actions { display: flex; gap: .4rem; flex-shrink: 0; }
-  .empty { color: var(--muted); }
-  @media (max-width: 700px) {
-    .cards, form.mint, .row { grid-template-columns: 1fr; }
-    header { flex-direction: column; }
+  :root {
+    color-scheme: dark;
+    --page: #0a1218;
+    --raised: #0f1a22;
+    --overlay: #0d1720;
+    --text: #bcc6cd;
+    --muted: #75838b;
+    --dim: #556067;
+    --hairline: #ffffff14;
+    --verdigris: #4fa396;
+    --verdigris-soft: #79b0a8;
+    --verdigris-on: #04120f;
+    --error: #f85149;
+    --warn: #e3b341;
+    --sans: Inter, ui-sans-serif, system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--page); color: var(--text); }
+  body { font: 15px/1.5 var(--sans); min-height: 100vh; }
+  a { color: var(--verdigris-soft); text-decoration: none; }
+  a:hover { color: #6dbcb0; }
+  .bar {
+    display: flex; align-items: center; justify-content: space-between;
+    max-width: 64rem; margin: 0 auto; padding: 1.15rem 1.5rem;
+    border-bottom: 1px solid #ffffff0a;
+  }
+  .brand { display: flex; align-items: center; gap: .65rem; color: var(--text); font-weight: 500; letter-spacing: -.025em; }
+  .brand svg { width: 1.65rem; height: 1.65rem; }
+  .badge {
+    font: 500 11px/1 var(--mono); letter-spacing: .04em; color: var(--muted);
+    border: 1px solid var(--hairline); border-radius: 999px; padding: .35rem .75rem;
+  }
+  main { max-width: 64rem; margin: 0 auto; padding: 2.4rem 1.5rem 4.5rem; }
+  .intro { margin-bottom: 1.6rem; }
+  h1 { margin: 0 0 .4rem; font-size: 1.7rem; font-weight: 500; letter-spacing: -.03em; color: #e4eaee; }
+  .lede { margin: 0; color: var(--muted); max-width: 36rem; }
+  .tally { font: 400 12px/1 var(--mono); color: var(--dim); letter-spacing: .04em; text-transform: uppercase; margin: 0 0 .85rem; }
+  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: .9rem; }
+  .tile {
+    background: var(--raised); border: 1px solid var(--hairline); border-radius: 1rem;
+    padding: 1.15rem 1.15rem 1.2rem; display: flex; flex-direction: column; min-height: 17.5rem;
+    transition: border-color .2s, background-color .2s, box-shadow .2s;
+  }
+  .tile:hover { background: var(--overlay); border-color: color-mix(in oklab, var(--verdigris) 28%, transparent); }
+  .tile.held { box-shadow: inset 3px 0 0 var(--verdigris); }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: .6rem; }
+  .name { font: 500 13px/1.2 var(--mono); letter-spacing: .01em; color: #e4eaee; }
+  .pill { font: 500 10px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+  .free .pill { color: var(--verdigris-soft); }
+  .held .pill { color: var(--warn); }
+  .who { margin: 1.15rem 0 .35rem; font-size: 1.15rem; font-weight: 500; letter-spacing: -.02em; color: #e4eaee; }
+  .meta { margin: 0; color: var(--muted); font-size: .9rem; }
+  .remain { margin: .2rem 0 0; color: var(--verdigris-soft); font: 400 12px/1.4 var(--mono); }
+  form.mint { margin-top: auto; display: grid; gap: .7rem; padding-top: 1.1rem; }
+  label { display: block; font-size: .72rem; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); margin-bottom: .3rem; }
+  input, select, button { font: inherit; }
+  input, select {
+    width: 100%; padding: .55rem .7rem; border: 1px solid var(--hairline);
+    background: var(--page); color: inherit; border-radius: .5rem;
+  }
+  input:focus, select:focus { outline: none; border-color: color-mix(in oklab, var(--verdigris) 55%, transparent); }
+  input::placeholder { color: var(--dim); }
+  .actions { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: auto; padding-top: 1.2rem; }
+  button { cursor: pointer; }
+  button.primary {
+    width: 100%; padding: .62rem .9rem; border: 0; border-radius: .5rem;
+    background: var(--verdigris); color: var(--verdigris-on); font-weight: 600;
+  }
+  button.primary:hover { background: var(--verdigris-soft); }
+  button.primary:disabled { opacity: .45; cursor: default; }
+  button.ghost, a.ghost {
+    display: inline-flex; align-items: center; padding: .38rem .7rem;
+    border: 1px solid var(--hairline); background: transparent; color: var(--text);
+    border-radius: .45rem; font-size: .82rem;
+  }
+  button.ghost:hover, a.ghost:hover { background: var(--overlay); color: var(--text); }
+  button.danger { color: var(--error); border-color: color-mix(in oklab, var(--error) 35%, transparent); }
+  .flash {
+    margin-top: 1.1rem; padding: 1rem 1.1rem; background: var(--raised);
+    border: 1px solid color-mix(in oklab, var(--verdigris) 35%, transparent);
+    border-radius: 1rem; display: none;
+  }
+  .flash.show { display: block; }
+  .flash .kicker { font: 500 11px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--verdigris-soft); margin: 0 0 .45rem; }
+  .flash a { word-break: break-all; }
+  .err { color: var(--error); }
+  .empty { color: var(--muted); }
+  @media (max-width: 820px) { .tiles { grid-template-columns: 1fr; } .tile { min-height: 0; } }
 </style>
+<header class="bar">
+  <a class="brand" href="https://graphide.net/">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <defs><linearGradient id="m" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#79b0a8"/><stop offset="100%" stop-color="#3f8a7e"/></linearGradient></defs>
+      <g stroke="url(#m)" stroke-width="1.4" stroke-linecap="round">
+        <line x1="9.1" y1="6.5" x2="14.9" y2="6.5"/><line x1="7.58" y1="8.86" x2="10.92" y2="16.14"/>
+        <line x1="16.42" y1="8.86" x2="13.08" y2="16.14"/>
+        <circle cx="6.5" cy="6.5" r="2.6" fill="url(#m)" stroke="none"/>
+        <circle cx="17.5" cy="6.5" r="2.6" fill="url(#m)" stroke="none"/>
+        <circle cx="12" cy="18.5" r="2.6" fill="url(#m)" stroke="none"/>
+      </g>
+    </svg>
+    graphide
+  </a>
+  <span class="badge">Staff</span>
+</header>
 <main>
-  <header>
+  <div class="intro">
     <h1>Demo boxes</h1>
-    <p class="hint">A minted link logs a guest into one box. They never see Authelia.</p>
-  </header>
-  <h2>Now</h2>
-  <div class="cards" id="boxes">Loading…</div>
-  <h2>Mint</h2>
-  <form class="mint" id="f">
-    <div>
-      <label for="box">Box</label>
-      <select id="box" name="box" required></select>
-    </div>
-    <div>
-      <label for="ttl">Expires</label>
-      <select id="ttl" name="ttl">
-        <option value="12h">12 hours</option>
-        <option value="1d">1 day</option>
-        <option value="3d">3 days</option>
-        <option value="7d" selected>1 week</option>
-        <option value="14d">2 weeks</option>
-      </select>
-    </div>
-    <div class="wide">
-      <label for="label">Label</label>
-      <input id="label" name="label" placeholder="press, friend, partner…" autocomplete="off">
-    </div>
-    <button class="primary" type="submit">Mint link</button>
-  </form>
+    <p class="lede">A minted link holds one box until it expires or you revoke it. The guest never sees Authelia.</p>
+  </div>
+  <p class="tally" id="tally"></p>
+  <div class="tiles" id="boxes">Loading…</div>
   <div class="flash" id="out"></div>
 </main>
 <script>
+const TTL = '<option value="12h">12 hours</option><option value="1d">1 day</option><option value="3d">3 days</option><option value="7d" selected>1 week</option><option value="14d">2 weeks</option>';
 function esc(s) {
   return String(s)
     .replace(/&/g, "&amp;")
@@ -143,66 +196,84 @@ function when(ts) {
   if (!ts) return "";
   return new Date(ts * 1000).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
+function left(exp) {
+  const s = Math.max(0, Math.floor(exp - Date.now() / 1000));
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (d >= 2) return d + " days left";
+  if (d === 1) return "1 day " + h + "h left";
+  if (h >= 1) return h + "h " + m + "m left";
+  return m + "m left";
+}
+function card(b) {
+  if (!b.reserved) {
+    return '<article class="tile free"><div class="top"><span class="name">' + esc(b.name) + '</span><span class="pill">Free</span></div>' +
+      '<p class="who">Available</p><p class="meta">No guest link yet.</p>' +
+      '<form class="mint" data-box="' + esc(b.name) + '">' +
+      '<div><label for="l-' + esc(b.name) + '">Who</label><input id="l-' + esc(b.name) + '" name="label" placeholder="press, partner, friend…" autocomplete="off"></div>' +
+      '<div><label for="t-' + esc(b.name) + '">Hold for</label><select id="t-' + esc(b.name) + '" name="ttl">' + TTL + '</select></div>' +
+      '<button class="primary" type="submit">Mint link</button></form></article>';
+  }
+  return '<article class="tile held"><div class="top"><span class="name">' + esc(b.name) + '</span><span class="pill">Reserved</span></div>' +
+    '<p class="who">' + esc(b.label || "untitled") + '</p>' +
+    '<p class="meta">Until ' + when(b.exp) + '</p>' +
+    '<p class="remain">' + left(b.exp) + '</p>' +
+    '<div class="actions">' +
+    '<button class="ghost" data-copy="' + esc(b.url || "") + '">Copy link</button>' +
+    '<a class="ghost" href="' + esc(b.url || "#") + '" target="_blank" rel="noopener">Open</a>' +
+    '<button class="ghost danger" data-revoke="' + esc(b.sid) + '">Revoke</button></div></article>';
+}
+function flash(html, isErr) {
+  const out = document.getElementById("out");
+  out.classList.add("show");
+  out.className = "flash show" + (isErr ? " err" : "");
+  if (typeof html === "string") out.innerHTML = html;
+  else { out.replaceChildren(); out.appendChild(html); }
+}
 async function load() {
   const res = await fetch("/api/demo/status", { credentials: "same-origin" });
-  if (!res.ok) throw new Error("status " + res.status);
+  if (!res.ok) throw new Error("Could not load boxes (" + res.status + ")");
   const data = await res.json();
-  const sel = document.getElementById("box");
-  const prev = sel.value;
-  sel.innerHTML = "";
-  const free = data.boxes.filter(b => !b.reserved);
-  free.forEach(b => {
-    const o = document.createElement("option");
-    o.value = b.name;
-    o.textContent = b.name;
-    sel.appendChild(o);
-  });
-  if (prev && free.some(b => b.name === prev)) sel.value = prev;
-  document.getElementById("f").querySelector("button").disabled = free.length === 0;
-  document.getElementById("boxes").innerHTML = data.boxes.map(b => {
-    if (!b.reserved) {
-      return '<div class="card"><div class="top"><span class="name">' + esc(b.name) + '</span><span class="pill ok">free</span></div><p class="guest">No link issued</p></div>';
-    }
-    return '<div class="card"><div class="top"><span class="name">' + esc(b.name) + '</span><span class="pill warn">reserved</span></div>' +
-      '<p class="guest">' + esc(b.label || "untitled") + " · until " + when(b.exp) + "</p>" +
-      '<div class="actions" style="margin-top:.7rem;display:flex;gap:.4rem">' +
-      '<button class="ghost" data-copy="' + esc(b.url || "") + '">Copy</button>' +
-      '<button class="ghost danger" data-revoke="' + esc(b.sid) + '">Revoke</button></div></div>';
-  }).join("") || '<p class="empty">No boxes configured.</p>';
+  const free = data.boxes.filter(b => !b.reserved).length;
+  document.getElementById("tally").textContent =
+    free + " of " + data.boxes.length + " free";
+  document.getElementById("boxes").innerHTML =
+    data.boxes.map(card).join("") || '<p class="empty">No boxes configured.</p>';
 }
-document.getElementById("f").addEventListener("submit", async (ev) => {
+document.getElementById("boxes").addEventListener("submit", async (ev) => {
+  const form = ev.target.closest("form.mint");
+  if (!form) return;
   ev.preventDefault();
-  const out = document.getElementById("out");
-  const btn = ev.target.querySelector("button");
+  const btn = form.querySelector("button");
   btn.disabled = true;
-  out.style.display = "block";
-  out.textContent = "Minting…";
+  flash('<p class="kicker">Minting</p><p>Holding ' + esc(form.dataset.box) + "…</p>');
   try {
     const res = await fetch("/api/demo/mint", {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        box: document.getElementById("box").value,
-        ttl: document.getElementById("ttl").value,
-        label: document.getElementById("label").value,
+        box: form.dataset.box,
+        ttl: form.ttl.value,
+        label: form.label.value,
       }),
     });
     const text = await res.text();
-    if (!res.ok) throw new Error(text || ("HTTP " + res.status));
+    if (!res.ok) throw new Error(text.trim() || ("HTTP " + res.status));
     const data = JSON.parse(text);
-    out.replaceChildren();
+    const wrap = document.createElement("div");
+    const k = document.createElement("p");
+    k.className = "kicker";
+    k.textContent = "Link copied · " + form.dataset.box;
     const a = document.createElement("a");
     a.href = data.url;
     a.textContent = data.url;
-    out.appendChild(a);
+    wrap.append(k, a);
+    flash(wrap);
     try { await navigator.clipboard.writeText(data.url); } catch (_) {}
   } catch (err) {
-    out.replaceChildren();
-    const span = document.createElement("span");
-    span.className = "err";
-    span.textContent = err.message;
-    out.appendChild(span);
+    flash('<p class="kicker">Could not mint</p><p class="err">' + esc(err.message) + "</p>", true);
   } finally {
     btn.disabled = false;
     load().catch(() => {});
@@ -211,7 +282,11 @@ document.getElementById("f").addEventListener("submit", async (ev) => {
 document.getElementById("boxes").addEventListener("click", async (ev) => {
   const copy = ev.target.closest("[data-copy]");
   if (copy) {
-    try { await navigator.clipboard.writeText(copy.getAttribute("data-copy")); copy.textContent = "Copied"; } catch (_) {}
+    try {
+      await navigator.clipboard.writeText(copy.getAttribute("data-copy"));
+      copy.textContent = "Copied";
+      setTimeout(() => { copy.textContent = "Copy link"; }, 1400);
+    } catch (_) {}
     return;
   }
   const rev = ev.target.closest("[data-revoke]");
@@ -223,7 +298,7 @@ document.getElementById("boxes").addEventListener("click", async (ev) => {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ sid: rev.getAttribute("data-revoke") }),
   });
-  if (!res.ok) alert(await res.text());
+  if (!res.ok) flash('<p class="err">' + esc(await res.text()) + "</p>", true);
   load().catch(() => {});
 });
 load().catch(err => {
@@ -552,6 +627,7 @@ def make_handler(gate: Gate):
                             "label": res.get("label", ""),
                             "sid": res.get("sid", ""),
                             "exp": res.get("exp", 0),
+                            "minted_at": res.get("minted_at", 0),
                             "url": res.get("url", ""),
                         })
                     else:
