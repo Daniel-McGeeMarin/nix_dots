@@ -151,16 +151,9 @@ in
         }
       '';
 
-    systemd.timers.podman-auto-update = {
-      wantedBy = [ "timers.target" ];
-      timerConfig = {
-        OnCalendar = "*:0/5";
-        Persistent  = true;
-      };
-    };
-
-    systemd.services.podman-auto-update = {
-      serviceConfig.ExecStart = lib.mkForce "${pkgs.podman}/bin/podman auto-update";
-    };
+    # The podman-auto-update timer used to live here. It is a host-level
+    # concern, not part of the personal site, and every other service on the box
+    # depended on it -- so it moved to system/podman.nix, where turning this
+    # module off cannot stop the rest of the machine from updating.
   };
 }

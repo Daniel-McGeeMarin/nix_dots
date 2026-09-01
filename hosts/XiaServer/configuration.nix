@@ -9,6 +9,12 @@ in
 {
   imports = [
     ../../system
+    # No ../../system/head: that omission is what makes this box headless.
+    # system/headless is its counterpart -- sshd, the trusted tailnet interface
+    # and the never-sleep targets. It is imported separately from serv/ on
+    # purpose: those things must survive `serv.enable = false`.
+    ../../system/headless
+    ../../system/podman.nix
     ../../system/serv
     inputs.agenix.nixosModules.default
     ./hardware-configuration.nix
@@ -45,15 +51,14 @@ in
   # because none of it is in the module set. The serv.* options below are the
   # whole machine now.
 
+  # One switch for the whole mcgeedan.com estate: blogs, dashboard, forge,
+  # cloud, office, the personal site and the finance app. Each still has its own
+  # option if one needs turning off individually.
   serv.enable = true;
-  serv.network.enable = true;
-  serv.auth.enable = true;
-  serv.dashboard.enable = true;
-  serv.blogs.enable = true;
-  serv.ocis.enable = true;
-  serv.onlyoffice.enable = true;
-  serv.apps.site.enable = true;
-  serv.forgejo.enable = true;
+
+  # The Graphide stack. Still under serv.* until it moves to its own tree, and
+  # deliberately not covered by serv.enable above -- these must stay up when the
+  # estate goes down.
   serv.graphide.enable = true;
   serv.graphide-web.enable = true;
 
@@ -149,14 +154,6 @@ in
     # prompts in the SSH terminal instead.
     gnupg.agent.pinentryPackage = lib.mkForce pkgs.pinentry-curses;
   };
-
-  virtualisation.podman = {
-    enable = true;
-    dockerCompat = true;
-    defaultNetwork.settings.dns_enabled = true;
-  };
-
-  virtualisation.oci-containers.backend = "podman";
 
   # No font packages: nothing on this host renders text. The containers that do
   # (OnlyOffice, the demo pods' browser server) carry their own fonts in-image.
