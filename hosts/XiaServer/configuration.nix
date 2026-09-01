@@ -52,10 +52,23 @@ in
   # because none of it is in the module set. The serv.* options below are the
   # whole machine now.
 
-  # One switch for the whole mcgeedan.com estate: blogs, dashboard, forge,
-  # cloud, office, the personal site and the finance app. Each still has its own
-  # option if one needs turning off individually.
-  serv.enable = true;
+  # The whole mcgeedan.com estate, off in one line: blogs, dashboard, forge,
+  # cloud storage, office, the personal site and the finance app. Their
+  # containers, their Caddy, their tunnel and the OCIS firewall hole all go with
+  # it. Set this back to true to bring the lot back exactly as it was - nothing
+  # about those modules changed, they are simply not enabled.
+  #
+  # This is safe to flip because sshd, the trusted tailnet interface and podman
+  # no longer live under it; see system/headless and system/podman.nix.
+  serv.enable = false;
+
+  # The one exception, and the last thread tying the two stacks together.
+  # Graphide's admin pages and demo pods authenticate against the Authelia
+  # instance declared in system/serv/auth.nix, so it stays up on its own.
+  # Authelia binds 0.0.0.0:9091 and Graphide's own Caddy proxies
+  # auth.graphide.net to it, so none of the rest of the estate is needed for
+  # this to work. See the header of system/graphide/auth.nix.
+  serv.auth.enable = true;
 
   # The Graphide stack: API, marketing site and demo boxes. Its own tree, its
   # own tunnel, its own Caddy, its own switch. Deliberately not covered by
