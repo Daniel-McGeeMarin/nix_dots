@@ -26,8 +26,9 @@
 #   - The NixOS firewall already drops podman -> host (see ocis.nix, which has
 #     to explicitly re-open 443 for exactly this reason), so authelia on
 #     0.0.0.0:9091 and ocis on 0.0.0.0:9200 are not reachable from a pod.
-#   - Published on 127.0.0.1 only, so Caddy is the sole ingress and Authelia
-#     is unavoidable.
+#   - Published on 127.0.0.1 only, so Caddy is the sole ingress and the
+#     magic-link gate in gate.nix is unavoidable. A request without a valid
+#     cookie never reaches the pod.
 #   - cap-drop=ALL, no-new-privileges, and cpu/memory/pid ceilings so a
 #     runaway agent cannot take the box down.
 #
@@ -41,8 +42,9 @@
 #      ANTHROPIC_API_KEY=sk-ant-...      # or OPENROUTER_API_KEY
 # 2. One Cloudflare Tunnel route: *.graphide.net -> this host. That single
 #    wildcard covers every session plus auth.graphide.net.
-# 3. Add guests to /srv/data/authelia/users.yml.
-# 4. graphide.demo.enable = true; and list the sessions.
+# 3. secrets/graphide/gate-key.age (see gate.nix). Without it the boxes 401.
+# 4. graphide.demo.enable = true; list the sessions; mint a link:
+#      graphide-demo-mint --box demobox1 --ttl 12h --label "press"
 
 { config, lib, pkgs, ... }:
 
@@ -122,36 +124,38 @@ let
     };
   };
 
-  # Authelia gates the whole vhost. The pod itself runs without a connection
-  # token because it is unreachable except through this proxy.
+  # The pod itself has no auth; Caddy plus graphide-gate are the whole
+  # perimeter. handle blocks so /__claim is reachable without a cookie (that
+  # is how the cookie gets set) and everything else is fail-closed.
   #
-  # Two gates in series, because they answer different questions. Authelia
-  # proves WHO you are; it has no opinion on how many people are already on a
-  # box. The second forward_auth, to website-api's /api/demo/gate, enforces
-  # that only one of you is on a given box at a time — which is a correctness
-  # requirement, not a nicety: a pod is single-workspace and grug's HTTP
-  # surface has no auth at all, so two guests on one pod share the same graph,
-  # the same files, the same agent session and the same shell (see the module
-  # header). The gate identifies the caller from the Remote-User header that
-  # require_auth's `copy_headers` has already added to the request by the time
-  # the second forward_auth runs, which is why the order of these two lines is
-  # not interchangeable.
-  #
-  # New dependency, worth stating plainly: the demo pods now depend on
-  # website-api being up. forward_auth treats an unreachable upstream as a
-  # failure, so if podman-website-api is down every demo box answers 502 even
-  # though the pods themselves are fine. Check `systemctl status
-  # podman-website-api` before debugging a pod that will not load.
-  vhostFor = s: lib.nameValuePair "http://${s.name}.${cfg.domain}" {
-    extraConfig = ''
-      import require_auth
-      forward_auth 127.0.0.1:8010 {
-        uri /api/demo/gate?box=${s.name}
+  # If the gate key is missing, do not proxy. A 401 here is the safe default
+  # — the previous occupancy-only forward_auth to website-api would wave an
+  # empty box through, which is how the URL alone became a shell.
+  gate = config.graphide.gate;
+  lockedDown = ''
+    header X-Robots-Tag "noindex, nofollow"
+    respond 401 {
+      body "This demo is invite-only."
+      close
+    }
+  '';
+  gatedVhost = s: ''
+    header X-Robots-Tag "noindex, nofollow"
+    handle /__claim {
+      reverse_proxy 127.0.0.1:${toString gate.port}
+    }
+    handle {
+      forward_auth 127.0.0.1:${toString gate.port} {
+        uri /api/demo/authz
+        header_up X-Forwarded-Proto https
       }
       reverse_proxy 127.0.0.1:${toString s.port} {
         header_up X-Forwarded-Proto https
       }
-    '';
+    }
+  '';
+  vhostFor = s: lib.nameValuePair "http://${s.name}.${cfg.domain}" {
+    extraConfig = if gate.hasKey then gatedVhost s else lockedDown;
   };
 in
 {
@@ -205,17 +209,6 @@ in
         Copy it in with rsync and exclude the heavy build artefacts:
           rsync -a --delete --exclude node_modules --exclude .next \
             ~/project/ root@host:/srv/graphide/demo/seed/
-      '';
-    };
-
-    allowedGroups = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      default = [ "demo" "admins" ];
-      description = ''
-        Authelia groups admitted to the pods. Load-bearing: an access_control
-        rule with no subject admits every authenticated user, so without this
-        a guest account created for a demo would also reach everything else
-        behind this SSO. Listed groups are OR'd.
       '';
     };
 
@@ -889,9 +882,8 @@ in
     virtualisation.oci-containers.containers =
       builtins.listToAttrs (map containerFor sessionList);
 
-    # One vhost per pod, onto Graphide's own Caddy. The login portal and every
-    # Authelia rule that mentions these boxes now live in ./auth.nix, which is
-    # the single file that knows Authelia exists.
+    # One vhost per pod, onto Graphide's own Caddy. Auth is graphide-gate,
+    # not Authelia; Authelia stays on the admin pages in ./auth.nix.
     graphide.network.virtualHosts =
       builtins.listToAttrs (map vhostFor sessionList);
 

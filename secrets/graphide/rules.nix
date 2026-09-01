@@ -43,4 +43,8 @@ in
   # NOT YET CREATED. This entry has to exist before the file can be, since
   # agenix takes its recipients from here and refuses a path it has no rule for.
   "secrets/graphide/web-env.age".publicKeys = all;
+
+  # HMAC key for demo magic links. One line: DEMO_GATE_KEY=<64 hex chars>.
+  # See system/graphide/gate.nix. Without this file the boxes 401.
+  "secrets/graphide/gate-key.age".publicKeys = all;
 }

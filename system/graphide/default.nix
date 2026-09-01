@@ -3,9 +3,9 @@
 #
 # Deliberately a sibling of system/serv rather than a subdirectory of it. The
 # two share a machine and nothing else -- different domain, different Cloudflare
-# account, different tunnel, its own Caddy, and (once the demo gate lands) its
-# own auth. The intent is that moving this stack to a machine of its own is
-# copying this directory, secrets/graphide/, and one ZFS dataset.
+# account, different tunnel, its own Caddy, and its own demo-box auth. The
+# intent is that moving this stack to a machine of its own is copying this
+# directory, secrets/graphide/, and one ZFS dataset.
 #
 # `graphide.enable` is the master switch. Each service keeps its own option so
 # one can be turned off individually, but the default follows the master.
@@ -20,6 +20,7 @@
     ./api.nix
     ./web.nix
     ./demo.nix
+    ./gate.nix
   ];
 
   options.graphide = {
@@ -55,5 +56,7 @@
     graphide.api.enable      = lib.mkDefault true;
     graphide.web.enable      = lib.mkDefault true;
     graphide.demo.enable     = lib.mkDefault true;
+    # Follows the demo boxes, not the master: no pods means no gate.
+    graphide.gate.enable     = lib.mkDefault config.graphide.demo.enable;
   };
 }

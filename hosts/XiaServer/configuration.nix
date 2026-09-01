@@ -63,11 +63,11 @@ in
   serv.enable = false;
 
   # The one exception, and the last thread tying the two stacks together.
-  # Graphide's admin pages and demo pods authenticate against the Authelia
-  # instance declared in system/serv/auth.nix, so it stays up on its own.
+  # Graphide's admin pages authenticate against the Authelia instance declared
+  # in system/serv/auth.nix, so it stays up on its own. Demo boxes do not use
+  # it — they are behind the magic-link gate in system/graphide/gate.nix.
   # Authelia binds 0.0.0.0:9091 and Graphide's own Caddy proxies
-  # auth.graphide.net to it, so none of the rest of the estate is needed for
-  # this to work. See the header of system/graphide/auth.nix.
+  # auth.graphide.net to it. See the header of system/graphide/auth.nix.
   serv.auth.enable = true;
 
   # The Graphide stack: API, marketing site and demo boxes. Its own tree, its
@@ -94,14 +94,12 @@ in
   graphide.web.autoUpdate = false;
   graphide.web.autoBuild.enable = true;
 
-  # One throwaway browser IDE per name, at <name>.graphide.net behind Authelia.
-  # Each is recycled hourly, which is what expires a guest link: the container
-  # comes back with a fresh database, workspace and token.
+  # One throwaway browser IDE per name, at <name>.graphide.net behind the
+  # magic-link gate. Mint a link on the box with:
+  #   graphide-demo-mint --box demobox1 --ttl 12h --label "press"
   graphide.demo.enable = true;
-  # Lowercase because Authelia lowercases the request host before matching its
-  # access_control rules, so an uppercase domain there matches nothing and
-  # falls through to the default deny. URLs are case-insensitive, so
-  # DemoBox1.graphide.net still reaches demobox1.
+  # Lowercase: the hostname is the Authelia/Caddy/token `box` id. URLs are
+  # case-insensitive, so DemoBox1.graphide.net still reaches demobox1.
   graphide.demo.sessions = [ "demobox1" "demobox2" "demobox3" ];
 
   # Build on this host from the repos rather than pulling a prebuilt image.

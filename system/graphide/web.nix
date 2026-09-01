@@ -1,6 +1,5 @@
 # Graphide marketing site — the static website container on :3003, plus
-# website-api, a small Go service on :8010 that serves /api on both graphide.net
-# and graphide.dev.
+# website-api, a small Go service on :8010 that serves /api on graphide.net.
 #
 # == New system setup checklist ==
 #
@@ -100,13 +99,13 @@
 #
 # == Key design decisions and gotchas ==
 #
-# - website-api runs on host networking, which is load-bearing rather than
-#   incidental — see the comment on the container.
+# - website-api still uses host networking so PORT=8010 binds on the host
+#   without a published-port mapping. Occupancy/auth no longer live there
+#   (see graphide-gate); do not mix that cleanup into an auth change.
 #
-# - The Authelia access_control rules for the apex live here rather than in
-#   auth.nix because this module is what puts `import require_auth` on the
-#   apex. Adding one without the other is a lockout; see the comment on the
-#   rules for the merge-order reasoning.
+# - Authelia access_control for these apexes lives in ./auth.nix, next to the
+#   require_auth snippet. This file only puts `import require_auth` on the
+#   admin paths; adding one without the other is a lockout.
 
 { config, lib, pkgs, ... }:
 let
@@ -122,8 +121,7 @@ let
   # and takes the whole host down with it rather than just this module. The
   # guard turns that into the assertion below, which says what to do. It does
   # not make the module optional: website-api genuinely cannot start without
-  # DATABASE_URL, and the demo pods answer 502 without website-api, so this is a
-  # hard requirement -- it just fails legibly now.
+  # DATABASE_URL. The demo pods no longer depend on it for auth.
   #
   # Same pattern as the finance secrets in system/serv/apps.nix. Note the same
   # footgun applies: a flake only copies git-tracked files into the store, so a
@@ -332,17 +330,11 @@ in
         # Host networking is REQUIRED here, not laziness — do not "fix" this to
         # a published port like the containers above.
         #
-        # The demo gate (/api/demo/gate, wired up in graphide-demo.nix) decides
-        # whether a demo pod already has a live session by counting ESTABLISHED
-        # TCP connections on the pods' host ports (8100-8102) in /proc/net/tcp.
-        # A container in its own network namespace gets its own /proc/net/tcp
-        # showing only its own sockets, so the count would always be zero and
-        # the gate would wave everybody through onto the same box. Only the host
-        # network namespace can see those connections.
-        #
-        # The consequence is that PORT from the env file is what binds :8010 on
-        # the host; there is no `ports` mapping to override it. Keep PORT=8010
-        # and the Caddy upstreams below in agreement.
+        # The demo occupancy check used to live here (/api/demo/gate), reading
+        # /proc/net/tcp in the host namespace so it could see Caddy's connections
+        # to the pods. That moved to graphide-gate. Host networking is kept so
+        # PORT=8010 still binds on the host without a published-port mapping;
+        # the Caddy upstreams below assume that.
         extraOptions = [ "--network=host" ];
         environmentFiles =
           lib.optionals haveWebEnv [ config.age.secrets.website-api-env.path ];
@@ -509,9 +501,6 @@ in
     # the catch-all just silently eats /api and the survey posts 404 against
     # the static site.
     #
-    # graphide.dev is kept identical to graphide.net on purpose. It served the
-    # same container before this change and the two drifting apart is how one
-    # of them ends up with an unprotected results page.
     graphide.network.virtualHosts = let
       # The private admin views: the rendered results page comes from the static
       # site, the data behind it from website-api. Both need the same gate, or
@@ -547,6 +536,15 @@ in
             header_up X-Forwarded-Proto https
           }
         }
+        # Mint a magic link for a demo box. Same Authelia gate as release:
+        # copy_headers blanks client-supplied Remote-* so you cannot forge
+        # group:admins. graphide-gate also checks Remote-Groups itself.
+        handle /api/demo/mint* {
+          import require_auth
+          reverse_proxy 127.0.0.1:8011 {
+            header_up X-Forwarded-Proto https
+          }
+        }
         # Public on purpose — this is where survey and feedback submissions
         # land, from visitors who have no account and never will.
         #
@@ -557,8 +555,8 @@ in
         # no identity at all here, which is what it should see. The routes that
         # legitimately carry these headers are unaffected: /api/feedback/results
         # above gets them from Authelia, and the demo-box gate is called by
-        # forward_auth straight to 127.0.0.1:8010 from the vhosts in
-        # graphide-demo.nix, never through this block.
+        # forward_auth straight to graphide-gate on :8011 from the vhosts in
+        # demo.nix, never through this block.
         handle /api/* {
           reverse_proxy 127.0.0.1:8010 {
             header_up X-Forwarded-Proto https
@@ -575,10 +573,6 @@ in
         }
       '';
     in {
-      "http://graphide.dev".extraConfig = graphideSite;
-      "http://www.graphide.dev".extraConfig = ''
-        redir https://graphide.dev{uri} permanent
-      '';
       "http://graphide.net".extraConfig = graphideSite;
       "http://www.graphide.net".extraConfig = ''
         redir https://graphide.net{uri} permanent
