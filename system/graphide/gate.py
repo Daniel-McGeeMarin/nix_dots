@@ -51,9 +51,9 @@ INVITE_ONLY = splash(
 )
 
 BUSY = splash(
-    "Box busy",
-    "This box is in use",
-    "<p>Someone else is on this demo right now. Ask for a new link when it is free.</p>",
+    "Box reserved",
+    "This box is reserved",
+    "<p>This demo already has a guest link. Ask us for a new one if that reservation should be replaced.</p>",
 )
 
 ADMIN_PAGE = """<!doctype html>
@@ -129,8 +129,6 @@ ADMIN_PAGE = """<!doctype html>
     <button class="primary" type="submit">Mint link</button>
   </form>
   <div class="flash" id="out"></div>
-  <h2>Issued links</h2>
-  <div class="links" id="links"><p class="empty">None yet.</p></div>
 </main>
 <script>
 function esc(s) {
@@ -145,16 +143,6 @@ function when(ts) {
   if (!ts) return "";
   return new Date(ts * 1000).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
-function linkStatus(link, boxes) {
-  if (link.revoked) return "revoked";
-  if (link.exp * 1000 < Date.now()) return "expired";
-  const box = boxes.find(b => b.name === link.box);
-  if (box && box.sid === link.sid && box.busy) return "live";
-  return "open";
-}
-const STATUS_CLASS = { live: "ok", open: "muted", expired: "muted", revoked: "bad" };
-const STATUS_LABEL = { live: "in use", open: "not yet used", expired: "expired", revoked: "revoked" };
-
 async function load() {
   const res = await fetch("/api/demo/status", { credentials: "same-origin" });
   if (!res.ok) throw new Error("status " + res.status);
@@ -162,31 +150,25 @@ async function load() {
   const sel = document.getElementById("box");
   const prev = sel.value;
   sel.innerHTML = "";
-  document.getElementById("boxes").innerHTML = data.boxes.map(b => {
+  const free = data.boxes.filter(b => !b.reserved);
+  free.forEach(b => {
     const o = document.createElement("option");
     o.value = b.name;
     o.textContent = b.name;
     sel.appendChild(o);
-    const guest = b.busy && b.label ? esc(b.label) : (b.busy ? "Someone is on this box" : "Idle");
-    return '<div class="card"><div class="top"><span class="name">' + esc(b.name) + '</span><span class="pill ' + (b.busy ? "warn" : "ok") + '">' + (b.busy ? "in use" : "free") + '</span></div><p class="guest">' + guest + "</p></div>";
+  });
+  if (prev && free.some(b => b.name === prev)) sel.value = prev;
+  document.getElementById("f").querySelector("button").disabled = free.length === 0;
+  document.getElementById("boxes").innerHTML = data.boxes.map(b => {
+    if (!b.reserved) {
+      return '<div class="card"><div class="top"><span class="name">' + esc(b.name) + '</span><span class="pill ok">free</span></div><p class="guest">No link issued</p></div>';
+    }
+    return '<div class="card"><div class="top"><span class="name">' + esc(b.name) + '</span><span class="pill warn">reserved</span></div>' +
+      '<p class="guest">' + esc(b.label || "untitled") + " · until " + when(b.exp) + "</p>" +
+      '<div class="actions" style="margin-top:.7rem;display:flex;gap:.4rem">' +
+      '<button class="ghost" data-copy="' + esc(b.url || "") + '">Copy</button>' +
+      '<button class="ghost danger" data-revoke="' + esc(b.sid) + '">Revoke</button></div></div>';
   }).join("") || '<p class="empty">No boxes configured.</p>';
-  if (prev) sel.value = prev;
-  const links = (data.links || []).slice().sort((a, b) => b.minted_at - a.minted_at);
-  const host = document.getElementById("links");
-  if (!links.length) {
-    host.innerHTML = '<p class="empty">None yet. Mint one above.</p>';
-    return;
-  }
-  host.innerHTML = links.map(link => {
-    const st = linkStatus(link, data.boxes);
-    const actions = st === "revoked" || st === "expired"
-      ? ""
-      : '<button class="ghost" data-copy="' + esc(link.url) + '">Copy</button>' +
-        '<button class="ghost danger" data-revoke="' + esc(link.sid) + '">Revoke</button>';
-    return '<div class="row"><div><strong>' + esc(link.label || "untitled") + '</strong> · ' + esc(link.box) +
-      ' <span class="pill ' + STATUS_CLASS[st] + '">' + STATUS_LABEL[st] + '</span>' +
-      '<div class="meta">Expires ' + when(link.exp) + '</div></div><div class="actions">' + actions + "</div></div>";
-  }).join("");
 }
 document.getElementById("f").addEventListener("submit", async (ev) => {
   ev.preventDefault();
@@ -226,7 +208,7 @@ document.getElementById("f").addEventListener("submit", async (ev) => {
     load().catch(() => {});
   }
 });
-document.getElementById("links").addEventListener("click", async (ev) => {
+document.getElementById("boxes").addEventListener("click", async (ev) => {
   const copy = ev.target.closest("[data-copy]");
   if (copy) {
     try { await navigator.clipboard.writeText(copy.getAttribute("data-copy")); copy.textContent = "Copied"; } catch (_) {}
@@ -234,7 +216,7 @@ document.getElementById("links").addEventListener("click", async (ev) => {
   }
   const rev = ev.target.closest("[data-revoke]");
   if (!rev) return;
-  if (!confirm("Revoke this link? Anyone using it will be locked out.")) return;
+  if (!confirm("Revoke this link? The box becomes free to mint again.")) return;
   const res = await fetch("/api/demo/revoke", {
     method: "POST",
     credentials: "same-origin",
@@ -261,7 +243,6 @@ def b64url_decode(text: str) -> bytes:
 
 
 MAX_TTL = 14 * 86400
-LINK_KEEP = 14 * 86400
 
 
 def parse_duration(text: str) -> int:
@@ -342,33 +323,14 @@ def parse_cookie(header: str) -> str | None:
     return None
 
 
-def parse_boxes(spec: str) -> dict[str, int]:
-    out = {}
+def parse_boxes(spec: str) -> list:
+    names = []
     for item in spec.split(","):
         item = item.strip()
         if not item:
             continue
-        name, _, port = item.partition(":")
-        out[name] = int(port)
-    return out
-
-
-def tcp_established(port: int) -> int:
-    """Count ESTABLISHED sockets bound to 127.0.0.1:port (host namespace)."""
-    needle = f"0100007F:{port:04X}"
-    count = 0
-    try:
-        with open("/proc/net/tcp", encoding="utf-8") as handle:
-            next(handle)
-            for line in handle:
-                fields = line.split()
-                if len(fields) < 4:
-                    continue
-                if fields[1] == needle and fields[3] == "01":
-                    count += 1
-    except OSError:
-        return 0
-    return count
+        names.append(item.split(":", 1)[0])
+    return names
 
 
 def load_state(path: str) -> dict:
@@ -379,36 +341,25 @@ def load_state(path: str) -> dict:
         raw = {}
     if not isinstance(raw, dict):
         raw = {}
-    if "occupancy" in raw or "links" in raw:
-        return {
-            "occupancy": raw.get("occupancy") or {},
-            "links": raw.get("links") or [],
-        }
-    occupancy = {
-        key: value
-        for key, value in raw.items()
-        if isinstance(value, dict) and "sid" in value
-    }
-    return {"occupancy": occupancy, "links": []}
-
-
-def prune_links(state: dict, now: float) -> None:
-    cutoff = now - LINK_KEEP
-    state["links"] = [
-        link for link in state.get("links", []) if int(link.get("exp", 0)) >= cutoff
-    ]
-
-
-def link_for(state: dict, sid: str) -> dict | None:
-    for link in state.get("links", []):
-        if link.get("sid") == sid:
-            return link
-    return None
-
-
-def is_revoked(state: dict, sid: str) -> bool:
-    link = link_for(state, sid)
-    return bool(link and link.get("revoked"))
+    if "reservations" in raw:
+        return {"reservations": raw.get("reservations") or {}}
+    reservations = {}
+    now = time.time()
+    for link in raw.get("links") or []:
+        if link.get("revoked"):
+            continue
+        if int(link.get("exp", 0)) < now:
+            continue
+        box = link.get("box")
+        if box:
+            reservations[box] = {
+                "sid": link.get("sid", ""),
+                "label": link.get("label", ""),
+                "exp": link.get("exp", 0),
+                "minted_at": link.get("minted_at", 0),
+                "url": link.get("url", ""),
+            }
+    return {"reservations": reservations}
 
 
 def save_state(path: str, state: dict) -> None:
@@ -419,27 +370,29 @@ def save_state(path: str, state: dict) -> None:
     os.replace(tmp, path)
 
 
-def is_busy(entry: dict | None, port: int, grace: int, now: float) -> bool:
-    if tcp_established(port) > 0:
-        return True
-    if not entry:
-        return False
-    last = float(entry.get("last_tcp", 0))
-    return last > 0 and (now - last) < grace
+def active_reservation(state: dict, box: str, now: float) -> dict | None:
+    res = (state.get("reservations") or {}).get(box)
+    if not res:
+        return None
+    if int(res.get("exp", 0)) < now:
+        state["reservations"].pop(box, None)
+        return None
+    return res
 
 
-def refresh_tcp(entry: dict, port: int, now: float) -> None:
-    if tcp_established(port) > 0:
-        entry["last_tcp"] = now
+STAFF_GROUPS = {
+    g.strip()
+    for g in os.environ.get("DEMO_STAFF_GROUPS", "admins,demo").split(",")
+    if g.strip()
+}
 
 
 class Gate:
-    def __init__(self, key, boxes, domain, state_path, grace):
+    def __init__(self, key, boxes, domain, state_path):
         self.key = key
-        self.boxes = boxes
+        self.boxes = list(boxes)
         self.domain = domain
         self.state_path = state_path
-        self.grace = grace
 
     def claim_url(self, token: str, box: str) -> str:
         return f"https://{box}.{self.domain}/__claim?t={token}"
@@ -479,10 +432,10 @@ def make_handler(gate: Gate):
             host = forwarded.split(",")[0].strip() or self.headers.get("Host", "")
             return host_box(host, gate.domain)
 
-        def _is_admin(self):
+        def _is_staff(self):
             groups = self.headers.get("Remote-Groups", "")
             members = {g.strip() for g in groups.replace(",", " ").split() if g.strip()}
-            return "admins" in members
+            return bool(members & STAFF_GROUPS)
 
         def do_GET(self):
             parsed = urlparse(self.path)
@@ -496,7 +449,7 @@ def make_handler(gate: Gate):
                 self._authz()
                 return
             if parsed.path in ("/demo", "/demo/"):
-                if not self._is_admin():
+                if not self._is_staff():
                     self._send(403, INVITE_ONLY)
                     return
                 self._send(200, ADMIN_PAGE)
@@ -517,8 +470,8 @@ def make_handler(gate: Gate):
             self._send(404, "not found\n", "text/plain; charset=utf-8")
 
         def _mint(self):
-            if not self._is_admin():
-                self._send(403, "admin only\n", "text/plain; charset=utf-8")
+            if not self._is_staff():
+                self._send(403, "staff only\n", "text/plain; charset=utf-8")
                 return
             length = int(self.headers.get("Content-Length", "0") or "0")
             raw = self.rfile.read(length) if length else b"{}"
@@ -527,29 +480,33 @@ def make_handler(gate: Gate):
                 box = body["box"]
                 ttl = parse_duration(str(body.get("ttl", "7d")))
                 label = str(body.get("label", ""))
-                url, payload = gate.mint(box, ttl, label)
             except (KeyError, ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
                 self._send(400, f"{exc}\n", "text/plain; charset=utf-8")
                 return
             now = time.time()
             with STATE_LOCK:
                 state = load_state(gate.state_path)
-                prune_links(state, now)
-                state["links"].append({
+                if active_reservation(state, box, now):
+                    self._send(409, "box already reserved\n", "text/plain; charset=utf-8")
+                    return
+                try:
+                    url, payload = gate.mint(box, ttl, label)
+                except ValueError as exc:
+                    self._send(400, f"{exc}\n", "text/plain; charset=utf-8")
+                    return
+                state["reservations"][box] = {
                     "sid": payload["sid"],
-                    "box": box,
                     "label": payload.get("label", ""),
                     "exp": payload["exp"],
                     "minted_at": int(now),
-                    "revoked": False,
                     "url": url,
-                })
+                }
                 save_state(gate.state_path, state)
             self._send(200, json.dumps({"url": url, "sid": payload["sid"]}), "application/json")
 
         def _revoke(self):
-            if not self._is_admin():
-                self._send(403, "admin only\n", "text/plain; charset=utf-8")
+            if not self._is_staff():
+                self._send(403, "staff only\n", "text/plain; charset=utf-8")
                 return
             length = int(self.headers.get("Content-Length", "0") or "0")
             raw = self.rfile.read(length) if length else b"{}"
@@ -559,46 +516,49 @@ def make_handler(gate: Gate):
             except (KeyError, ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
                 self._send(400, f"{exc}\n", "text/plain; charset=utf-8")
                 return
-            now = time.time()
             with STATE_LOCK:
                 state = load_state(gate.state_path)
-                link = link_for(state, sid)
-                if not link:
+                found = None
+                for box, res in list(state["reservations"].items()):
+                    if res.get("sid") == sid:
+                        found = box
+                        break
+                if not found:
                     self._send(404, "unknown link\n", "text/plain; charset=utf-8")
                     return
-                link["revoked"] = True
-                occupancy = state["occupancy"]
-                box = link.get("box")
-                occupant = occupancy.get(box) if box else None
-                if occupant and occupant.get("sid") == sid:
-                    occupancy.pop(box, None)
-                prune_links(state, now)
+                state["reservations"].pop(found, None)
                 save_state(gate.state_path, state)
             self._send(200, json.dumps({"ok": True}), "application/json")
 
         def _status(self):
-            if not self._is_admin():
-                self._send(403, "admin only\n", "text/plain; charset=utf-8")
+            if not self._is_staff():
+                self._send(403, "staff only\n", "text/plain; charset=utf-8")
                 return
             now = time.time()
             boxes = []
             with STATE_LOCK:
                 state = load_state(gate.state_path)
-                occupancy = state["occupancy"]
-                for name, port in gate.boxes.items():
-                    entry = occupancy.get(name)
-                    if entry:
-                        refresh_tcp(entry, port, now)
-                    boxes.append({
-                        "name": name,
-                        "busy": is_busy(entry, port, gate.grace, now),
-                        "label": (entry or {}).get("label", ""),
-                        "sid": (entry or {}).get("sid", ""),
-                    })
-                prune_links(state, now)
-                save_state(gate.state_path, state)
-                links = list(state["links"])
-            self._send(200, json.dumps({"boxes": boxes, "links": links}), "application/json")
+                dirty = False
+                for name in gate.boxes:
+                    res = (state.get("reservations") or {}).get(name)
+                    if res and int(res.get("exp", 0)) < now:
+                        state["reservations"].pop(name, None)
+                        res = None
+                        dirty = True
+                    if res:
+                        boxes.append({
+                            "name": name,
+                            "reserved": True,
+                            "label": res.get("label", ""),
+                            "sid": res.get("sid", ""),
+                            "exp": res.get("exp", 0),
+                            "url": res.get("url", ""),
+                        })
+                    else:
+                        boxes.append({"name": name, "reserved": False})
+                if dirty:
+                    save_state(gate.state_path, state)
+            self._send(200, json.dumps({"boxes": boxes}), "application/json")
 
         def _claim(self, parsed):
             token = (parse_qs(parsed.query).get("t") or [None])[0]
@@ -615,33 +575,12 @@ def make_handler(gate: Gate):
                 self._send(401, INVITE_ONLY)
                 return
             now = time.time()
-            port = gate.boxes[box]
             with STATE_LOCK:
                 state = load_state(gate.state_path)
-                if is_revoked(state, payload["sid"]):
-                    self._send(401, INVITE_ONLY)
+                res = active_reservation(state, box, now)
+                if not res or res.get("sid") != payload["sid"]:
+                    self._send(401, INVITE_ONLY if not res else BUSY)
                     return
-                occupancy = state["occupancy"]
-                occupant = occupancy.get(box)
-                if occupant:
-                    refresh_tcp(occupant, port, now)
-                if (
-                    occupant
-                    and occupant.get("sid") != payload["sid"]
-                    and is_busy(occupant, port, gate.grace, now)
-                ):
-                    self._send(409, BUSY)
-                    return
-                last_tcp = occupant.get("last_tcp", 0) if occupant else 0
-                if tcp_established(port) > 0:
-                    last_tcp = now
-                occupancy[box] = {
-                    "sid": payload["sid"],
-                    "label": payload.get("label", ""),
-                    "exp": payload["exp"],
-                    "bound_at": now,
-                    "last_tcp": last_tcp,
-                }
                 save_state(gate.state_path, state)
             max_age = max(0, int(payload["exp"] - now))
             cookie = (
@@ -664,23 +603,12 @@ def make_handler(gate: Gate):
                 self._send(401, INVITE_ONLY)
                 return
             now = time.time()
-            port = gate.boxes[box]
             with STATE_LOCK:
                 state = load_state(gate.state_path)
-                if is_revoked(state, payload["sid"]):
-                    self._send(401, INVITE_ONLY)
+                res = active_reservation(state, box, now)
+                if not res or res.get("sid") != payload["sid"]:
+                    self._send(401, INVITE_ONLY if not res else BUSY)
                     return
-                occupancy = state["occupancy"]
-                occupant = occupancy.get(box)
-                if occupant:
-                    refresh_tcp(occupant, port, now)
-                if not occupant or occupant.get("sid") != payload["sid"]:
-                    if occupant and is_busy(occupant, port, gate.grace, now):
-                        self._send(401, BUSY)
-                    else:
-                        self._send(401, INVITE_ONLY)
-                    return
-                refresh_tcp(occupant, port, now)
                 save_state(gate.state_path, state)
             self._send(200, "ok\n", "text/plain; charset=utf-8")
 
@@ -707,8 +635,8 @@ def cmd_selftest() -> int:
 
 def cmd_mint(args) -> int:
     key = read_key_file(args.key_file) if args.key_file else load_key(args.key)
-    boxes = parse_boxes(args.boxes) if ":" in args.boxes else {b: 0 for b in args.boxes.split(",") if b}
-    gate = Gate(key, boxes, args.domain, "/dev/null", 0)
+    boxes = parse_boxes(args.boxes)
+    gate = Gate(key, boxes, args.domain, "/dev/null")
     url, _payload = gate.mint(args.box, parse_duration(args.ttl), args.label)
     print(url)
     return 0
@@ -716,14 +644,13 @@ def cmd_mint(args) -> int:
 
 def cmd_serve(_args) -> int:
     key = load_key(os.environ["DEMO_GATE_KEY"])
-    boxes = parse_boxes(os.environ["DEMO_BOX_PORTS"])
+    boxes = parse_boxes(os.environ.get("DEMO_BOXES", "demobox1,demobox2,demobox3"))
     domain = os.environ.get("DEMO_DOMAIN", "graphide.net")
     state_path = os.environ.get("DEMO_GATE_STATE", "/var/lib/graphide-gate/state.json")
-    grace = int(os.environ.get("DEMO_IDLE_GRACE", "300"))
     listen = os.environ.get("DEMO_GATE_LISTEN", "127.0.0.1:8011")
     host, port_s = listen.rsplit(":", 1)
     os.makedirs(os.path.dirname(state_path), exist_ok=True)
-    gate = Gate(key, boxes, domain, state_path, grace)
+    gate = Gate(key, boxes, domain, state_path)
     server = ThreadingHTTPServer((host, int(port_s)), make_handler(gate))
     sys.stderr.write(f"graphide-gate listening on {listen}\n")
     server.serve_forever()

@@ -23,9 +23,6 @@ let
     flakeIgnore = [ "E501" "W503" ];
   } (builtins.readFile ./gate.py);
 
-  boxPorts = lib.concatMapStringsSep "," (s: "${s.name}:${toString s.port}")
-    (lib.imap0 (i: name: { inherit name; port = demo.basePort + i; }) demo.sessions);
-
   mint = pkgs.writeShellApplication {
     name = "graphide-demo-mint";
     runtimeInputs = [ gateBin ];
@@ -101,10 +98,9 @@ in
         Environment = [
           "DEMO_DOMAIN=${demo.domain}"
           "DEMO_BOXES=${lib.concatStringsSep "," demo.sessions}"
-          "DEMO_BOX_PORTS=${boxPorts}"
           "DEMO_GATE_LISTEN=127.0.0.1:${toString cfg.port}"
           "DEMO_GATE_STATE=${config.graphide.dataDir}/demo/gate/state.json"
-          "DEMO_IDLE_GRACE=300"
+          "DEMO_STAFF_GROUPS=admins,demo"
         ];
         User = "graphide-gate";
         Group = "graphide-gate";

@@ -8,9 +8,10 @@
 #
 # That is deliberate and it is confined to this one file, so the cost of cutting
 # it later is known rather than discovered. The demo boxes no longer live here
-# — they moved to the signed-token gate in ./gate.nix. Authelia is admin-only:
-# one person, at /demo and /feedback/results. Guests never get an Authelia
-# account; they get a magic link.
+# — they moved to the signed-token gate in ./gate.nix. Authelia here is for
+# Graphide staff (admins + the demo/cofounder account), at /demo and
+# /feedback/results. Product guests never get an Authelia account; they get a
+# magic link. The mcgeedan.com estate stays admins-only.
 # ============================================================================
 let
   cfg = config.graphide.auth;
@@ -36,13 +37,22 @@ let
     "^/demo(/.*)?$"
   ];
 
-  apexRules = lib.concatMap (domain: [
-    { inherit domain; resources = adminResources; policy = "one_factor"; subject = [ "group:admins" ]; }
+  staffSubjects = [ "group:admins" "group:demo" ];
+
+  apexRules = lib.concatMap (domain: (
+    map (who: {
+      inherit domain;
+      resources = adminResources;
+      policy = "one_factor";
+      subject = [ who ];
+    }) staffSubjects
+    ++ [
     # Everything else on the marketing site is public: this is where survey and
     # feedback submissions land, from visitors who have no account and never
     # will.
     { inherit domain; policy = "bypass"; }
-  ]) cfg.apexDomains;
+    ]
+  )) cfg.apexDomains;
 in
 {
   options.graphide.auth = {

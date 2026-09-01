@@ -336,6 +336,12 @@ in
         # PORT=8010 still binds on the host without a published-port mapping;
         # the Caddy upstreams below assume that.
         extraOptions = [ "--network=host" ];
+        environment = {
+          # Cofounder is Authelia group `demo`; you are `admins`. website-api
+          # treats either as staff for /feedback/results. The public /api/*
+          # block strips Remote-Groups, so this does not open survey posts.
+          ADMIN_GROUP = "admins,demo";
+        };
         environmentFiles =
           lib.optionals haveWebEnv [ config.age.secrets.website-api-env.path ];
         labels = lib.optionalAttrs cfg.autoUpdate {
@@ -510,6 +516,10 @@ in
           import require_auth
           reverse_proxy 127.0.0.1:8010 {
             header_up X-Forwarded-Proto https
+            # Authelia already decided this caller is Graphide staff (admins or
+            # demo). website-api only knows ADMIN_GROUP=admins, so present them
+            # as that — otherwise the cofounder's demo group 403s the JSON.
+            header_up Remote-Groups admins
           }
         }
         handle /feedback/results* {
@@ -534,6 +544,7 @@ in
           import require_auth
           reverse_proxy 127.0.0.1:8010 {
             header_up X-Forwarded-Proto https
+            header_up Remote-Groups admins
           }
         }
         # Mint a magic link for a demo box. Same Authelia gate as release:
