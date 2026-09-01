@@ -86,7 +86,7 @@
         ];
       };
       homeConfigurations.XiaNix = home-manager.lib.homeManagerConfiguration {
-        extraSpecialArgs = { inherit inputs secrets; };
+        extraSpecialArgs = { inherit inputs secrets; flakeAttr = "XiaNix"; };
         inherit pkgs;
         modules = [
           ({ config, pkgs, ... }: {
@@ -105,7 +105,7 @@
         ];
       };
       homeConfigurations.XiaServer = home-manager.lib.homeManagerConfiguration {
-        extraSpecialArgs = { inherit inputs secrets; };
+        extraSpecialArgs = { inherit inputs secrets; flakeAttr = "XiaServer"; };
         inherit pkgs;
         modules = [
           ({ config, pkgs, ... }: {

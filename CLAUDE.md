@@ -105,6 +105,7 @@ import, not by an option — see "Composition" above.
 | `programming.R.enable` | same | R (~1 GB; default off) |
 | `ai.enable` | `home/term/modules/ai.nix` | aichat + the aiclip script |
 | `ai.claudeCode.enable` | same | claude-code CLI |
+| `ai.cursorCli.enable` | same | Cursor CLI (`cursor-agent`) |
 | `ai.codex.enable` | same | OpenAI Codex CLI |
 | `ai.privatellm.enable` | `home/term/modules/privatellm.nix` | local llama.cpp chatbot (GPU) |
 | `programs.claudeAgents.enable` | `home/desktop/env/claude-agents.nix` | Claude Code agent-state hooks + hotkeys |

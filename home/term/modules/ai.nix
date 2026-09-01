@@ -5,12 +5,16 @@
       enable = lib.mkEnableOption "Enable AI";
       localrun.enable = lib.mkEnableOption "Enable local AI";
       claudeCode.enable = lib.mkEnableOption "Enable Claude Code CLI";
+      cursorCli.enable = lib.mkEnableOption "Enable Cursor CLI";
       codex.enable = lib.mkEnableOption "Enable OpenAI Codex CLI";
     };
   };
   config = lib.mkMerge [
     (lib.mkIf config.ai.claudeCode.enable {
       home.packages = [ pkgs.unstable.unfree.claude-code ];
+    })
+    (lib.mkIf config.ai.cursorCli.enable {
+      home.packages = [ pkgs.unstable.unfree.cursor-cli ];
     })
     (lib.mkIf config.ai.codex.enable {
       home.packages = [ pkgs.codex ];
