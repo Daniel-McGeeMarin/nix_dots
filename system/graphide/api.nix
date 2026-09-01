@@ -63,6 +63,9 @@
 #   podman ps                                   # running containers
 
 { config, lib, pkgs, ... }:
+let
+  dataDir = config.graphide.dataDir;
+in
 {
   options.graphide.api.enable = lib.mkEnableOption "Graphide API server";
 
@@ -76,15 +79,15 @@
 
     systemd.tmpfiles.rules = [
       # UID 70 = postgres user in postgres:17-alpine; must own the data dir.
-      "d /srv/data/graphide-pg    0700 70   70"
-      "d /srv/data/graphide-redis 0700 root root"
+      "d ${dataDir}/pg    0700 70   70"
+      "d ${dataDir}/redis 0700 root root"
     ];
 
     # Ensure ownership is correct even when the directory already exists
     # (tmpfiles `d` only sets ownership on creation, not on existing dirs).
     systemd.services."podman-graphide-postgres" = {
       serviceConfig.ExecStartPre = [
-        "${pkgs.coreutils}/bin/chown -R 70:70 /srv/data/graphide-pg"
+        "${pkgs.coreutils}/bin/chown -R 70:70 ${dataDir}/pg"
       ];
     };
 
@@ -98,7 +101,7 @@
       graphide-postgres = {
         image        = "docker.io/library/postgres:17-alpine";
         extraOptions = [ "--network=host" ];
-        volumes      = [ "/srv/data/graphide-pg:/var/lib/postgresql/data" ];
+        volumes      = [ "${dataDir}/pg:/var/lib/postgresql/data" ];
         # graphide-api-env supplies POSTGRES_USER, POSTGRES_DB, POSTGRES_PASSWORD.
         environmentFiles = [ config.age.secrets.graphide-api-env.path ];
         # Restrict to loopback only — not exposed beyond the host.
@@ -109,7 +112,7 @@
       graphide-redis = {
         image        = "docker.io/library/redis:7-alpine";
         extraOptions = [ "--network=host" ];
-        volumes      = [ "/srv/data/graphide-redis:/data" ];
+        volumes      = [ "${dataDir}/redis:/data" ];
         cmd = [ "redis-server" "--appendonly" "yes" "--bind" "127.0.0.1" ];
         labels."io.containers.autoupdate" = "registry";
       };
@@ -158,28 +161,17 @@
       requires = [ "graphide-ghcr-login.service" "graphide-pg-ready.service" ];
     };
 
-    # api.graphide.net is the name to use. It costs nothing to add -- the
-    # tunnel already routes *.graphide.net to this box, so no DNS record and no
-    # ingress rule is needed -- and it puts the API on the Graphide apex where
-    # the rest of the stack lives.
-    #
-    # graphideapi.mcgeedan.com is kept because clients still use it, but be
-    # clear about what it now needs: it is a mcgeedan.com hostname, so it
-    # arrives through the mcgeedan TUNNEL, which is declared in
-    # system/serv/network.nix and stops with `serv.enable = false`. Even with
-    # that tunnel up, its ingress rule points at :80 -- the shared Caddy, which
-    # no longer has this vhost. To keep the old name alive, add an ingress rule
-    # for it pointing at 127.0.0.1:${toString config.graphide.network.port}.
-    # Otherwise migrate clients to api.graphide.net and delete this entry.
-    graphide.network.virtualHosts = let
-      apiProxy = ''
-        reverse_proxy 127.0.0.1:8080 {
-          header_up X-Forwarded-Proto https
-        }
-      '';
-    in {
-      "http://api.graphide.net".extraConfig = apiProxy;
-      "http://graphideapi.mcgeedan.com".extraConfig = apiProxy;
-    };
+    # api.graphide.net only. The API used to be published at
+    # graphideapi.mcgeedan.com, which was a mcgeedan hostname arriving through
+    # the mcgeedan tunnel -- so it stopped working the moment the estate was
+    # switched off, and keeping it would have meant a second tunnel ingress
+    # rule pointing back at this Caddy for no benefit. The apex here is already
+    # covered by the *.graphide.net wildcard, so this needs no DNS record and no
+    # ingress rule of its own.
+    graphide.network.virtualHosts."http://api.graphide.net".extraConfig = ''
+      reverse_proxy 127.0.0.1:8080 {
+        header_up X-Forwarded-Proto https
+      }
+    '';
   };
 }

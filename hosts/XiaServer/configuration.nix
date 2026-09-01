@@ -75,6 +75,12 @@ in
   # serv.enable above -- this must stay up when the estate goes down.
   graphide.enable = true;
 
+  # The API server is not ready to deploy, so it stays off: no postgres, no
+  # redis, no monolith-api container, and no api.graphide.net route. Nothing
+  # else needs it -- each demo pod runs its own postgres, redis and API inside
+  # the container, and website-api talks to Supabase.
+  graphide.api.enable = false;
+
   # Build the website here too, for the reason the demo pods already do it
   # below. The GHCR path failed in the way that comment predicted: Actions
   # minutes ran out, CI stopped publishing, and the box sat on `manifest
@@ -127,7 +133,7 @@ in
   # a workspace is what the next one opens.
   graphide.demo.persist = true;
   graphide.demo.recycle.enable = false;
-  graphide.demo.seedDir = "/srv/data/graphide-demo/seed";
+  graphide.demo.seedDir = "/srv/graphide/demo/seed";
   services.openssh.settings.PasswordAuthentication = false;
 
   # NVIDIA 1080 Ti — standalone GPU, no PRIME. The card is physically in the

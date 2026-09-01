@@ -218,7 +218,7 @@ in
 
       srcDir = lib.mkOption {
         type = lib.types.path;
-        default = "/srv/data/website/src";
+        default = "${config.graphide.dataDir}/website/src";
       };
     };
   };
@@ -250,13 +250,21 @@ in
         '';
       }
       {
-        assertion = config.graphide.registry.enable;
+        # Only when the images actually come from the registry. Under autoBuild
+        # they are localhost/ tags built on this box, the ghcr-login ordering
+        # below is dropped, and nothing here contacts a registry at all -- which
+        # is the coupling autoBuild exists to remove, so requiring the login
+        # would put it straight back.
+        assertion = cfg.autoBuild.enable || config.graphide.registry.enable;
         message = ''
-          graphide.web requires graphide.registry.enable — both images are in
-          the private GHCR registry and graphide-ghcr-login.service, which the
-          containers here order themselves behind, is defined in registry.nix.
-          Without it the `requires` below points at a unit that does not exist
-          and both containers fail to start.
+          graphide.web pulls its images from the private GHCR registry, so it
+          requires graphide.registry.enable — graphide-ghcr-login.service, which
+          the containers here order themselves behind, is defined in
+          registry.nix. Without it the `requires` below points at a unit that
+          does not exist and both containers fail to start.
+
+          Alternatively set graphide.web.autoBuild.enable and point image/
+          apiImage at localhost/ tags, which needs no registry.
         '';
       }
       {

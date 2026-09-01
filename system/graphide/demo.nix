@@ -188,14 +188,14 @@ in
 
     stateDir = lib.mkOption {
       type = lib.types.str;
-      default = "/srv/data/graphide-demo/sessions";
+      default = "${config.graphide.dataDir}/demo/sessions";
       description = "Parent of the per-session state directories.";
     };
 
     seedDir = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       default = null;
-      example = "/srv/data/graphide-demo/seed";
+      example = "/srv/graphide/demo/seed";
       description = ''
         A project to open instead of an empty workspace, bind-mounted
         read-only and copied in on first boot. Host-side rather than baked
@@ -204,7 +204,7 @@ in
 
         Copy it in with rsync and exclude the heavy build artefacts:
           rsync -a --delete --exclude node_modules --exclude .next \
-            ~/project/ root@host:/srv/data/graphide-demo/seed/
+            ~/project/ root@host:/srv/graphide/demo/seed/
       '';
     };
 
@@ -419,7 +419,7 @@ in
 
       srcDir = lib.mkOption {
         type = lib.types.path;
-        default = "/srv/data/graphide-demo/src";
+        default = "${config.graphide.dataDir}/demo/src";
       };
     };
 

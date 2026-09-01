@@ -22,9 +22,33 @@
     ./demo.nix
   ];
 
-  options.graphide.enable = lib.mkEnableOption "the whole Graphide stack";
+  options.graphide = {
+    enable = lib.mkEnableOption "the whole Graphide stack";
+
+    dataDir = lib.mkOption {
+      type = lib.types.str;
+      default = "/srv/graphide";
+      description = ''
+        Everything this stack persists lives under here, and every path in the
+        tree is derived from it. One root rather than directories scattered
+        through /srv/data next to the estate's, because the point of the split
+        is that the stack can be lifted onto another machine -- and with its own
+        ZFS dataset mounted here, that is one `zfs send` rather than picking
+        directories out of a shared dataset by hand.
+
+        Changing this does NOT move any data. The contents have to be copied
+        across first, with ownership preserved: postgres runs as uid 70 and the
+        demo pods as uid 1000, and rootful podman means those are host uids.
+      '';
+    };
+  };
 
   config = lib.mkIf config.graphide.enable {
+    # The root itself. Each module creates its own subdirectories with the
+    # ownership its container needs; this just guarantees the parent exists
+    # whether or not it is a ZFS mountpoint yet.
+    systemd.tmpfiles.rules = [ "d ${config.graphide.dataDir} 0755 root root -" ];
+
     graphide.network.enable  = lib.mkDefault true;
     graphide.registry.enable = lib.mkDefault true;
     graphide.auth.enable     = lib.mkDefault true;
