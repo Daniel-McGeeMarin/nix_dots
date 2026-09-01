@@ -28,13 +28,21 @@ Use `nom` (`nix-output-monitor`) as a drop-in prefix for verbose, readable build
 ### Directory layout
 
 ```
-hosts/          per-host configuration (XiaNix, XiaServer)
-system/         NixOS modules shared by every host
-system/head/    NixOS modules for a machine with a screen   -- XiaNix only
-system/serv/    NixOS modules for the server                -- XiaServer only
-home/term/      Home Manager: shell, editor, dev tooling    -- every host
-home/desktop/   Home Manager: compositor, GUI apps, theming -- XiaNix only
-flake.nix       inputs + host outputs
+hosts/            per-host configuration (XiaNix, XiaServer)
+flake.nix         inputs + host outputs
+
+system/           NixOS modules shared by every host
+system/podman.nix rootful podman + the auto-update timer      -- XiaServer
+system/head/      a machine with a screen                     -- XiaNix
+system/headless/  no screen, must stay up (sshd, tailnet)     -- XiaServer
+system/serv/      the mcgeedan.com estate                     -- XiaServer
+system/graphide/  the Graphide stack (own tunnel + Caddy)     -- XiaServer
+
+home/term/        shell, editor, dev tooling                  -- every host
+home/desktop/     compositor, GUI apps, theming               -- XiaNix
+
+secrets/core/     estate secrets + their agenix rules
+secrets/graphide/ Graphide secrets + their agenix rules
 ```
 
 ### Composition: importing a tree IS the switch
@@ -88,6 +96,8 @@ import, not by an option — see "Composition" above.
 | `head.gaming` | `system/head/default.nix` | gamemode, gamescope, uinput |
 | `serv.enable` | `system/serv/default.nix` | sshd, trusted tailscale0, never sleep |
 | `serv.<service>.enable` | one per file in `system/serv/` | that service's container, Caddy vhost, auth rules, data dirs, timers |
+| `graphide.enable` | `system/graphide/default.nix` | master switch for the Graphide stack: API, marketing site, demo boxes |
+| `graphide.<part>.enable` | `network`/`registry`/`auth`/`api`/`web`/`demo` | one part of that stack; each defaults to the master |
 | `desktop.gaming.enable` | `home/desktop/modules/gaming.nix` | Flatpak Steam, r2modman, steam-run |
 | `desktop.workmic.enable` | `home/desktop/modules/workmic/` | push-to-talk mic gating (SUPER+SPACE) |
 | `media.enable` | `home/term/default.nix` | ffmpeg-full, imagemagick, yt-dlp, mpc (default: true) |
@@ -110,7 +120,11 @@ Only give a package its own file under `apps/`, `modules/`, or similar when it n
 
 ### Secrets
 
-`secrets.nix` is git-ignored, injected as a flake input, and available in every module as `secrets`. Expected shape:
+Two different things are called "secrets" here and they are easy to confuse.
+
+**`~/nixos/local.nix` — git-ignored, plaintext.** Read by `flake.nix` through
+`builtins.getEnv "HOME"` and passed to every module as `secrets`. This is why every
+rebuild needs `--impure` and `HOME=$HOME`. Used by desktop modules only. Shape:
 
 ```nix
 {
@@ -119,7 +133,28 @@ Only give a package its own file under `apps/`, `modules/`, or similar when it n
 }
 ```
 
-Never commit the real file.
+Never commit it.
+
+**`secrets.nix` + `secrets/**.age` — committed, encrypted.** `secrets.nix` is the agenix
+*rules* file: it maps each `.age` path to the SSH keys allowed to decrypt it, and holds no
+secret values. The rules live next to the secrets they describe, one file per stack, and
+`secrets.nix` just merges them:
+
+```
+secrets/core/     + rules.nix    the mcgeedan.com estate
+secrets/graphide/ + rules.nix    the Graphide stack — self-contained, moves with system/graphide
+```
+
+Two rules that bite:
+- A path must be listed in a `rules.nix` **before** `agenix -e` will create it.
+- A flake only copies **git-tracked** files into the store, so a freshly created `.age` file
+  is invisible to the build until it is `git add`ed. This is why new secrets appear to not
+  exist even though they are sitting right there.
+
+An unguarded reference to a missing `.age` file fails at *evaluation* with a store path in
+the message, which takes down the whole host build. Guard optional ones with
+`builtins.pathExists` (see `system/serv/apps.nix`), and for required ones pair the guard
+with an assertion that says what to create (see `system/graphide/web.nix`).
 
 ### LG Gram hardware
 
@@ -147,6 +182,30 @@ Everything caelestia lives under `home/desktop/env/caelestia/`:
 
 Hard-won lessons from deploying services. Check these before debugging.
 
+### Two Caddys, two tunnels
+
+The box runs two independent reverse proxies, so a config mistake on one side cannot take
+the other down:
+
+| | mcgeedan.com | graphide.net |
+|---|---|---|
+| Tunnel | `cloudflared` | `cloudflared-graphide` |
+| Caddy | `services.caddy` on `:80` | `caddy-graphide` on `127.0.0.1:8081` |
+| Declared in | `system/serv/network.nix` | `system/graphide/network.nix` |
+| Routes added via | `services.caddy.virtualHosts` | `graphide.network.virtualHosts` |
+
+The Graphide one is a hand-written unit because `services.caddy` is a singleton. Its
+Caddyfile is generated and run through `caddy validate` **at build time**, so a broken route
+fails `nixos-rebuild` rather than leaving a dead unit. Inspect it without deploying:
+
+```bash
+nix build .#nixosConfigurations.XiaServer.config.graphide.network.configFile && cat result
+```
+
+The two tunnels' ingress rules live in the Cloudflare dashboard, not in this repo. The
+Graphide tunnel must point at `:8081`; anything still pointing at `:80` reaches the estate's
+Caddy, which no longer has those vhosts.
+
 ### Caddy on Cloudflare Tunnel
 
 - **Never use `localhost`** in Caddy virtual host configs — Caddy resolves it to `::1` (IPv6) but most services only bind to `127.0.0.1`. Always use `127.0.0.1` explicitly.
@@ -172,8 +231,8 @@ Standard sequence:
 
 ### agenix / secrets
 
-- **Server rebuild command**: `sudo HOME=$HOME nixos-rebuild switch --flake $HOME/nixos#XiaServer --impure` — the `--impure` is required because `secrets.nix` is loaded via `builtins.getEnv "HOME"`.
-- **Encrypt a new secret on the server**: `PUBKEY=$(awk '{print $1" "$2}' /etc/ssh/ssh_host_ed25519_key.pub)` then pipe content to `nix run nixpkgs#age -- -r "$PUBKEY" -o secrets/name.age`.
+- **Server rebuild command**: `sudo HOME=$HOME nixos-rebuild switch --flake $HOME/nixos#XiaServer --impure` — the `--impure` is required because `local.nix` is loaded via `builtins.getEnv "HOME"`.
+- **Encrypt a new secret on the server**: add the path to the right `rules.nix` first, then `PUBKEY=$(awk '{print $1" "$2}' /etc/ssh/ssh_host_ed25519_key.pub)` and pipe content to `nix run nixpkgs#age -- -r "$PUBKEY" -o secrets/<core|graphide>/name.age`. Then `git add` it.
 - **Generating random hex without openssl**: `od -A n -t x1 -N 32 /dev/urandom | tr -d ' \n'` (32 bytes = 64 hex chars).
 
 ---

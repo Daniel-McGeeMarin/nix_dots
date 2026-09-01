@@ -37,7 +37,7 @@
 #
 # == Setup ==
 #
-# 1. secrets/graphide-demo-env.age (agenix -e), one KEY=value per line:
+# 1. secrets/graphide/demo-env.age (agenix -e), one KEY=value per line:
 #      ANTHROPIC_API_KEY=sk-ant-...      # or OPENROUTER_API_KEY
 # 2. One Cloudflare Tunnel route: *.graphide.net -> this host. That single
 #    wildcard covers every session plus auth.graphide.net.
@@ -406,7 +406,7 @@ in
           File holding a GitHub token (fine-grained PAT, read-only, scoped to
           both repos; or a classic PAT with repo scope) able to clone both.
           Defaults to the agenix-managed
-          secrets/graphide-demo-token.age, which this module declares for you
+          secrets/graphide/clone-token.age, which this module declares for you
           when autoBuild is on; set it to another path to supply your own.
 
           A PAT rather than a deploy key: GitHub org policy can (and here
@@ -503,7 +503,7 @@ in
 
     age.secrets = {
       graphide-demo-env = {
-        file = ../../secrets/graphide-demo-env.age;
+        file = ../../secrets/graphide/demo-env.age;
         mode = "0400";
       };
     } // lib.optionalAttrs (cfg.autoBuild.enable && cfg.autoBuild.tokenFile == null) {
@@ -511,7 +511,7 @@ in
       # activation for a secrets file that does not exist, so a host not using
       # autoBuild must not be made to carry one.
       graphide-demo-token = {
-        file = ../../secrets/graphide-demo-token.age;
+        file = ../../secrets/graphide/clone-token.age;
         mode = "0400";
       };
     };

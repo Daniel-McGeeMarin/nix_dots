@@ -4,7 +4,7 @@
 
   config = lib.mkIf config.serv.dashboard.enable {
     age.secrets.homarr-env = {
-      file = ../../secrets/homarr-env.age;
+      file = ../../secrets/core/homarr-env.age;
       mode = "0400";
     };
 

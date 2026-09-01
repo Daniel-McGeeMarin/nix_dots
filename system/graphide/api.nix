@@ -5,7 +5,7 @@
 #
 # 1. Secrets — two age-encrypted files in secrets/:
 #
-#    secrets/graphide-api-env.age  (edit with: agenix -e secrets/graphide-api-env.age)
+#    secrets/graphide/api-env.age  (edit with: agenix -e secrets/graphide/api-env.age)
 #      POSTGRES_USER=graphide
 #      POSTGRES_DB=graphide
 #      POSTGRES_PASSWORD=<strong random>
@@ -18,7 +18,7 @@
 #                                                    # job requests will fail
 #      PORT=8080
 #
-#    secrets/ghcr-token.age  (edit with: agenix -e secrets/ghcr-token.age)
+#    secrets/graphide/ghcr-token.age  (edit with: agenix -e secrets/graphide/ghcr-token.age)
 #      <GitHub PAT with read:packages scope — no newline>
 #
 #    Both must be encrypted to the target host's SSH key (see secrets.nix).
@@ -69,7 +69,7 @@
   config = lib.mkIf config.graphide.api.enable {
     age.secrets = {
       graphide-api-env = {
-        file = ../../secrets/graphide-api-env.age;
+        file = ../../secrets/graphide/api-env.age;
         mode = "0400";
       };
     };

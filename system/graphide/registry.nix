@@ -28,7 +28,7 @@ in
 
   config = lib.mkIf cfg.enable {
     age.secrets.ghcr-token = {
-      file = ../../secrets/ghcr-token.age;
+      file = ../../secrets/graphide/ghcr-token.age;
       mode = "0400";
     };
 

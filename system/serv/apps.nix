@@ -5,8 +5,8 @@ let
   # absent feature, and the host still evaluates. Footgun when creating them — a
   # flake only copies git-tracked files into the store, so a fresh .age file is
   # invisible to pathExists until it has been `git add`ed.
-  ofxEnvFile      = ../../secrets/finance-ofx-env.age;
-  importTokenFile = ../../secrets/finance-import-token.age;
+  ofxEnvFile      = ../../secrets/core/finance-ofx-env.age;
+  importTokenFile = ../../secrets/core/finance-import-token.age;
   haveOfxEnv      = builtins.pathExists ofxEnvFile;
   haveImportToken = builtins.pathExists importTokenFile;
 in

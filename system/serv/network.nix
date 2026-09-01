@@ -4,7 +4,7 @@
 
   config = lib.mkIf config.serv.network.enable {
     age.secrets.cloudflare-tunnel = {
-      file = ../../secrets/cloudflare-tunnel.age;
+      file = ../../secrets/core/cloudflare-tunnel.age;
       owner = "cloudflared";
     };
     users.users.cloudflared = {

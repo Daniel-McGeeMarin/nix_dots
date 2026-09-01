@@ -21,7 +21,7 @@
 #    correct file is that one line. They are documented because overriding them
 #    means keeping them in step with the Caddy upstreams and the demo module.
 #
-#    secrets/website-api-env.age  (edit with: agenix -e secrets/website-api-env.age)
+#    secrets/graphide/web-env.age  (edit with: agenix -e secrets/graphide/web-env.age)
 #      DATABASE_URL=postgres://postgres.<ref>:<password>@<region>.pooler.supabase.com:5432/postgres
 #                                  # Supabase, NOT the local cluster in
 #                                  # graphide.nix. The survey data is the one
@@ -111,6 +111,25 @@
 { config, lib, pkgs, ... }:
 let
   cfg = config.graphide.web;
+
+  # This secret has never existed in this repo, and because it was referenced
+  # unconditionally, `nixos-rebuild` failed at EVALUATION with
+  #
+  #   getting status of '/nix/store/...-source/secrets/graphide/web-env.age':
+  #   No such file or directory
+  #
+  # which names a store path rather than the thing you actually have to create,
+  # and takes the whole host down with it rather than just this module. The
+  # guard turns that into the assertion below, which says what to do. It does
+  # not make the module optional: website-api genuinely cannot start without
+  # DATABASE_URL, and the demo pods answer 502 without website-api, so this is a
+  # hard requirement -- it just fails legibly now.
+  #
+  # Same pattern as the finance secrets in system/serv/apps.nix. Note the same
+  # footgun applies: a flake only copies git-tracked files into the store, so a
+  # freshly created .age file is invisible to pathExists until it is `git add`ed.
+  webEnvFile = ../../secrets/graphide/web-env.age;
+  haveWebEnv = builtins.pathExists webEnvFile;
 in
 {
   options.graphide.web = {
@@ -207,6 +226,30 @@ in
   config = lib.mkIf cfg.enable {
     assertions = [
       {
+        assertion = haveWebEnv;
+        message = ''
+          graphide.web is enabled but secrets/graphide/web-env.age does not
+          exist, so website-api has no DATABASE_URL and cannot start. The demo
+          pods call it for their occupancy gate, so without it every demo box
+          answers 502 as well.
+
+          Create it on the server, from the repository root:
+
+            PUBKEY=$(awk '{print $1" "$2}' /etc/ssh/ssh_host_ed25519_key.pub)
+            printf 'DATABASE_URL=postgres://...\n' \
+              | nix run nixpkgs#age -- -r "$PUBKEY" -o secrets/graphide/web-env.age
+            git add secrets/graphide/web-env.age
+
+          The DATABASE_URL is Supabase's session-pooler URI, NOT the local
+          cluster in api.nix -- see the checklist at the top of this file for
+          that distinction and for the env-file parsing traps. Everything else
+          in the file is optional and already defaults correctly for this host.
+
+          `git add` is not optional: a flake only copies git-tracked files into
+          the store, so an unstaged .age file stays invisible to the build.
+        '';
+      }
+      {
         assertion = config.graphide.registry.enable;
         message = ''
           graphide.web requires graphide.registry.enable — both images are in
@@ -260,9 +303,11 @@ in
 
     # Read by the website-api container. Contents are documented in the
     # checklist at the top of this file.
-    age.secrets.website-api-env = {
-      file = ../../secrets/website-api-env.age;
-      mode = "0400";
+    age.secrets = lib.optionalAttrs haveWebEnv {
+      website-api-env = {
+        file = webEnvFile;
+        mode = "0400";
+      };
     };
 
     virtualisation.oci-containers.containers = {
@@ -291,7 +336,8 @@ in
         # the host; there is no `ports` mapping to override it. Keep PORT=8010
         # and the Caddy upstreams below in agreement.
         extraOptions = [ "--network=host" ];
-        environmentFiles = [ config.age.secrets.website-api-env.path ];
+        environmentFiles =
+          lib.optionals haveWebEnv [ config.age.secrets.website-api-env.path ];
         labels = lib.optionalAttrs cfg.autoUpdate {
           "io.containers.autoupdate" = "registry";
         };

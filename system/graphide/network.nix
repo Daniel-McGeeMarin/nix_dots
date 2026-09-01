@@ -135,7 +135,7 @@ in
     #
     # Secret format is one line: TUNNEL_TOKEN=<token from the Cloudflare dashboard>
     age.secrets.cloudflare-tunnel-graphide = {
-      file = ../../secrets/cloudflare-tunnel-graphide.age;
+      file = ../../secrets/graphide/tunnel.age;
       owner = "cloudflared";
     };
 

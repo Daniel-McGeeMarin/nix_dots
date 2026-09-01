@@ -1,30 +1,9 @@
-let
-  xiaserver     = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINWFmoYiRIbUToYku4tbARtl7W0OLx+lSt2cwV0iSaj1";
-  xiaserverUser = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDbmhHJ1xWI+bq3WB9cdjuingSb/XJnSIvFcXZgPGHhU XiaServer@XiaServer";
-in {
-  "secrets/cloudflare-tunnel.age".publicKeys         = [ xiaserver xiaserverUser ];
-  "secrets/cloudflare-tunnel-graphide.age".publicKeys = [ xiaserver xiaserverUser ];
-  "secrets/authelia-jwt.age".publicKeys        = [ xiaserver xiaserverUser ];
-  "secrets/authelia-session.age".publicKeys    = [ xiaserver xiaserverUser ];
-  "secrets/authelia-storage.age".publicKeys    = [ xiaserver xiaserverUser ];
-  "secrets/homarr-env.age".publicKeys           = [ xiaserver xiaserverUser ];
-  "secrets/ghost-public-env.age".publicKeys     = [ xiaserver xiaserverUser ];
-  "secrets/ghost-private-env.age".publicKeys    = [ xiaserver xiaserverUser ];
-  "secrets/ocis-admin-password.age".publicKeys  = [ xiaserver xiaserverUser ];
-  "secrets/graphide-api-env.age".publicKeys     = [ xiaserver xiaserverUser ];
-  # Existed on disk but was never registered here, so `agenix -e` on it would
-  # have failed with "no rule for this file" and `agenix -r` silently skipped
-  # it on a key rotation. Registered now with the same recipients as the rest.
-  "secrets/graphide-demo-env.age".publicKeys    = [ xiaserver xiaserverUser ];
-  "secrets/graphide-demo-token.age".publicKeys  = [ xiaserver xiaserverUser ];
-  # Read by the website-api container; contents documented in
-  # system/serv/graphide-web.nix. This entry has to exist before the file can
-  # be created, since agenix takes its recipients from here.
-  "secrets/website-api-env.age".publicKeys      = [ xiaserver xiaserverUser ];
-  "secrets/ghcr-token.age".publicKeys           = [ xiaserver xiaserverUser ];
-  # Neither file exists yet, and system/serv/apps.nix stays inert until they do.
-  # These entries have to come first regardless, since agenix takes its recipients
-  # from here and refuses to create a file it has no rule for.
-  "secrets/finance-import-token.age".publicKeys = [ xiaserver xiaserverUser ];
-  "secrets/finance-ofx-env.age".publicKeys      = [ xiaserver xiaserverUser ];
-}
+# agenix rules: which SSH keys may decrypt which .age file.
+#
+# This file holds no secret values. It exists so `agenix -e <path>` knows who to
+# encrypt to, and it must list a path BEFORE that path can be created.
+#
+# The actual rules live next to the secrets they describe, one file per stack,
+# so that secrets/graphide/ is self-contained and can move to another machine
+# with system/graphide/. This file just merges them.
+(import ./secrets/core/rules.nix) // (import ./secrets/graphide/rules.nix)
