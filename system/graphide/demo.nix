@@ -571,6 +571,10 @@ in
           description = "Build the patched Graphide browser server (full VS Code compile)";
           after = [ "network-online.target" ];
           wants = [ "network-online.target" ];
+          # Same as the autobuild: a full VS Code compile must not become
+          # a `nixos-rebuild switch` step just because this unit file moved.
+          restartIfChanged = false;
+          stopIfChanged = false;
           path = with pkgs; [
             bash git podman coreutils gnutar gzip gnugrep gnused findutils
             nodejs_22 python3 gcc gnumake pkg-config
@@ -641,6 +645,12 @@ in
           # it at a registry needs to add that ordering itself.
           after = [ "network-online.target" "graphide-demo-network.service" ];
           wants = [ "network-online.target" ];
+          # Timer-triggered. See the matching flags on website-autobuild:
+          # a unit-file change must not run this 60-minute build inside
+          # switch-to-configuration, and the build holds the podman lock
+          # that every `podman rm -f` in ExecStartPre waits on.
+          restartIfChanged = false;
+          stopIfChanged = false;
           # bash because build-local.sh is a bash script and a systemd unit's
           # PATH contains only what is listed here; gnutar/gzip because podman
           # shells out to them while assembling the build context.
@@ -854,7 +864,7 @@ in
             echo "$current" > "$stamp"
 
             ${lib.concatMapStringsSep "\n" (s:
-              ''${pkgs.systemd}/bin/systemctl restart podman-graphide-demo-${s.name}.service || true''
+              ''${pkgs.systemd}/bin/systemctl restart --no-block podman-graphide-demo-${s.name}.service || true''
             ) sessionList}
             echo "rebuilt and restarted at $current"
           '';
@@ -867,9 +877,11 @@ in
       (lib.mkIf cfg.recycle.enable (builtins.listToAttrs (map (s:
         lib.nameValuePair "graphide-demo-recycle-${s.name}" {
           description = "Recycle the ${s.name} Graphide demo pod";
+          restartIfChanged = false;
+          stopIfChanged = false;
           serviceConfig = {
             Type = "oneshot";
-            ExecStart = "${pkgs.systemd}/bin/systemctl restart podman-graphide-demo-${s.name}.service";
+            ExecStart = "${pkgs.systemd}/bin/systemctl restart --no-block podman-graphide-demo-${s.name}.service";
           };
         }) sessionList)))
     ];

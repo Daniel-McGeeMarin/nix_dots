@@ -51,6 +51,15 @@
   # mkForce because the unit ships with the podman package and its ExecStart
   # points at a podman that is not the one in this closure.
   systemd.services.podman-auto-update = {
-    serviceConfig.ExecStart = lib.mkForce "${pkgs.podman}/bin/podman auto-update";
+    # Same failure mode as the autobuild oneshots: this unit's definition
+    # changing (or the timer catch-up firing) starts a pull of every
+    # registry-tagged container inside the switch, and it holds the podman
+    # lock the whole time. TimeoutStartSec on the stock unit is infinity.
+    restartIfChanged = false;
+    stopIfChanged = false;
+    serviceConfig = {
+      ExecStart = lib.mkForce "${pkgs.podman}/bin/podman auto-update";
+      TimeoutStartSec = "10min";
+    };
   };
 }

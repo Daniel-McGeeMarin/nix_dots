@@ -384,6 +384,15 @@ in
           description = "Rebuild the Graphide website images when the repo changes";
           after = [ "network-online.target" ];
           wants = [ "network-online.target" ];
+          # Timer-triggered. Leave it alone during nixos-rebuild switch:
+          # the defaults would start this oneshot whenever the unit file
+          # changes, and switch-to-configuration then waits for it. The
+          # timeout is 60 minutes and the build holds the podman lock, so
+          # every container start in the same window sits on `podman rm -f`
+          # until this finishes. Persistent = false on the timer is the
+          # other half of the same bug.
+          restartIfChanged = false;
+          stopIfChanged = false;
           # A systemd unit's PATH is only what is listed here. gnutar/gzip
           # because podman shells out to them while assembling the build
           # context; the rest because the script and the Dockerfiles use them.
@@ -462,8 +471,11 @@ in
             # reset-failed first: a unit sitting in failed state from an earlier
             # `manifest unknown` will not come back on a plain restart.
             systemctl reset-failed podman-graphide-web.service podman-website-api.service || true
-            systemctl restart podman-graphide-web.service || true
-            systemctl restart podman-website-api.service || true
+            # --no-block: if a switch is already starting these units,
+            # a blocking restart waits for that job, the switch waits for
+            # this oneshot, and both sit until TimeoutStartSec.
+            systemctl restart --no-block podman-graphide-web.service || true
+            systemctl restart --no-block podman-website-api.service || true
             echo "rebuilt and restarted at $current"
           '';
         };
