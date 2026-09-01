@@ -35,6 +35,10 @@
           path  = "/srv/data/authelia/users.yml";
           watch = true;
         };
+        # Demo guests do not get Authelia accounts. Magic links are the
+        # invite. Leave this off so the portal is not a self-serve signup
+        # via "forgot password".
+        authentication_backend.password_reset.disable = true;
 
         access_control = {
           default_policy = "deny";
@@ -43,9 +47,7 @@
             { domain = "auth.mcgeedan.com"; policy = "bypass"; }
             # Every rule below is scoped to group:admins rather than merely
             # requiring a login. A rule without a subject admits any
-            # authenticated user, so the moment a second account exists — a
-            # guest invited to a demo pod — an unscoped rule hands it the jobs
-            # queue, saved resumes and every subdomain here.
+            # authenticated user.
             #
             # Jobs admin/queue endpoints require login; the browse view is public
             { domain = "mcgeedan.com"; resources = [ "^/api/jobs/queue(/.*)?$" "^/api/jobs/refresh(/.*)?$" "^/api/jobs/enrich(/.*)?$" "^/api/jobs/custom-mapper" ]; policy = "one_factor"; subject = [ "group:admins" ]; }

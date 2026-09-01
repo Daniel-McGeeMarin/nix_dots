@@ -42,6 +42,109 @@ BUSY = """<!doctype html>
 <p>Someone else is on this demo right now. Ask for a new link when it is free.</p>
 """
 
+ADMIN_PAGE = """<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo links</title>
+<style>
+  :root { color-scheme: dark; }
+  body { font: 16px/1.45 system-ui, sans-serif; max-width: 40em; margin: 8vh auto; padding: 0 1.5rem 4rem; color: #e8e8e8; background: #111; }
+  h1 { font-size: 1.4rem; font-weight: 600; }
+  p.hint { color: #9a9a9a; }
+  .box { display: flex; justify-content: space-between; gap: 1rem; padding: .7rem 0; border-bottom: 1px solid #2a2a2a; }
+  .busy { color: #f0b429; }
+  .free { color: #6dd38b; }
+  label { display: block; margin: 1rem 0 .3rem; color: #bbb; font-size: .9rem; }
+  input, select, button { font: inherit; }
+  input, select { width: 100%; box-sizing: border-box; padding: .5rem .6rem; border: 1px solid #333; background: #1a1a1a; color: inherit; border-radius: 6px; }
+  button { margin-top: 1.2rem; padding: .55rem 1rem; border: 0; border-radius: 6px; background: #e8e8e8; color: #111; font-weight: 600; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  #out { margin-top: 1.4rem; padding: 1rem; background: #1a1a1a; border-radius: 6px; word-break: break-all; display: none; }
+  #out a { color: #8cb4ff; }
+  .err { color: #ff8a8a; }
+</style>
+<h1>Demo links</h1>
+<p class="hint">Signed in as admin. A link logs the guest into one box and nowhere else. No Authelia account for them.</p>
+<div id="status">Loading boxes…</div>
+<form id="f">
+  <label for="box">Box</label>
+  <select id="box" name="box" required></select>
+  <label for="ttl">Expires</label>
+  <select id="ttl" name="ttl">
+    <option value="4h">4 hours</option>
+    <option value="12h" selected>12 hours</option>
+    <option value="1d">1 day</option>
+  </select>
+  <label for="label">Label (optional)</label>
+  <input id="label" name="label" placeholder="press, friend, …" autocomplete="off">
+  <button type="submit">Mint link</button>
+</form>
+<div id="out"></div>
+<script>
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+}
+async function load() {
+  const res = await fetch("/api/demo/status", { credentials: "same-origin" });
+  if (!res.ok) throw new Error("status " + res.status);
+  const data = await res.json();
+  const status = document.getElementById("status");
+  const sel = document.getElementById("box");
+  sel.innerHTML = "";
+  status.innerHTML = data.boxes.map(b => {
+    const o = document.createElement("option");
+    o.value = b.name;
+    o.textContent = b.name;
+    sel.appendChild(o);
+    const mark = b.busy ? "in use" : "free";
+    const extra = b.label ? " · " + esc(b.label) : "";
+    return '<div class="box"><span>' + esc(b.name) + extra + '</span><span class="' + (b.busy ? "busy" : "free") + '">' + mark + "</span></div>";
+  }).join("") || "<p>No boxes configured.</p>";
+}
+document.getElementById("f").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const out = document.getElementById("out");
+  const btn = ev.target.querySelector("button");
+  btn.disabled = true;
+  out.style.display = "block";
+  out.textContent = "Minting…";
+  try {
+    const res = await fetch("/api/demo/mint", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        box: document.getElementById("box").value,
+        ttl: document.getElementById("ttl").value,
+        label: document.getElementById("label").value,
+      }),
+    });
+    const text = await res.text();
+    if (!res.ok) throw new Error(text || ("HTTP " + res.status));
+    const data = JSON.parse(text);
+    out.replaceChildren();
+    const a = document.createElement("a");
+    a.href = data.url;
+    a.textContent = data.url;
+    out.appendChild(a);
+  } catch (err) {
+    out.replaceChildren();
+    const span = document.createElement("span");
+    span.className = "err";
+    span.textContent = err.message;
+    out.appendChild(span);
+  } finally {
+    btn.disabled = false;
+    load().catch(() => {});
+  }
+});
+load().catch(err => {
+  document.getElementById("status").textContent = err.message;
+  document.getElementById("status").className = "err";
+});
+</script>
+"""
+
 
 def b64url(raw: bytes) -> str:
     return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
@@ -229,6 +332,11 @@ def make_handler(gate: Gate):
             host = forwarded.split(",")[0].strip() or self.headers.get("Host", "")
             return host_box(host, gate.domain)
 
+        def _is_admin(self):
+            groups = self.headers.get("Remote-Groups", "")
+            members = {g.strip() for g in groups.replace(",", " ").split() if g.strip()}
+            return "admins" in members
+
         def do_GET(self):
             parsed = urlparse(self.path)
             if parsed.path == "/healthz":
@@ -240,6 +348,15 @@ def make_handler(gate: Gate):
             if parsed.path == "/api/demo/authz":
                 self._authz()
                 return
+            if parsed.path in ("/demo", "/demo/"):
+                if not self._is_admin():
+                    self._send(403, INVITE_ONLY)
+                    return
+                self._send(200, ADMIN_PAGE)
+                return
+            if parsed.path == "/api/demo/status":
+                self._status()
+                return
             self._send(404, INVITE_ONLY)
 
         def do_POST(self):
@@ -250,9 +367,7 @@ def make_handler(gate: Gate):
             self._send(404, "not found\n", "text/plain; charset=utf-8")
 
         def _mint(self):
-            groups = self.headers.get("Remote-Groups", "")
-            members = {g.strip() for g in groups.replace(",", " ").split() if g.strip()}
-            if "admins" not in members:
+            if not self._is_admin():
                 self._send(403, "admin only\n", "text/plain; charset=utf-8")
                 return
             length = int(self.headers.get("Content-Length", "0") or "0")
@@ -268,6 +383,26 @@ def make_handler(gate: Gate):
                 return
             payload = json.dumps({"url": url}).encode()
             self._send(200, payload, "application/json")
+
+        def _status(self):
+            if not self._is_admin():
+                self._send(403, "admin only\n", "text/plain; charset=utf-8")
+                return
+            now = time.time()
+            boxes = []
+            with STATE_LOCK:
+                state = load_state(gate.state_path)
+                for name, port in gate.boxes.items():
+                    entry = state.get(name)
+                    if entry:
+                        refresh_tcp(entry, port, now)
+                    boxes.append({
+                        "name": name,
+                        "busy": is_busy(entry, port, gate.grace, now),
+                        "label": (entry or {}).get("label", ""),
+                    })
+                save_state(gate.state_path, state)
+            self._send(200, json.dumps({"boxes": boxes}), "application/json")
 
         def _claim(self, parsed):
             token = (parse_qs(parsed.query).get("t") or [None])[0]

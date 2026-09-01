@@ -8,9 +8,9 @@
 #
 # That is deliberate and it is confined to this one file, so the cost of cutting
 # it later is known rather than discovered. The demo boxes no longer live here
-# — they moved to the signed-token gate in ./gate.nix. What remains is the
-# admin pages on graphide.net (/feedback/results and friends), which are for
-# one person and a login portal is the right shape for them.
+# — they moved to the signed-token gate in ./gate.nix. Authelia is admin-only:
+# one person, at /demo and /feedback/results. Guests never get an Authelia
+# account; they get a magic link.
 # ============================================================================
 let
   cfg = config.graphide.auth;
@@ -31,6 +31,8 @@ let
     "^/api/feedback/results(/.*)?$"
     "^/api/demo/release(/.*)?$"
     "^/api/demo/mint(/.*)?$"
+    "^/api/demo/status(/.*)?$"
+    "^/demo(/.*)?$"
   ];
 
   apexRules = lib.concatMap (domain: [
@@ -112,7 +114,7 @@ in
       session.cookies = lib.mkAfter [{
         domain = "graphide.net";
         authelia_url = "https://${cfg.portalHost}";
-        default_redirection_url = "https://graphide.net";
+        default_redirection_url = "https://graphide.net/demo";
         expiration = "2h";
         inactivity = "30m";
       }];

@@ -212,7 +212,7 @@ Caddy, which no longer has those vhosts.
 - **Never use `localhost`** in Caddy virtual host configs — Caddy resolves it to `::1` (IPv6) but most services only bind to `127.0.0.1`. Always use `127.0.0.1` explicitly.
 - **Always add `header_up X-Forwarded-Proto https`** in any `reverse_proxy` block for a TLS-aware app. Cloudflare terminates TLS; Caddy receives plain HTTP and must tell the upstream the original scheme was HTTPS. Without this, apps like Authelia and OCIS generate `http://` redirect URLs that they then reject.
 - The `(require_auth)` Caddy snippet already includes this header for Authelia `forward_auth`. Add it separately to individual `reverse_proxy` blocks for the backend services themselves.
-- Demo boxes are **not** behind Authelia. Caddy `forward_auth`s to `graphide-gate` (`system/graphide/gate.nix`). A request without a magic-link cookie never reaches the pod. Mint links with `graphide-demo-mint`. Without `secrets/graphide/gate-key.age` the vhosts 401 rather than proxying.
+- Demo boxes are **not** behind Authelia. Caddy `forward_auth`s to `graphide-gate` (`system/graphide/gate.nix`). A request without a magic-link cookie never reaches the pod. Mint links at `https://graphide.net/demo` (Authelia, admin) or with `graphide-demo-mint`. Without `secrets/graphide/gate-key.age` the vhosts 401 rather than proxying.
 
 ### Podman / oci-containers
 
