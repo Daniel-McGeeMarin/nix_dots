@@ -14,12 +14,7 @@ in
     ./rules.nix
   ];
 
-  # Everything below here is a graphical session: the compositor itself, its
-  # keybind helpers, the polkit agent and the screenshot/clipboard tools. None
-  # of it was gated before, so a host with desktop.enable = false still got
-  # hyprland enabled and its whole closure pulled in - which is what made
-  # "headless" not actually headless on XiaServer.
-  config = lib.mkIf config.desktop.enable {
+  config = {
     programs.rofi.enable = true;
 
     xdg.desktopEntries."org.gnome.Settings" = {

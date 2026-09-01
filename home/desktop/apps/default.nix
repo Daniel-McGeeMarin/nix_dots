@@ -12,7 +12,7 @@
     ./zathura.nix
   ];
 
-  config = lib.mkIf config.desktop.enable {
+  config = {
 
     programs = {
       foot.enable = lib.mkDefault true;

@@ -1,8 +1,11 @@
 { config, lib, pkgs, inputs, osConfig, ... }:
 
 {
+  # Both halves of the user environment. XiaServer imports only ../../home/term;
+  # the desktop tree is not a flag any more, it is this line.
   imports = [
-    ../../home
+    ../../home/term
+    ../../home/desktop
   ];
 
   programs.home-manager.enable = true;
@@ -17,7 +20,6 @@
   programs.claudeAgents.enable = true;
 
   desktop = {
-    enable = true;
     gaming.enable = true;
     workmic.enable = true;
   };

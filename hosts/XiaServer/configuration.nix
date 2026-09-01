@@ -40,18 +40,10 @@ in
     [ -f ${hostIdentityMarker} ] || echo ${expectedHost} > ${hostIdentityMarker}
   '';
 
-  # Turning head.enable off below would have taken this with it - it was set,
-  # with mkDefault, inside system/head. Pinned here because it is not a desktop
-  # concern: it selects the systemd-based initrd rather than the old scripted
-  # one, and this box's root is LUKS, so the initrd is what prompts for the
-  # unlock passphrase at every boot. Changing which implementation does that on
-  # a machine you have to walk over to is not something to do as a side effect.
-  boot.initrd.systemd.enable = true;
-
-  # Headless. head.enable is the single switch for everything that only makes
-  # sense with a screen attached - GDM, Plymouth, PipeWire, gamescope/gamemode -
-  # and this box has none. The serv.* options below are the whole machine now.
-  head.enable = false;
+  # Headless: note the absence of ../../system/head in the imports above. That
+  # is the entire mechanism - no GDM, no Plymouth, no PipeWire, no gamescope,
+  # because none of it is in the module set. The serv.* options below are the
+  # whole machine now.
 
   serv.enable = true;
   serv.network.enable = true;

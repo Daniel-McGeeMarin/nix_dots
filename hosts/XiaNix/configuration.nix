@@ -9,6 +9,9 @@ in
 {
   imports = [
     ../../system
+    # This host has a screen, so it takes the graphical stack. XiaServer omits
+    # this line and imports ../../system/serv instead.
+    ../../system/head
     ./hardware-configuration.nix
     ./gram.nix
     ./resources.nix
@@ -46,10 +49,7 @@ in
   # reach host services like auth-shim on :8081 for the OAuth token exchange.
   networking.firewall.trustedInterfaces = [ "podman1" ];
 
-  head = {
-    enable = true;
-    gaming = true;
-  };
+  head.gaming = true;
 
   # Exclude tailscaled from the Mullvad tunnel so Tailscale P2P/DERP works.
   # The split-tunnel exclusion is PID-scoped, so we re-add it every time

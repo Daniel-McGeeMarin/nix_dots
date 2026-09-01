@@ -63,7 +63,7 @@ let
   };
 in
 {
-  config = lib.mkIf config.desktop.enable {
+  config = {
     home.packages = [ orca ];
   };
 }

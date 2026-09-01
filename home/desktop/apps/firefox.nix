@@ -42,7 +42,7 @@ let
   '';
 in
 {
-  config = lib.mkIf config.desktop.enable {
+  config = {
 
     programs.firefox = {
       enable = true;

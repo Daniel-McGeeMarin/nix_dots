@@ -10,7 +10,7 @@ in
     inputs.caelestia-shell.homeManagerModules.default
   ];
 
-  config = lib.mkIf config.desktop.enable {
+  config = {
     programs.caelestia = {
       enable = true;
       package = patched-caelestia;

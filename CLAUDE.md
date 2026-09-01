@@ -28,17 +28,45 @@ Use `nom` (`nix-output-monitor`) as a drop-in prefix for verbose, readable build
 ### Directory layout
 
 ```
-hosts/        per-host configuration (XiaNix, XiaServer)
-system/       NixOS modules (kernel, hardware, services)
-home/         Home Manager modules (user environment, apps, desktop)
-flake.nix     inputs + host outputs
+hosts/          per-host configuration (XiaNix, XiaServer)
+system/         NixOS modules shared by every host
+system/head/    NixOS modules for a machine with a screen   -- XiaNix only
+system/serv/    NixOS modules for the server                -- XiaServer only
+home/term/      Home Manager: shell, editor, dev tooling    -- every host
+home/desktop/   Home Manager: compositor, GUI apps, theming -- XiaNix only
+flake.nix       inputs + host outputs
 ```
+
+### Composition: importing a tree IS the switch
+
+There is no `head.enable` and no `desktop.enable`. A host declares what it is by
+choosing which trees to import, and the trees themselves carry no on/off flag:
+
+```nix
+# hosts/XiaNix/configuration.nix        # hosts/XiaServer/configuration.nix
+imports = [ ../../system                imports = [ ../../system
+            ../../system/head ... ];                ../../system/serv ... ];
+
+# hosts/XiaNix/home.nix                 # hosts/XiaServer/home.nix
+imports = [ ../../home/term             imports = [ ../../home/term ];
+            ../../home/desktop ];
+```
+
+**Do not reintroduce a top-level enable flag for a tree.** A module option cannot
+gate `imports` (the option has to be declared by a module that is already
+imported, so it is a circular reference), which means such a flag has to be
+repeated as `lib.mkIf` in every file in the tree. That is exactly what
+`desktop.enable` was, and three files forgot it -- `env/hyprland/default.nix` set
+`wayland.windowManager.hyprland.enable = true` unconditionally, so a host with
+`desktop.enable = false` still installed a compositor. Options are for toggles
+*within* a tree a host has already opted into (`head.gaming`,
+`desktop.gaming.enable`, `media.enable`); the tree itself is an import.
 
 ### Flake structure
 
 `flake.nix` defines two hosts:
 - **XiaNix** — main desktop (LG Gram laptop)
-- **XiaServer** — server (NVIDIA 1080 Ti, Jellyfin stack)
+- **XiaServer** — headless server (NVIDIA 1080 Ti, Graphide demo boxes + web stack)
 
 Each host has `nixosConfigurations.<name>` and `homeConfigurations.<name>`. The NixOS build at `hosts/XiaNix/configuration.nix` inlines Home Manager via `home-manager.users."xia" = import ./home.nix`, so `nixos-rebuild switch` updates both system and user environment in one shot.
 
@@ -52,25 +80,29 @@ Four overlays in `flake.nix`, available in every module:
 
 ### Module options
 
-| Option | Layer | Effect |
-|--------|-------|--------|
-| `head.enable` | system | GDM, PipeWire, Plymouth, gaming |
-| `head.gaming` | system | gamemode, gamescope, uinput |
-| `desktop.enable` | home | Hyprland, caelestia, apps, comms, office, media |
-| `desktop.gaming.enable` | home | Flatpak Steam, Lutris, Prism |
-| `desktop.workmic.enable` | home | Push-to-talk mic gating (SUPER+SPACE) |
-| `desktop.japanese.enable` | home | Japanese fonts/input |
-| `programming.enable` | home | Dev tools, Python, R |
-| `ai.enable` | home | aichat, aiclip script |
-| `ai.claudeCode.enable` | home | claude-code CLI |
-| `sync.enable` | home | KDE Connect / Bluetooth |
-| `media.enable` | home | media CLI tools |
-| `tui.enable` | home | btop, ncmpcpp, ytfzf (default: true) |
+Toggles *inside* a tree a host has already imported. The tree itself is chosen by
+import, not by an option — see "Composition" above.
+
+| Option | Declared in | Effect |
+|--------|-------------|--------|
+| `head.gaming` | `system/head/default.nix` | gamemode, gamescope, uinput |
+| `serv.enable` | `system/serv/default.nix` | sshd, trusted tailscale0, never sleep |
+| `serv.<service>.enable` | one per file in `system/serv/` | that service's container, Caddy vhost, auth rules, data dirs, timers |
+| `desktop.gaming.enable` | `home/desktop/modules/gaming.nix` | Flatpak Steam, r2modman, steam-run |
+| `desktop.workmic.enable` | `home/desktop/modules/workmic/` | push-to-talk mic gating (SUPER+SPACE) |
+| `media.enable` | `home/term/default.nix` | ffmpeg-full, imagemagick, yt-dlp, mpc (default: true) |
+| `programming.enable` | `home/term/modules/programming/` | uv, nodejs, gh, direnv, Python |
+| `programming.R.enable` | same | R (~1 GB; default off) |
+| `ai.enable` | `home/term/modules/ai.nix` | aichat + the aiclip script |
+| `ai.claudeCode.enable` | same | claude-code CLI |
+| `ai.codex.enable` | same | OpenAI Codex CLI |
+| `ai.privatellm.enable` | `home/term/modules/privatellm.nix` | local llama.cpp chatbot (GPU) |
+| `programs.claudeAgents.enable` | `home/desktop/env/claude-agents.nix` | Claude Code agent-state hooks + hotkeys |
 
 ### Adding a package
 
 A plain package with no options, service, or extra config (dotfiles, wrapper scripts, systemd units, etc.) does **not** get its own `.nix` file — add it to the `home.packages` list in the relevant `default.nix` instead:
-- Desktop GUI apps → `home/desktop/default.nix` (see the "Browsers & editors" section, e.g. `vscodium`, `unfree.code-cursor`)
+- Desktop GUI apps → `home/desktop/default.nix` (see the "Browsers & editors" section, e.g. `vscodium`, `unfree.code-cursor`) — anything put here is XiaNix-only by construction
 - CLI dev tools → `home/term/modules/programming/default.nix`
 - General CLI tools → `home/term/default.nix`
 

@@ -1,10 +1,19 @@
 { config, lib, pkgs, inputs, secrets, ... }:
 {
+  # ./head (the graphical stack) and ./serv (the server stack) are NOT imported
+  # here. A host picks one by importing it, the same way hosts/XiaServer imports
+  # ../../system/serv. Importing the tree IS the switch - see the note at the top
+  # of ./head.
   imports = [
     inputs.home-manager.nixosModules.default
-    ./head
     ./grub.nix
   ];
+
+  # Lives here rather than in ./head, where it used to sit, because it is not a
+  # display concern: it picks the systemd-based initrd over the old scripted one,
+  # and on a LUKS root the initrd is what prompts for the passphrase at boot.
+  # Both hosts have a LUKS root and both want the same behaviour.
+  boot.initrd.systemd.enable = lib.mkDefault true;
 
   networking.networkmanager.enable = true;
   networking.networkmanager.dns = "systemd-resolved";
