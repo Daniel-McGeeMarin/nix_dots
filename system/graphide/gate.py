@@ -63,9 +63,6 @@ ADMIN_PAGE = """<!doctype html>
 <meta name="theme-color" content="#0a1218">
 <title>Demo boxes · Graphide</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
     color-scheme: dark;
@@ -82,7 +79,7 @@ ADMIN_PAGE = """<!doctype html>
     --error: #f85149;
     --warn: #e3b341;
     --sans: Inter, ui-sans-serif, system-ui, sans-serif;
-    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+    --mono: ui-monospace, SFMono-Regular, monospace;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; background: var(--page); color: var(--text); }
@@ -247,7 +244,7 @@ document.getElementById("boxes").addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const btn = form.querySelector("button");
   btn.disabled = true;
-  flash('<p class="kicker">Minting</p><p>Holding ' + esc(form.dataset.box) + "…</p>');
+  flash('<p class="kicker">Minting</p><p>Holding ' + esc(form.dataset.box) + '…</p>');
   try {
     const res = await fetch("/api/demo/mint", {
       method: "POST",
