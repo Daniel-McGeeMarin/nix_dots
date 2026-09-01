@@ -10,3 +10,5 @@ local.nix
 result
 result-*
 
+__pycache__/
+
