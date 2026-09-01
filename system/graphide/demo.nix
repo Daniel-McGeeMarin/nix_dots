@@ -889,7 +889,21 @@ in
           wantedBy = [ "timers.target" ];
           timerConfig = {
             OnCalendar = cfg.autoBuild.interval;
-            Persistent = true;
+            # NOT Persistent. This is a 5-minute poller, not a job whose missed
+            # runs matter - worst case without it is a 5-minute wait for the
+            # next tick, which is nothing. Persistent=true means "if this timer
+            # was not active at its last scheduled moment, run immediately once
+            # it is" - and on a `nixos-rebuild switch` that redefines this unit
+            # (as today's restructuring did), systemd sees no prior record for
+            # the new definition and fires that catch-up run RIGHT as
+            # daemon-reload processes it, landing a git-clone-and-build oneshot
+            # inside the switch's own activation window. switch-to-configuration
+            # waits for units it starts to reach a terminal state, so a job
+            # with a 60-minute budget in that path stalls nixos-rebuild switch
+            # for up to 60 minutes. Confirmed the hard way on 2026-09-01, on the
+            # very first switch after this tree moved from system/serv/ to
+            # system/graphide/.
+            Persistent = false;
             RandomizedDelaySec = "60";
           };
         };

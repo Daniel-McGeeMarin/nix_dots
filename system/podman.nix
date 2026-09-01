@@ -34,7 +34,17 @@
     wantedBy = [ "timers.target" ];
     timerConfig = {
       OnCalendar = "*:0/5";
-      Persistent = true;
+      # NOT Persistent. Same reasoning as the two autobuild timers in
+      # system/graphide/{demo,web}.nix: this is a 5-minute poller, so the worst
+      # case without Persistent is a 5-minute wait, which is nothing. With it,
+      # a `nixos-rebuild switch` that touches this unit's definition can make
+      # systemd treat the missing "last fired" record as a missed run and pull
+      # + restart every registry-tagged container immediately, inside the
+      # switch's own activation window - and switch-to-configuration waits for
+      # units it starts to finish. Caught this exact failure mode on the
+      # sibling autobuild timers on 2026-09-01; fixing it here before it
+      # repeats with a dozen containers pulling at once instead of one build.
+      Persistent = false;
     };
   };
 

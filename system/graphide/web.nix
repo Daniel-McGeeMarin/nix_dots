@@ -475,7 +475,9 @@ in
         wantedBy = [ "timers.target" ];
         timerConfig = {
           OnCalendar = cfg.autoBuild.interval;
-          Persistent = true;
+          # See the identical comment on graphide-demo-autobuild.timer in
+          # demo.nix - same job shape, same failure mode, same fix.
+          Persistent = false;
           RandomizedDelaySec = "60";
         };
       };
