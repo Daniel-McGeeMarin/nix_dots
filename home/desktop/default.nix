@@ -1,14 +1,25 @@
 { config, lib, pkgs, inputs, osConfig, ... }:
+# The graphical half of the user environment: compositor, browsers, GUI apps,
+# Flatpaks, theming.
+#
+# There is no `desktop.enable`. A host either imports this tree or it does not,
+# which is the same rule system/head follows. The flag it replaces was leaky by
+# construction - it had to be repeated in every file below, and the three that
+# forgot it (hyprland, rice.nix, the media CLI tools) meant a host with
+# desktop.enable = false still installed a compositor.
+#
+# nix-flatpak is imported here rather than one level up because Flatpak is only
+# ever used for GUI applications.
 {
-  options.desktop.enable = lib.mkEnableOption "Enable desktop";
-
   imports = [
     ./apps
     ./env
     ./modules
+    ./rice.nix
+    inputs.nix-flatpak.homeManagerModules.nix-flatpak
   ];
 
-  config = lib.mkIf config.desktop.enable {
+  config = {
 
     services.flatpak.packages = [
       # ── Desktop tools ─────────────────────────────────────────────────────────

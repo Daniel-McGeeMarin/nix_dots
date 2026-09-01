@@ -43,7 +43,7 @@ pys = "source ./venv/bin/activate";
       sch = "cd ~/Documents/school/";
       c = "cd ~/.config/";
       p = "cd ~/Documents/Projects";
-      a = "cd ~/Documents/startup/Graphide";
+      a = "cd ~/Documents/startup/Graphide/monolith";
       d = "cd ~/Documents";
       m = "cd ~/MyApps/";
       #sudo = "doas";
@@ -87,6 +87,7 @@ pys = "source ./venv/bin/activate";
               local cmd
               cmd=$(fc -ln 1 | fzf --height 40% --reverse --prompt='history> ') || return
               print -S -- "$cmd"
+              print -P "%F{green}→ %f$cmd"
               eval -- "$cmd"
             }
 
@@ -129,6 +130,26 @@ pys = "source ./venv/bin/activate";
               local name
               name=$(echo "$repo" | cut -f1)
               git clone "git@github.com:''${name}.git"
+            }
+
+            # Fuzzy-search git branches (local + remote) and switch to one
+            fb() {
+              emulate -L zsh -o no_aliases
+              git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "fb: not inside a git repo"; return 1 }
+
+              local branch
+              branch=$(
+                git for-each-ref --sort=-committerdate refs/heads refs/remotes \
+                      --format='%(refname)' \
+                | grep -v '/HEAD$' \
+                | sed -e 's#^refs/heads/##' -e 's#^refs/remotes/[^/]*/##' \
+                | awk '!seen[$0]++' \
+                | fzf --height 40% --reverse --prompt='branch> ' \
+                      --preview='git log --color=always --oneline -n 20 {}' \
+                      --preview-window=right:60%
+              ) || return
+
+              git switch "$branch" 2>/dev/null || git checkout "$branch"
             }
 
             cursor() { appimage-run "$HOME/MyApps/Cursor/Cursor-2.4.35-x86_64.AppImage" >/dev/null 2>&1 &}

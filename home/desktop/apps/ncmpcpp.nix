@@ -1,6 +1,6 @@
 { config, lib, ... }:
 {
-  config = lib.mkIf config.desktop.enable {
+  config = {
     services.mpd.enable = true;
     programs.ncmpcpp = {
       enable = true;

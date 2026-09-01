@@ -22,5 +22,6 @@
 caelestia-shell.overrideAttrs (old: {
   patches = (old.patches or []) ++ [
     ./workspace-icons.patch
+    ./notif-history-cap.patch
   ];
 })

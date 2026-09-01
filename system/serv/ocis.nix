@@ -27,7 +27,7 @@
 
   config = lib.mkIf config.serv.ocis.enable {
     age.secrets.ocis-admin-password = {
-      file = ../../secrets/ocis-admin-password.age;
+      file = ../../secrets/core/ocis-admin-password.age;
       mode = "0400";
     };
 

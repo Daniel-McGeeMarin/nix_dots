@@ -5,7 +5,7 @@
 #
 # 1. Secrets — two age-encrypted files in secrets/:
 #
-#    secrets/graphide-api-env.age  (edit with: agenix -e secrets/graphide-api-env.age)
+#    secrets/graphide/api-env.age  (edit with: agenix -e secrets/graphide/api-env.age)
 #      POSTGRES_USER=graphide
 #      POSTGRES_DB=graphide
 #      POSTGRES_PASSWORD=<strong random>
@@ -18,7 +18,7 @@
 #                                                    # job requests will fail
 #      PORT=8080
 #
-#    secrets/ghcr-token.age  (edit with: agenix -e secrets/ghcr-token.age)
+#    secrets/graphide/ghcr-token.age  (edit with: agenix -e secrets/graphide/ghcr-token.age)
 #      <GitHub PAT with read:packages scope — no newline>
 #
 #    Both must be encrypted to the target host's SSH key (see secrets.nix).
@@ -33,7 +33,7 @@
 #    pushed automatically by the deploy.yml workflow in the monolith repo
 #    on every push to master. The image must exist before first boot.
 #
-# 4. Enable — set serv.graphide.enable = true in the host's configuration.nix.
+# 4. Enable — set graphide.api.enable = true in the host's configuration.nix.
 #
 # == Key design decisions and gotchas ==
 #
@@ -63,53 +63,37 @@
 #   podman ps                                   # running containers
 
 { config, lib, pkgs, ... }:
+let
+  dataDir = config.graphide.dataDir;
+in
 {
-  options.serv.graphide.enable = lib.mkEnableOption "Graphide API server";
+  options.graphide.api.enable = lib.mkEnableOption "Graphide API server";
 
-  config = lib.mkIf config.serv.graphide.enable {
+  config = lib.mkIf config.graphide.api.enable {
     age.secrets = {
       graphide-api-env = {
-        file = ../../secrets/graphide-api-env.age;
-        mode = "0400";
-      };
-      # Classic PAT with read:packages scope, no expiration.
-      ghcr-token = {
-        file = ../../secrets/ghcr-token.age;
+        file = ../../secrets/graphide/api-env.age;
         mode = "0400";
       };
     };
 
     systemd.tmpfiles.rules = [
       # UID 70 = postgres user in postgres:17-alpine; must own the data dir.
-      "d /srv/data/graphide-pg    0700 70   70"
-      "d /srv/data/graphide-redis 0700 root root"
+      "d ${dataDir}/pg    0700 70   70"
+      "d ${dataDir}/redis 0700 root root"
     ];
 
     # Ensure ownership is correct even when the directory already exists
     # (tmpfiles `d` only sets ownership on creation, not on existing dirs).
     systemd.services."podman-graphide-postgres" = {
       serviceConfig.ExecStartPre = [
-        "${pkgs.coreutils}/bin/chown -R 70:70 /srv/data/graphide-pg"
+        "${pkgs.coreutils}/bin/chown -R 70:70 ${dataDir}/pg"
       ];
     };
 
-    # Log into GHCR once at boot so both the container start and the
-    # podman-auto-update timer can pull the private image.
-    systemd.services.graphide-ghcr-login = {
-      description = "Authenticate Podman with GHCR";
-      after       = [ "agenix.service" "network-online.target" ];
-      wants       = [ "network-online.target" ];
-      wantedBy    = [ "multi-user.target" ];
-      script = ''
-        ${pkgs.podman}/bin/podman login ghcr.io \
-          --username Daniel-McGeeMarin \
-          --password-stdin < ${config.age.secrets.ghcr-token.path}
-      '';
-      serviceConfig = {
-        Type            = "oneshot";
-        RemainAfterExit = true;
-      };
-    };
+    # graphide-ghcr-login lives in ./registry.nix. It used to be declared here,
+    # which gave the marketing site and the demo pods a hard dependency on the
+    # API server module for a reason that had nothing to do with the API server.
 
     # All three containers use host networking so they reach each other
     # via 127.0.0.1 without a separate Podman network or pod.
@@ -117,7 +101,7 @@
       graphide-postgres = {
         image        = "docker.io/library/postgres:17-alpine";
         extraOptions = [ "--network=host" ];
-        volumes      = [ "/srv/data/graphide-pg:/var/lib/postgresql/data" ];
+        volumes      = [ "${dataDir}/pg:/var/lib/postgresql/data" ];
         # graphide-api-env supplies POSTGRES_USER, POSTGRES_DB, POSTGRES_PASSWORD.
         environmentFiles = [ config.age.secrets.graphide-api-env.path ];
         # Restrict to loopback only — not exposed beyond the host.
@@ -128,7 +112,7 @@
       graphide-redis = {
         image        = "docker.io/library/redis:7-alpine";
         extraOptions = [ "--network=host" ];
-        volumes      = [ "/srv/data/graphide-redis:/data" ];
+        volumes      = [ "${dataDir}/redis:/data" ];
         cmd = [ "redis-server" "--appendonly" "yes" "--bind" "127.0.0.1" ];
         labels."io.containers.autoupdate" = "registry";
       };
@@ -177,7 +161,14 @@
       requires = [ "graphide-ghcr-login.service" "graphide-pg-ready.service" ];
     };
 
-    services.caddy.virtualHosts."http://graphideapi.mcgeedan.com".extraConfig = ''
+    # api.graphide.net only. The API used to be published at
+    # graphideapi.mcgeedan.com, which was a mcgeedan hostname arriving through
+    # the mcgeedan tunnel -- so it stopped working the moment the estate was
+    # switched off, and keeping it would have meant a second tunnel ingress
+    # rule pointing back at this Caddy for no benefit. The apex here is already
+    # covered by the *.graphide.net wildcard, so this needs no DNS record and no
+    # ingress rule of its own.
+    graphide.network.virtualHosts."http://api.graphide.net".extraConfig = ''
       reverse_proxy 127.0.0.1:8080 {
         header_up X-Forwarded-Proto https
       }

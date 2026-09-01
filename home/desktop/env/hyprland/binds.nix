@@ -60,6 +60,8 @@ in
         # Special workspaces
         "$mainMod,S,togglespecialworkspace,magic"
         "$mainMod SHIFT,S,movetoworkspace,special:magic"
+        "$mainMod,D,togglespecialworkspace,scratch"
+        "$mainMod SHIFT,D,movetoworkspace,special:scratch"
         "$mainMod,T,togglespecialworkspace,todo"
         "SHIFT$mainMod,t,exec,todo"
 

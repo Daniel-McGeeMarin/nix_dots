@@ -1,6 +1,6 @@
 { config, lib, pkgs, ... }:
 {
-  config = lib.mkIf config.desktop.enable {
+  config = {
     # Note: owncloud.cfg's default maxChunkSize (100000000 bytes) collides with
     # Cloudflare's 100MB request body limit on the tunnel path, causing intermittent
     # checksum-mismatch/retry loops. Set maxChunkSize=52428800 (50MB) in

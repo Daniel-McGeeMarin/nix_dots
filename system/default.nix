@@ -1,10 +1,19 @@
 { config, lib, pkgs, inputs, secrets, ... }:
 {
+  # ./head (the graphical stack) and ./serv (the server stack) are NOT imported
+  # here. A host picks one by importing it, the same way hosts/XiaServer imports
+  # ../../system/serv. Importing the tree IS the switch - see the note at the top
+  # of ./head.
   imports = [
     inputs.home-manager.nixosModules.default
-    ./head
     ./grub.nix
   ];
+
+  # Lives here rather than in ./head, where it used to sit, because it is not a
+  # display concern: it picks the systemd-based initrd over the old scripted one,
+  # and on a LUKS root the initrd is what prompts for the passphrase at boot.
+  # Both hosts have a LUKS root and both want the same behaviour.
+  boot.initrd.systemd.enable = lib.mkDefault true;
 
   networking.networkmanager.enable = true;
   networking.networkmanager.dns = "systemd-resolved";
@@ -36,15 +45,36 @@
 
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
   nix.settings.auto-optimise-store = true;
+
+  # Nix's default connect-timeout of 5s covers DNS resolution too, and the first
+  # lookup of a cold hostname here regularly takes longer than that. Nix then
+  # retries, and the retry trips a Nix bug: the redirect github.com ->
+  # codeload.github.com is seen as the URI "changing final destination during
+  # transfer", which is fatal. So a slow DNS reply aborted the whole rebuild.
+  # 30s is generous enough that the retry path is never entered.
+  nix.settings.connect-timeout = 30;
   nix.gc = {
     automatic = true;
-    dates = "weekly";
+    dates = "daily";
     options = "--delete-older-than 7d";
   };
   nix.optimise = {
     automatic = true;
     dates = [ "weekly" ];
   };
+
+  # Collect on low disk, not just on the daily timer. min-free triggers a GC
+  # mid-build once free space drops below it, which is what actually protects a
+  # nearly-full root; the daily timer alone cannot react to a large build.
+  nix.settings.min-free = 5 * 1024 * 1024 * 1024;
+  nix.settings.max-free = 20 * 1024 * 1024 * 1024;
+
+  # The journal had grown to 3.4 GB: the default cap is 10% of the filesystem,
+  # which on a 126 GB root is 12.6 GB before it would ever rotate.
+  services.journald.extraConfig = ''
+    SystemMaxUse=500M
+    SystemMaxFileSize=50M
+  '';
 
   programs = {
     gnupg.agent = {

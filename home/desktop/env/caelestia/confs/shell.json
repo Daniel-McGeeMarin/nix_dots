@@ -5,6 +5,9 @@
                 "scale": 1
             }
         },
+        "font": {
+            "workspaces": "CaskaydiaCove NF"
+        },
         "padding": {
             "scale": 1
         },
@@ -544,7 +547,7 @@
     "paths": {
         "mediaGif": "root:/assets/bongocat.gif",
         "sessionGif": "root:/assets/kurukuru.gif",
-        "wallpaperDir": "/home/XiaServer/Pictures/Wallpapers"
+        "wallpaperDir": "/home/xia/Pictures/Wallpapers"
     },
     "services": {
         "audioIncrement": 0.1,

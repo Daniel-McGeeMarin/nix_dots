@@ -14,9 +14,9 @@
         group = config.services.authelia.instances.main.group;
       };
     in {
-      authelia-jwt     = forAuthelia ../../secrets/authelia-jwt.age;
-      authelia-session = forAuthelia ../../secrets/authelia-session.age;
-      authelia-storage = forAuthelia ../../secrets/authelia-storage.age;
+      authelia-jwt     = forAuthelia ../../secrets/core/authelia-jwt.age;
+      authelia-session = forAuthelia ../../secrets/core/authelia-session.age;
+      authelia-storage = forAuthelia ../../secrets/core/authelia-storage.age;
     };
 
     services.authelia.instances.main = {
