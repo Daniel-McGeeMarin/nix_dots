@@ -134,8 +134,22 @@ let
   gate = config.graphide.gate;
   lockedDown = ''
     header X-Robots-Tag "noindex, nofollow"
+    header Content-Type "text/html; charset=utf-8"
     respond 401 {
-      body "This demo is invite-only."
+      body `<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Invite only</title>
+<style>
+  :root { color-scheme: dark; }
+  body { font: 16px/1.5 system-ui, sans-serif; max-width: 28em; margin: 22vh auto; padding: 0 1.5rem; color: #e8e8e8; background: #111; }
+  h1 { font-size: 1.35rem; font-weight: 600; margin: 0 0 .8rem; }
+  p { color: #b5b5b5; margin: 0 0 .85rem; }
+  a { color: #8cb4ff; }
+</style>
+<h1>This demo is invite-only</h1>
+<p>You need a signed link from Graphide to open this box.</p>
+<p>Questions, or need a link? <a href="mailto:hello@graphide.net">hello@graphide.net</a></p>`
       close
     }
   '';

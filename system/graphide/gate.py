@@ -21,26 +21,40 @@ from urllib.parse import parse_qs, urlparse
 
 COOKIE = "graphide_demo"
 STATE_LOCK = threading.Lock()
+CONTACT = "hello@graphide.net"
 
-INVITE_ONLY = """<!doctype html>
+
+def splash(title: str, heading: str, body: str) -> str:
+    return f"""<!doctype html>
 <meta charset="utf-8">
-<title>Invite only</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{title}</title>
 <style>
-  body { font: 16px/1.4 system-ui, sans-serif; max-width: 36em; margin: 20vh auto; padding: 0 1.5rem; color: #111; }
+  :root {{ color-scheme: dark; }}
+  body {{ font: 16px/1.5 system-ui, sans-serif; max-width: 28em; margin: 22vh auto; padding: 0 1.5rem; color: #e8e8e8; background: #111; }}
+  h1 {{ font-size: 1.35rem; font-weight: 600; margin: 0 0 .8rem; }}
+  p {{ color: #b5b5b5; margin: 0 0 .85rem; }}
+  a {{ color: #8cb4ff; }}
+  .contact {{ margin-top: 1.6rem; font-size: .95rem; }}
 </style>
-<h1>This demo is invite-only</h1>
-<p>You need a signed link from Graphide to open this box.</p>
+<h1>{heading}</h1>
+{body}
+<p class="contact">Questions, or need a link? <a href="mailto:{CONTACT}">{CONTACT}</a></p>
 """
 
-BUSY = """<!doctype html>
-<meta charset="utf-8">
-<title>Box busy</title>
-<style>
-  body { font: 16px/1.4 system-ui, sans-serif; max-width: 36em; margin: 20vh auto; padding: 0 1.5rem; color: #111; }
-</style>
-<h1>This box is in use</h1>
-<p>Someone else is on this demo right now. Ask for a new link when it is free.</p>
-"""
+
+INVITE_ONLY = splash(
+    "Invite only",
+    "This demo is invite-only",
+    """<p>You need a signed link from Graphide to open this box. Open that URL — not this page — so your browser can load the login cookie.</p>
+<p>If you already had a link and it stopped working, it expired, this box is bound to someone else, or cookies were blocked.</p>""",
+)
+
+BUSY = splash(
+    "Box busy",
+    "This box is in use",
+    "<p>Someone else is on this demo right now. Ask for a new link when it is free.</p>",
+)
 
 ADMIN_PAGE = """<!doctype html>
 <meta charset="utf-8">
