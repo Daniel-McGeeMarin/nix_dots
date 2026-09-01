@@ -40,10 +40,10 @@ in
     [ -f ${hostIdentityMarker} ] || echo ${expectedHost} > ${hostIdentityMarker}
   '';
 
-  head = {
-    enable = true;
-    gaming = true;
-  };
+  # Headless. head.enable is the single switch for everything that only makes
+  # sense with a screen attached - GDM, Plymouth, PipeWire, gamescope/gamemode -
+  # and this box has none. The serv.* options below are the whole machine now.
+  head.enable = false;
 
   serv.enable = true;
   serv.network.enable = true;
@@ -112,35 +112,42 @@ in
   serv.graphide-demo.seedDir = "/srv/data/graphide-demo/seed";
   services.openssh.settings.PasswordAuthentication = false;
 
-  services.displayManager.autoLogin = {
-    enable = true;
-    user = "XiaServer";
-  };
-
-  # NVIDIA 1080 Ti — standalone GPU, no PRIME
+  # NVIDIA 1080 Ti — standalone GPU, no PRIME. The card is physically in the
+  # box, so the kernel driver is built and nvidia-smi works, but nothing on this
+  # host consumes it today. Kept so a GPU workload can be added later without
+  # touching hardware config.
+  #
+  # services.xserver.videoDrivers is what makes NixOS build the nvidia module at
+  # all — the whole hardware.nvidia module is gated on this list. It does NOT
+  # start an X server; that is services.xserver.enable, which is off.
   services.xserver.videoDrivers = [ "nvidia" ];
-  hardware.graphics = {
-    enable = true;
-    enable32Bit = true;
-  };
+  hardware.graphics.enable = true;
   hardware.nvidia = {
     modesetting.enable = true;
     powerManagement.enable = false;
     open = false;
-    nvidiaSettings = true;
+    # nvidia-settings is a GUI control panel. Nothing here can display it.
+    nvidiaSettings = false;
     package = config.boot.kernelPackages.nvidiaPackages.stable;
   };
 
-  environment.systemPackages = with pkgs; [
-    unfree.cudatoolkit
-    unfree.cudaPackages.cuda_cudart
+  # cudatoolkit and cuda_cudart used to sit here. Between them they are several
+  # gigabytes, and nothing on this host links against CUDA — there is no local
+  # model server and no GPU job runner. Put them back next to whatever needs them.
+  environment.systemPackages = [
     inputs.agenix.packages.x86_64-linux.default
   ];
 
   programs = {
-    hyprland.enable = true;
+    # A dynamic loader at the path non-Nix binaries expect, so a downloaded
+    # toolchain runs without patchelf. Costs nothing and stays.
     nix-ld.enable = true;
-    nix-ld.libraries = [];
+    nix-ld.libraries = [ ];
+
+    # system/default.nix picks the GTK pinentry, which has no display to draw on
+    # here — gpg would hang waiting for a window that never appears. Curses
+    # prompts in the SSH terminal instead.
+    gnupg.agent.pinentryPackage = lib.mkForce pkgs.pinentry-curses;
   };
 
   virtualisation.podman = {
@@ -151,24 +158,16 @@ in
 
   virtualisation.oci-containers.backend = "podman";
 
-  fonts.packages = with pkgs; [
-    rubik
-    nerd-fonts.ubuntu
-    nerd-fonts.fira-code
-    nerd-fonts.droid-sans-mono
-    nerd-fonts.jetbrains-mono
-    noto-fonts-cjk-sans
-    source-han-sans
-    source-han-mono
-    source-han-serif
-  ];
+  # No font packages: nothing on this host renders text. The containers that do
+  # (OnlyOffice, the demo pods' browser server) carry their own fonts in-image.
 
   time.timeZone = "America/Los_Angeles";
 
   users.users.XiaServer = {
     isNormalUser = true;
     shell = pkgs.zsh;
-    extraGroups = [ "wheel" "video" "input" ];
+    # video/input were for a graphical seat that no longer exists.
+    extraGroups = [ "wheel" ];
   };
 
   home-manager = {
