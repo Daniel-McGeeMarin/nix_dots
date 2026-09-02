@@ -619,7 +619,11 @@ in
           path = with pkgs; [
             bash git podman coreutils gnutar gzip gnugrep gnused findutils
             nodejs_22 python3 gcc gnumake pkg-config
-            krb5 xorg.libxkbfile libsecret
+            # native-keymap's binding.gyp is `pkg-config x11 xkbfile`. Without
+            # libX11 this unit dies at npm install on a headless host: the
+            # laptop's gred-web shell accidentally inherits X11 from the
+            # desktop profile, XiaServer does not.
+            krb5 xorg.libxkbfile xorg.libX11 libsecret
           ];
           serviceConfig = {
             Type = "oneshot";
@@ -627,8 +631,8 @@ in
             Environment = demoBuildEnv;
           };
           script = let
-            webLibs = with pkgs; [ krb5 xorg.libxkbfile libsecret ];
-            pcPath  = with pkgs; [ krb5 xorg.libxkbfile xorg.xorgproto libsecret glib ];
+            webLibs = with pkgs; [ krb5 xorg.libxkbfile xorg.libX11 libsecret ];
+            pcPath  = with pkgs; [ krb5 xorg.libxkbfile xorg.libX11 xorg.xorgproto libsecret glib ];
           in ''
             set -euo pipefail
 
