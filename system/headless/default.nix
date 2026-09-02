@@ -1,4 +1,4 @@
-{ lib, ... }:
+{ lib, pkgs, ... }:
 # A machine with no screen that has to stay reachable and stay awake.
 #
 # The counterpart to system/head. Importing this module is the switch, same rule
@@ -11,6 +11,14 @@
 # no console is a lockout that needs a physical visit to undo. None of what
 # follows is a service you host; it is what keeps the machine administrable.
 {
+  # SSH from the laptop sends TERM=xterm-kitty. NixOS then does
+  # `export TERM=$TERM` in set-environment, and zsh looks the name up in
+  # terminfo. Kitty used to live on this box with the graphical session; after
+  # going headless the binary is gone and so is the entry, so every login
+  # prints "can't find terminal definition for xterm-kitty". The terminfo
+  # output is a few files, not the terminal.
+  environment.systemPackages = [ pkgs.kitty.terminfo ];
+
   # sshd is the only way in. mkDefault on the settings so a host can tighten
   # them (XiaServer pins PasswordAuthentication itself) without redefining the
   # service.
