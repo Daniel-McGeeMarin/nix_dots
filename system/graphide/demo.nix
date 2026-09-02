@@ -618,6 +618,7 @@ in
           stopIfChanged = false;
           path = with pkgs; [
             bash git podman coreutils gnutar gzip gnugrep gnused findutils
+            diffutils  # cmp, apply-branding.sh
             nodejs_22 python3 gcc gnumake pkg-config
             # native-keymap's binding.gyp is `pkg-config x11 xkbfile`. Without
             # libX11 this unit dies at npm install on a headless host: the
@@ -667,6 +668,12 @@ in
             export PKG_CONFIG_PATH="${lib.makeSearchPathOutput "dev" "lib/pkgconfig" pcPath}:${lib.makeSearchPath "share/pkgconfig" [ pkgs.xorg.xorgproto ]}"
             export C_INCLUDE_PATH="${lib.makeSearchPathOutput "dev" "include" webLibs}"
             export CPLUS_INCLUDE_PATH="$C_INCLUDE_PATH"
+
+            # A failed npm install leaves node_modules half-renamed. The next
+            # run then dies immediately on ENOTEMPTY renaming native-watchdog
+            # (and anything else it was moving). Throw the tree away; npm
+            # install is minutes, the compile is the hour.
+            rm -rf "$BUILD_DIR/node_modules"
 
             ${lib.getExe pkgs.bash} "$gred/build/build-web.sh"
 
