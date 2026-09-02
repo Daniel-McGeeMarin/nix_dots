@@ -23,9 +23,10 @@ in
   # Read by graphide-postgres and graphide-api. See system/graphide/api.nix.
   "secrets/graphide/api-env.age".publicKeys = all;
 
-  # The model provider key handed to every demo pod. Any guest can read this
-  # from a pod terminal, so it must be a dedicated key with a low spend cap and
-  # never the production one. See system/graphide/demo.nix.
+  # OPENROUTER_API_KEY for every demo pod. Any guest can read this from a
+  # terminal, so it must be a dedicated key with a low spend cap, never the
+  # production one, and never ANTHROPIC_API_KEY (Claude Code would inherit it).
+  # See system/graphide/demo.nix.
   "secrets/graphide/demo-env.age".publicKeys = all;
 
   # Fine-grained GitHub PAT, read-only, scoped to monolith + gred + website.

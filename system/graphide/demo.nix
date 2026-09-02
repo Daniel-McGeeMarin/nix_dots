@@ -33,13 +33,23 @@
 #     runaway agent cannot take the box down.
 #
 # The provider API key is the one secret that must live inside a pod, and any
-# guest can read it from a terminal. Use a dedicated key with a low spend cap,
-# never the production one.
+# guest can read it from a terminal. Use a dedicated OpenRouter key with a low
+# spend cap, never the production one and never the Anthropic key.
+#
+# OPENROUTER_API_KEY is what graphide-api and the seeded model id actually
+# use. Do not also put ANTHROPIC_API_KEY in demo-env: Claude Code reads that
+# from the same environment a guest terminal inherits, and would silently bill
+# us instead of the guest's own login. gr-box in the monolith flake makes the
+# same cut — it injects only OpenRouter from secrets/dev.yaml.
+#
+# The image *build* never needs a key. Frozen graphs are already in
+# deploy/demo-pod/seeds/; autobuild just packs them. generate.sh is a laptop
+# job, run once, with a key, when the packs themselves need regenerating.
 #
 # == Setup ==
 #
-# 1. secrets/graphide/demo-env.age (agenix -e), one KEY=value per line:
-#      ANTHROPIC_API_KEY=sk-ant-...      # or OPENROUTER_API_KEY
+# 1. secrets/graphide/demo-env.age (agenix -e on XiaServer), one line:
+#      OPENROUTER_API_KEY=sk-or-...
 # 2. One Cloudflare Tunnel route: *.graphide.net -> this host. That single
 #    wildcard covers every session plus auth.graphide.net.
 # 3. secrets/graphide/gate-key.age (see gate.nix). Without it the boxes 401.
@@ -57,6 +67,20 @@ let
   portFor = i: cfg.basePort + i;
 
   sessionList = lib.imap0 (i: name: { inherit name; index = i; port = portFor i; }) cfg.sessions;
+
+  # systemd oneshots do not set HOME. gred's prepare-src.sh / build-web.sh
+  # expand ${XDG_CACHE_HOME:-$HOME/.cache} under `set -u`, which is how
+  # graphide-demo-fork-server died 93 times on `HOME: unbound variable`
+  # without ever compiling. GIT_* is for `git am` of patches/ onto a fresh
+  # microsoft/vscode clone — root has no identity otherwise.
+  demoBuildEnv = [
+    "HOME=${cfg.autoBuild.srcDir}"
+    "XDG_CACHE_HOME=${cfg.autoBuild.srcDir}/cache"
+    "GIT_AUTHOR_NAME=Graphide"
+    "GIT_AUTHOR_EMAIL=demo@graphide.net"
+    "GIT_COMMITTER_NAME=Graphide"
+    "GIT_COMMITTER_EMAIL=demo@graphide.net"
+  ];
 
   # Whether this host makes the patched browser server itself, or expects to
   # find one. A localhost/ tag cannot come from anywhere else, so it is also
@@ -103,11 +127,21 @@ let
     # Loopback only. Caddy reaches it; nothing else on the network can.
     ports = [ "127.0.0.1:${toString s.port}:8000" ];
     volumes = volumesFor s;
+    # demo-env.age is the injection: agenix decrypts it at activation and
+    # podman --env-file's it into every pod. OPENROUTER_API_KEY has to be in
+    # that file; nothing here can invent it. Changing the file's *contents*
+    # does not restart the containers — restart podman-graphide-demo-* after
+    # editing the secret.
     environmentFiles = [ config.age.secrets.graphide-demo-env.path ];
     environment = {
       DEMO_EMAIL = "${s.name}@${cfg.domain}";
       # Distinct per session so two pods never mint the same user id.
       DEMO_SUB = "00000000-0000-4000-8000-${lib.fixedWidthString 12 "0" (toString (s.index + 1))}";
+      # Matches the image's own default. Set here so the host config, not
+      # whoever last touched entrypoint.sh, is what says these boxes run
+      # OpenRouter. Only applied on first boot: persist volumes keep the
+      # config.toml / settings.json the entrypoint wrote then.
+      DEMO_MODEL = "openrouter/openai/gpt-5.6-sol";
     };
     extraOptions = [
       "--network=${cfg.networkName}"
@@ -590,6 +624,7 @@ in
           serviceConfig = {
             Type = "oneshot";
             TimeoutStartSec = cfg.autoBuild.forkServerTimeout;
+            Environment = demoBuildEnv;
           };
           script = let
             webLibs = with pkgs; [ krb5 xorg.libxkbfile libsecret ];
@@ -602,6 +637,14 @@ in
               echo "no gred checkout at $gred yet; the autobuild clones it - try again after a cycle" >&2
               exit 1
             fi
+
+            mkdir -p "${cfg.autoBuild.srcDir}/cache"
+            # Before --hash-only: that script still expands $HOME under set -u
+            # even when it will not write a tree. BUILD_DIR is also what
+            # build-web.sh compiles in, on the data dataset rather than /root.
+            export BUILD_DIR="${cfg.autoBuild.srcDir}/vscode-src"
+            export OUT_DIR="${cfg.autoBuild.srcDir}"
+            export SKIP_TARBALL=1
 
             want="$(${lib.getExe pkgs.bash} "$gred/build/prepare-src.sh" --hash-only)"
             have="$(podman image inspect --format '{{index .Labels "graphide.patch-hash"}}' \
@@ -621,10 +664,6 @@ in
             export C_INCLUDE_PATH="${lib.makeSearchPathOutput "dev" "include" webLibs}"
             export CPLUS_INCLUDE_PATH="$C_INCLUDE_PATH"
 
-            # SKIP_TARBALL: the tree is wrapped in an image below, so packaging
-            # it as well is a few hundred MB of nothing on this disk.
-            export BUILD_DIR="${cfg.autoBuild.srcDir}/vscode-src"
-            export SKIP_TARBALL=1
             ${lib.getExe pkgs.bash} "$gred/build/build-web.sh"
 
             tree="${cfg.autoBuild.srcDir}/vscode-reh-web-linux-x64"
@@ -678,6 +717,10 @@ in
             Type = "oneshot";
             # The build is long and must not be killed halfway by a timer tick.
             TimeoutStartSec = "60min";
+            # Same HOME hole as fork-server: this unit calls prepare-src.sh
+            # --hash-only every cycle, and without HOME that becomes
+            # want=unknown, so the fork half never converges.
+            Environment = demoBuildEnv;
           };
           script = let
             src = cfg.autoBuild.srcDir;
