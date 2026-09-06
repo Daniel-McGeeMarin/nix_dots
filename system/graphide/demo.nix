@@ -116,6 +116,22 @@ let
     "${sessionDir s}/data:/data"
     "${sessionDir s}/workspace:/workspace"
     "${sessionDir s}/codium:/opt/codium-data/server"
+    # The demo user's whole home, and it has to be the whole thing: the Claude
+    # Code sign-in is three pieces in two places — ~/.claude (credentials,
+    # transcripts, trust), ~/.claude.json (a FILE beside the directory, not in
+    # it), and ~/.config/graphide/claude-accounts (grug's managed-account
+    # store). Persisting only the directories and not the sibling file splits
+    # one login's state across a restart, and a single-file bind mount breaks
+    # the CLI's rename-over-write. Without this mount every pod restart —
+    # including each autobuild rebuild — silently signed every account out,
+    # which read as "the accounts feature does not retain accounts".
+    #
+    # Safe to shadow: the image puts nothing load-bearing in /home/demo at
+    # build time (useradd -m skeleton only) and entrypoint.sh seeds every
+    # $HOME file only-when-absent, so the first boot fills the empty mount and
+    # later boots keep it. /home/demo exists demo-owned in the image, so
+    # podman invents no parent (see the codium mount note above).
+    "${sessionDir s}/home:/home/demo"
   ] ++ lib.optional (cfg.seedDir != null) "${cfg.seedDir}:/seed:ro";
 
   containerFor = s: lib.nameValuePair "graphide-demo-${s.name}" {
@@ -224,8 +240,9 @@ in
       type = lib.types.bool;
       default = false;
       description = ''
-        Keep each session's database, workspace and editor settings across
-        restarts by mounting them from stateDir.
+        Keep each session's database, workspace, editor settings and home
+        directory (including Claude Code sign-ins and grug's managed account
+        store) across restarts by mounting them from stateDir.
 
         Off by default because it gives up the property that made handing out
         a link acceptable: with ephemeral pods, a restart is what expires a
@@ -537,6 +554,8 @@ in
            # Owned by 1000 so that everything codium-server creates beneath it
            # inherits a writable parent; see the mount note on volumesFor.
            "d ${sessionDir s}/codium    0750 1000 1000 -"
+           # 0700: this is a home directory holding Claude credentials.
+           "d ${sessionDir s}/home      0700 1000 1000 -"
          ]) sessionList)
       # Read-only to the pods, so root can own it and a guest cannot edit the
       # project every later pod is seeded from.
