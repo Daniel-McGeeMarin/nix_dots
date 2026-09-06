@@ -14,7 +14,9 @@
 
 pkgs.writeShellApplication {
   name = "dashboard";
-  runtimeInputs = [ pkgs.git ];
+  # nix is explicit rather than ambient: tv-run launches this as a systemd
+  # --user unit, which has no shell profile to put nix on PATH.
+  runtimeInputs = [ pkgs.nix pkgs.git ];
   text = ''
     MONOLITH="''${GRAPHIDE_MONOLITH:-$HOME/Documents/startup/Graphide/monolith}"
 

@@ -21,6 +21,7 @@
     ./web.nix
     ./demo.nix
     ./gate.nix
+    ./hackerboard.nix
   ];
 
   options.graphide = {

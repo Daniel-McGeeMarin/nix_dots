@@ -159,6 +159,11 @@ in
     tvRun
   ];
 
+  # The board on this TV is `tv-run dashboard`. The launcher comes from
+  # graphide.hackerboard (system/graphide/hackerboard.nix), which also
+  # generates its config; the seat's part is exporting GRAPHIDE_MONOLITH
+  # above, which is how the wrapper finds the monorepo checkout.
+
   # Audio is socket-activated for applications that need the TV speakers.
   # No Bluetooth manager, mixer UI, JACK or 32-bit audio stack is installed.
   security.rtkit.enable = true;

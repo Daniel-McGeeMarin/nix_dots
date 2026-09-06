@@ -140,6 +140,63 @@ in
   graphide.demo.persist = true;
   graphide.demo.recycle.enable = false;
   graphide.demo.seedDir = "/srv/graphide/demo/seed";
+
+  # The wall board on the attached TV. Launch it with `tv-run dashboard`.
+  #
+  # Not enabled by graphide.enable -- see the header of
+  # system/graphide/hackerboard.nix. Everything below is rendered to
+  # /etc/hackerboard/config.toml, which the board reads ahead of any
+  # hand-edited copy, so this file is the board's configuration.
+  graphide.hackerboard.enable = true;
+  graphide.hackerboard.settings = {
+    board = {
+      title = "GRAPHIDE";
+      subtitle = "HACKERBOARD";
+      countdown_label = "YC INTERVIEW";
+      # Blank hides the countdown. Set the date and it appears in the top bar.
+      countdown_date = "";
+    };
+
+    # The number the board exists for. Below `ok` reads CRITICAL, `ok`..`good`
+    # reads OK, `good` and above reads GOOD. The value itself is not here on
+    # purpose: it is entered on the board (press G) and kept in its database,
+    # because it changes weekly and a rebuild is the wrong way to record it.
+    growth = {
+      metric = "RATE OF GROWTH";
+      basis = "weekly, revenue";
+      ok = 4.0;
+      good = 7.0;
+      target = 7.0;
+    };
+
+    # Every two hours, anchored to the wall clock, silent overnight.
+    scrum = {
+      interval_minutes = 120;
+      anchor = "09:00";
+      quiet_from = "22:00";
+      quiet_to = "08:00";
+    };
+
+    github.repos = [ "GraphideHQ/monolith" ];
+
+    # Proton has no mail API; the board reads the mailbox through Proton Mail
+    # Bridge over loopback IMAP. Credentials are the switch -- a user plus a
+    # password enables the tile -- and the password must come from a file,
+    # because everything in `settings` lands in the world-readable store:
+    #
+    #   1. add secrets/graphide/hackerboard-proton.age to that directory's
+    #      rules.nix, then `agenix -e` it and `git add` the result
+    #   2. age.secrets.hackerboard-proton.file =
+    #        ../../secrets/graphide/hackerboard-proton.age;
+    #   3. proton = {
+    #        user = "<the Bridge-generated username>";
+    #        password_file = config.age.secrets.hackerboard-proton.path;
+    #      };
+    #
+    # The value is Bridge's generated password, not the Proton account one.
+
+    music.volume = 55;
+  };
   services.openssh.settings.PasswordAuthentication = false;
 
   # NVIDIA 1080 Ti — standalone GPU, no PRIME. The card is physically in the
