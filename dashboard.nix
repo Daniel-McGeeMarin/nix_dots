@@ -15,13 +15,24 @@
 # defaulted to a path under $HOME, which is right on a laptop and wrong on the
 # server, where the checkout is the one the demo autobuild maintains under
 # /srv. GRAPHIDE_MONOLITH still overrides, but nothing has to set it.
-{ pkgs, defaultSrc ? null }:
+#
+# `nix` is the machine's own nix, not `pkgs.nix`. These hosts run Lix, and
+# baking in nixpkgs' CppNix meant the launcher evaluated with a different
+# implementation than everything else here -- which broke it outright on the
+# server: the checkout under /srv belongs to root (the demo autobuild owns it),
+# CppNix 2.31 refuses to open a repository owned by another user, and it does
+# not honour the `safe.directory` exemption that would normally allow it. The
+# board died at fetch time with "repository path ... is not owned by current
+# user". Lix opens it, so the launcher on the wall works again -- but the
+# reason to pass the host's package is that a launcher should use the nix the
+# host uses, not a second one it dragged in.
+{ pkgs, defaultSrc ? null, nix ? pkgs.nix }:
 
 pkgs.writeShellApplication {
   name = "dashboard";
   # nix is explicit rather than ambient: tv-run launches this as a systemd
   # --user unit, which has no shell profile to put nix on PATH.
-  runtimeInputs = [ pkgs.nix pkgs.git ];
+  runtimeInputs = [ nix pkgs.git ];
   text = ''
     BAKED=${if defaultSrc == null then ''"$HOME/Documents/startup/Graphide/monolith"'' else ''"${defaultSrc}"''}
     MONOLITH="''${GRAPHIDE_MONOLITH:-$BAKED}"

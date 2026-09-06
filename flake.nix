@@ -65,7 +65,8 @@
         electron_41 = inputs.nixpkgs-electron-pin.legacyPackages.${system}.electron_41;
       };
       # The hackerboard: `nix run .#dashboard` from anywhere in this repo.
-      dashboard = import ./dashboard.nix { inherit pkgs; };
+      # `pkgs.lix` to match `nix.package` on both hosts -- see dashboard.nix.
+      dashboard = import ./dashboard.nix { inherit pkgs; nix = pkgs.lix; };
     in
     rec {
       packages.${system}.dashboard = dashboard;
