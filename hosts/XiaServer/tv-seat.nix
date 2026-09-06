@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ config, lib, pkgs, ... }:
 let
   user = "XiaServer";
   monolith = "${config.graphide.demo.autoBuild.srcDir}/monolith";
@@ -52,7 +52,11 @@ let
 
       if [ -z "$wayland_display" ] || [ ! -S "$runtime_dir/$wayland_display" ]; then
         echo "tv-run: the TV Wayland session is not running" >&2
-        echo "        check: systemctl status greetd" >&2
+        if systemctl is-active --quiet greetd; then
+          echo "        greetd is up but labwc has no socket; check: journalctl -u greetd -e" >&2
+        else
+          echo "        greetd is not running. Start it with: sudo systemctl start greetd" >&2
+        fi
         exit 1
       fi
 
@@ -106,6 +110,16 @@ in
       initial_session = session;
       default_session = session;
     };
+  };
+
+  # greetd's module only attaches to graphical.target. This host boots and
+  # stays on multi-user (SSH, containers) until someone isolates graphical,
+  # so a switch that only enables greetd leaves it loaded and dead. Pull it
+  # into the target that is actually running, and restart on switch: this
+  # seat is an appliance, not a login the rebuild should preserve.
+  systemd.services.greetd = {
+    wantedBy = [ "multi-user.target" ];
+    restartIfChanged = lib.mkForce true;
   };
 
   # labwc runs this after creating the Wayland and optional XWayland sockets.
