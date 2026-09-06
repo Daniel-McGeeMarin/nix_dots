@@ -64,8 +64,13 @@
       overlay-electron-pin = final: prev: {
         electron_41 = inputs.nixpkgs-electron-pin.legacyPackages.${system}.electron_41;
       };
+      # The hackerboard: `nix run .#dashboard` from anywhere in this repo.
+      dashboard = import ./dashboard.nix { inherit pkgs; };
     in
     rec {
+      packages.${system}.dashboard = dashboard;
+      apps.${system}.dashboard = { type = "app"; program = "${dashboard}/bin/dashboard"; };
+
       nixosConfigurations.XiaNix = nixpkgs.lib.nixosSystem rec {
         specialArgs = { inherit inputs secrets; };
         modules = [
