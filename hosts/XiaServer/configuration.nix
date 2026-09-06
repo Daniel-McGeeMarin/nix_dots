@@ -110,20 +110,27 @@ in
   graphide.demo.autoUpdate = false;
   graphide.demo.autoBuild.enable = true;
 
-  # demobox1 runs the patched editor; 2 and 3 stay on the stock browser server.
+  # All three boxes run the patched editor.
   #
   # The two images differ in exactly one thing - which VSCodium server they
   # carry - and only the patched one has the Graphide title bar, the
   # Home/File/Edit/Advanced menu bar, full-window page mode and the
   # reserved-canvas guarantees. Everything else, including the extension, is
-  # identical, so this is a clean A/B rather than two products.
+  # identical.
   #
-  # Both tags are built and promoted on every autobuild cycle, so moving the
-  # other two over later is deleting the `imageFor` line and letting them take
-  # the default - or, if the patched one is to become the default everywhere,
-  # pointing `image` at it. Neither is a rebuild.
+  # Moving a box back to stock is deleting its `imageFor` line and letting it
+  # take the default. Do NOT instead point `image` at the fork tag: the
+  # autobuild promotes the STOCK build into `image`, so that would overwrite
+  # the fork tag on every cycle.
+  #
+  # Note what is given up here. A cycle where the patched server is stale or
+  # absent skips the fork pod build and promotes only stock, so with no box on
+  # the default there is no longer one that keeps updating when the fork half
+  # is stuck.
   graphide.demo.autoBuild.buildFork = true;
   graphide.demo.imageFor.demobox1 = "localhost/graphide-demo:fork";
+  graphide.demo.imageFor.demobox2 = "localhost/graphide-demo:fork";
+  graphide.demo.imageFor.demobox3 = "localhost/graphide-demo:fork";
 
   # Keep what guests do, and open a real project rather than an empty folder.
   # This is a deliberate trade: the hourly wipe was what expired a guest's
