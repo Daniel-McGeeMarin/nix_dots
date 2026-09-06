@@ -20,6 +20,7 @@ in
     inputs.agenix.nixosModules.default
     ./hardware-configuration.nix
     ./storage.nix
+    ./tv-seat.nix
   ];
 
   nixpkgs.config.allowUnfree = true;
@@ -47,10 +48,10 @@ in
     [ -f ${hostIdentityMarker} ] || echo ${expectedHost} > ${hostIdentityMarker}
   '';
 
-  # Headless: note the absence of ../../system/head in the imports above. That
-  # is the entire mechanism - no GDM, no Plymouth, no PipeWire, no gamescope,
-  # because none of it is in the module set. The serv.* options below are the
-  # whole machine now.
+  # Server with a minimal TV seat: note the absence of ../../system/head in the
+  # imports above. tv-seat.nix adds only greetd, labwc, on-demand XWayland,
+  # basic audio and a font. There is still no GDM, GNOME, Hyprland, Plymouth or
+  # gamescope. The machine remains administered through the headless module.
 
   # The whole mcgeedan.com estate, off in one line: blogs, dashboard, forge,
   # cloud storage, office, the personal site and the finance app. Their
@@ -155,7 +156,7 @@ in
     modesetting.enable = true;
     powerManagement.enable = false;
     open = false;
-    # nvidia-settings is a GUI control panel. Nothing here can display it.
+    # Keep the control panel out of the minimal TV environment.
     nvidiaSettings = false;
     package = config.boot.kernelPackages.nvidiaPackages.stable;
   };
@@ -179,15 +180,16 @@ in
     gnupg.agent.pinentryPackage = lib.mkForce pkgs.pinentry-curses;
   };
 
-  # No font packages: nothing on this host renders text. The containers that do
-  # (OnlyOffice, the demo pods' browser server) carry their own fonts in-image.
+  # tv-seat.nix supplies one small fallback font family for GUI applications.
 
   time.timeZone = "America/Los_Angeles";
 
   users.users.XiaServer = {
     isNormalUser = true;
     shell = pkgs.zsh;
-    # video/input were for a graphical seat that no longer exists.
+    # greetd/logind grants the active local session device ACLs. SSH-launched
+    # applications only connect to labwc's socket, so broad video/input group
+    # membership is unnecessary.
     extraGroups = [ "wheel" ];
   };
 
