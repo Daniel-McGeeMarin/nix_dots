@@ -22,11 +22,31 @@
 let
   cfg = config.graphide.hackerboard;
   format = pkgs.formats.toml { };
-  dashboard = import ../../dashboard.nix { inherit pkgs; };
+  dashboard = import ../../dashboard.nix {
+    inherit pkgs;
+    defaultSrc = cfg.srcDir;
+  };
 in
 {
   options.graphide.hackerboard = {
     enable = lib.mkEnableOption "the hackerboard wall board and its `dashboard` launcher";
+
+    srcDir = lib.mkOption {
+      type = lib.types.str;
+      default = "${config.graphide.demo.autoBuild.srcDir}/monolith";
+      description = ''
+        The monorepo checkout the launcher runs the board out of, baked into
+        `dashboard` at build time.
+
+        It defaults to the clone the demo autobuild already keeps current on
+        this machine, which is the only monolith checkout the server has. That
+        is a real coupling and worth knowing about: the board sees whatever
+        that pipeline last synced, and the clone is root-owned. Point this
+        somewhere else if you want the board independent of the demo build.
+
+        GRAPHIDE_MONOLITH overrides it at run time.
+      '';
+    };
 
     settings = lib.mkOption {
       type = format.type;
