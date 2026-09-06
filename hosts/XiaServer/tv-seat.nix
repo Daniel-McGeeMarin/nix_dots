@@ -76,6 +76,13 @@ let
         fi
       done
 
+      # One client on the TV. Previous tv-run units keep running after SSH
+      # disconnects, so a second launch would otherwise stack another window.
+      mapfile -t old < <(systemctl --user list-units --type=service --state=active --no-legend --plain -- 'tv-*' | awk '{print $1}')
+      if (( ''${#old[@]} )); then
+        systemctl --user stop -- "''${old[@]}"
+      fi
+
       exec systemd-run --user --collect \
         --unit="$unit" \
         --property=Type=exec \
@@ -104,6 +111,25 @@ in
   # labwc runs this after creating the Wayland and optional XWayland sockets.
   # Importing the values into the user manager is what lets `tv-run` create
   # independent services from SSH without inheriting the SSH connection.
+  # Maximize every client. The compositor stays up so SSH can attach; the
+  # launcher policy (stop the previous tv-* unit) is what keeps it one-at-a-time.
+  # Maximize rather than ToggleFullscreen: chromium --kiosk is already
+  # fullscreen, and toggling would take it back out.
+  environment.etc."xdg/labwc/rc.xml".text = ''
+    <?xml version="1.0"?>
+    <labwc_config>
+      <core>
+        <decoration>client</decoration>
+        <gap>0</gap>
+      </core>
+      <windowRules>
+        <windowRule identifier="*" serverDecoration="no">
+          <action name="Maximize"/>
+        </windowRule>
+      </windowRules>
+    </labwc_config>
+  '';
+
   environment.etc."xdg/labwc/autostart".text = ''
     ${pkgs.systemd}/bin/systemctl --user import-environment \
       DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP \
