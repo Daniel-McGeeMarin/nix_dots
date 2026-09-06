@@ -8,6 +8,18 @@ let
     export MOZ_ENABLE_WAYLAND=1
     export WLR_NO_HARDWARE_CURSORS=1
     export GRAPHIDE_MONOLITH=${monolith}
+
+    # greetd starts this from a VT, so its session is XDG_SESSION_TYPE=tty and
+    # nothing further along corrects that. It matters because NIXOS_OZONE_WL
+    # makes the chromium wrapper pass --ozone-platform-hint=auto, and "auto"
+    # decides by reading XDG_SESSION_TYPE: seeing "tty" it picks X11, fails
+    # with "Missing X server or $DISPLAY", and the board never draws. Saying
+    # what this session is fixes the browser without hard-coding a platform
+    # flag into every client. XDG_CURRENT_DESKTOP is set for the same reason,
+    # one level up: portals and toolkits branch on it and it is otherwise
+    # empty here.
+    export XDG_SESSION_TYPE=wayland
+    export XDG_CURRENT_DESKTOP=labwc
     exec ${pkgs.dbus}/bin/dbus-run-session -- ${pkgs.labwc}/bin/labwc
   '';
 
@@ -20,7 +32,10 @@ let
     name = "tv-run";
     runtimeInputs = [
       pkgs.coreutils
+      pkgs.findutils
+      pkgs.gnugrep
       pkgs.systemd
+      pkgs.wayland-utils
     ];
     text = ''
       if [ "$#" -eq 0 ]; then
@@ -34,31 +49,51 @@ let
 
       while IFS='=' read -r key value; do
         case "$key" in
-          DISPLAY|NIXOS_OZONE_WL|MOZ_ENABLE_WAYLAND|GRAPHIDE_MONOLITH)
+          DISPLAY|NIXOS_OZONE_WL|MOZ_ENABLE_WAYLAND|GRAPHIDE_MONOLITH \
+          |XDG_SESSION_TYPE|XDG_CURRENT_DESKTOP)
             export "$key=$value"
             ;;
         esac
       done < <(systemctl --user show-environment)
 
-      wayland_display="''${WAYLAND_DISPLAY:-}"
-      if [ -z "$wayland_display" ]; then
-        for socket in "$runtime_dir"/wayland-*; do
-          if [ -S "$socket" ]; then
-            wayland_display="''${socket##*/}"
-            break
-          fi
-        done
+      # Pick the compositor that actually drives the TV, not merely the first
+      # socket in the directory. A compositor whose seat session went inactive
+      # keeps its socket and accepts clients, it just has no outputs and paints
+      # nowhere -- so "first wayland-* wins" silently sends the board to a
+      # screen that does not exist. Ask each candidate for an output instead,
+      # newest socket first, and take the one with a screen behind it.
+      candidates=()
+      if [ -n "''${WAYLAND_DISPLAY:-}" ]; then
+        candidates+=("$WAYLAND_DISPLAY")
       fi
+      while IFS= read -r socket; do
+        candidates+=("''${socket##*/}")
+      done < <(find "$runtime_dir" -maxdepth 1 -name 'wayland-*' ! -name '*.lock' -printf '%T@ %p\n' \
+        | sort -rn | cut -d' ' -f2-)
 
-      if [ -z "$wayland_display" ] || [ ! -S "$runtime_dir/$wayland_display" ]; then
-        echo "tv-run: the TV Wayland session is not running" >&2
-        if systemctl is-active --quiet greetd; then
-          echo "        greetd is up but labwc has no socket; check: journalctl -u greetd -e" >&2
-        else
+      wayland_display=""
+      for candidate in ''${candidates[@]+"''${candidates[@]}"}; do
+        [ -S "$runtime_dir/$candidate" ] || continue
+        if WAYLAND_DISPLAY="$candidate" timeout 5 wayland-info 2>/dev/null | grep -q "wl_output"; then
+          wayland_display="$candidate"
+          break
+        fi
+      done
+
+      if [ -z "$wayland_display" ]; then
+        echo "tv-run: no Wayland session is driving the TV" >&2
+        if ! systemctl is-active --quiet greetd; then
           echo "        greetd is not running. Start it with: sudo systemctl start greetd" >&2
+        elif [ -n "''${candidates[*]:-}" ]; then
+          echo "        a compositor is up but has no output: the TV is off or unplugged," >&2
+          echo "        or its seat session went inactive. Check /sys/class/drm/*/status," >&2
+          echo "        then: sudo systemctl restart greetd" >&2
+        else
+          echo "        greetd is up but labwc has no socket; check: journalctl -u greetd -e" >&2
         fi
         exit 1
       fi
+      export WAYLAND_DISPLAY="$wayland_display"
 
       program="$(command -v "$1" || true)"
       if [ -z "$program" ]; then
@@ -74,7 +109,8 @@ let
         "--setenv=DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS"
         "--setenv=WAYLAND_DISPLAY=$wayland_display"
       )
-      for key in DISPLAY NIXOS_OZONE_WL MOZ_ENABLE_WAYLAND GRAPHIDE_MONOLITH; do
+      for key in DISPLAY NIXOS_OZONE_WL MOZ_ENABLE_WAYLAND GRAPHIDE_MONOLITH \
+                 XDG_SESSION_TYPE XDG_CURRENT_DESKTOP; do
         if [ -n "''${!key:-}" ]; then
           unit_environment+=("--setenv=$key=''${!key}")
         fi
@@ -120,6 +156,20 @@ in
   systemd.services.greetd = {
     wantedBy = [ "multi-user.target" ];
     restartIfChanged = lib.mkForce true;
+
+    # Stopping greetd does not stop the compositor it started. logind has
+    # already moved that process into its own session scope, so it outlives
+    # the unit's cgroup: every switch used to leave another labwc running in
+    # a `closing` session, holding wayland-N and no output, while the live
+    # seat moved on to wayland-N+1. Reap them either side of the unit.
+    #
+    # `pkill -x labwc` and not `loginctl terminate-user`: the seat user is
+    # also the SSH user, and terminating them would kill the session doing
+    # the rebuild. The `-` prefixes ignore pkill's exit 1 for "none matched".
+    serviceConfig = {
+      ExecStartPre = [ "-${pkgs.procps}/bin/pkill --euid ${user} --exact labwc" ];
+      ExecStopPost = [ "-${pkgs.procps}/bin/pkill --euid ${user} --exact labwc" ];
+    };
   };
 
   # labwc runs this after creating the Wayland and optional XWayland sockets.
@@ -146,10 +196,10 @@ in
 
   environment.etc."xdg/labwc/autostart".text = ''
     ${pkgs.systemd}/bin/systemctl --user import-environment \
-      DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP \
+      DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE \
       NIXOS_OZONE_WL MOZ_ENABLE_WAYLAND GRAPHIDE_MONOLITH
     ${pkgs.dbus}/bin/dbus-update-activation-environment --systemd \
-      DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP \
+      DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE \
       NIXOS_OZONE_WL MOZ_ENABLE_WAYLAND GRAPHIDE_MONOLITH
   '';
 
