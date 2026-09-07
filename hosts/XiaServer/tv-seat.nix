@@ -20,8 +20,94 @@ let
     # empty here.
     export XDG_SESSION_TYPE=wayland
     export XDG_CURRENT_DESKTOP=labwc
-    exec ${pkgs.dbus}/bin/dbus-run-session -- ${pkgs.labwc}/bin/labwc
+    # greetd exec's this straight from a VT, so labwc's stdout and stderr went
+    # to the tty and nowhere else: every wlroots message about this screen --
+    # "connector HDMI-A-2 disconnected", failed atomic commits, mode set
+    # failures -- was discarded. That is the one component best placed to say
+    # why the TV went dark, so put it in the journal: `journalctl -t labwc`.
+    exec ${pkgs.systemd}/bin/systemd-cat --identifier=labwc \
+      ${pkgs.dbus}/bin/dbus-run-session -- ${pkgs.labwc}/bin/labwc
   '';
+
+  # The TV drops off at random and never comes back on its own. It did that
+  # when this host was headless too, long before there was a compositor to
+  # blame, and the TV shows "No Signal" rather than a black picture -- so the
+  # sink or the link is dropping, not anything in software. Nothing here can
+  # fix a marginal HDMI link; what it can do is notice and recover.
+  #
+  # wlroots destroys the wlr_output when a connector reports disconnected
+  # (disconnect_drm_connector() calls wlr_output_destroy outright) and relies
+  # on a udev change event to bring it back. labwc 0.9.2 does not always
+  # re-enable it when that arrives -- labwc#3234, open, filed against this
+  # exact version and describing this exact symptom. Then the screen stays
+  # dead until someone restarts the session by hand.
+  #
+  # So: watch the connector, and if the TV comes back but the compositor does
+  # not take the output, restart the seat. Every transition is logged whether
+  # or not it needed acting on, because a record of when this happens is worth
+  # as much as the recovery.
+  tvOutputWatch = pkgs.writeShellApplication {
+    name = "tv-output-watch";
+    runtimeInputs = [ pkgs.coreutils pkgs.systemd ];
+    text = ''
+      # Not a fixed card2-HDMI-A-2: the card index depends on whether i915 or
+      # nvidia probed first and is not guaranteed across boots. The connector
+      # suffix is.
+      connector() {
+        for c in /sys/class/drm/*-HDMI-A-2; do
+          if [ -e "$c/status" ]; then
+            printf '%s' "$c"
+            return 0
+          fi
+        done
+        return 1
+      }
+
+      state() {
+        printf '%s enabled=%s dpms=%s edid=%s bytes' \
+          "$(cat "$1/status" 2>/dev/null || echo gone)" \
+          "$(cat "$1/enabled" 2>/dev/null || echo gone)" \
+          "$(cat "$1/dpms" 2>/dev/null || echo gone)" \
+          "$(wc -c < "$1/edid" 2>/dev/null || echo 0)"
+      }
+
+      prev=""
+      while true; do
+        if ! c=$(connector); then
+          sleep 5
+          continue
+        fi
+
+        status=$(cat "$c/status" 2>/dev/null || echo gone)
+
+        if [ "$status" != "$prev" ]; then
+          if [ -z "$prev" ]; then
+            echo "watching ''${c##*/}: $(state "$c")"
+          else
+            echo "''${c##*/}: $prev -> $(state "$c")"
+          fi
+
+          if [ "$prev" = "disconnected" ] && [ "$status" = "connected" ]; then
+            # Give labwc its chance first. When it does handle the hotplug the
+            # connector goes back to enabled on its own and there is nothing to
+            # do -- restarting the seat then would be a self-inflicted outage.
+            sleep 10
+            enabled=$(cat "$c/enabled" 2>/dev/null || echo gone)
+            if [ "$enabled" = "enabled" ]; then
+              echo "TV is back and the compositor re-enabled the output"
+            else
+              echo "TV is back but the output is still $enabled; restarting the seat"
+              systemctl restart greetd
+            fi
+          fi
+
+          prev="$status"
+        fi
+
+        sleep 5
+      done
+    '';
+  };
 
   session = {
     user = user;
@@ -172,6 +258,17 @@ in
     };
   };
 
+  systemd.services.tv-output-watch = {
+    description = "Log TV connector changes and restore the seat when the TV returns";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "greetd.service" ];
+    serviceConfig = {
+      ExecStart = "${tvOutputWatch}/bin/tv-output-watch";
+      Restart = "always";
+      RestartSec = "5s";
+    };
+  };
+
   # labwc runs this after creating the Wayland and optional XWayland sockets.
   # Importing the values into the user manager is what lets `tv-run` create
   # independent services from SSH without inheriting the SSH connection.
@@ -201,6 +298,21 @@ in
     ${pkgs.dbus}/bin/dbus-update-activation-environment --systemd \
       DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE \
       NIXOS_OZONE_WL MOZ_ENABLE_WAYLAND GRAPHIDE_MONOLITH
+  '' + lib.optionalString config.graphide.hackerboard.enable ''
+    # The seat exists to show the board, and nothing started it: a boot -- or
+    # the seat restarting after the TV came back -- left an empty screen until
+    # somebody ssh'd in and ran `tv-run dashboard`. That is most of what made
+    # this "unusable", and it is what makes tv-output-watch's restart an
+    # actual recovery rather than a black screen with a compositor behind it.
+    #
+    # Through tv-run so the board is a systemd --user unit rather than a child
+    # of the compositor: it can then be replaced, inspected and restarted the
+    # same way as one launched over SSH.
+    #
+    # /run/current-system rather than a store path, so the board follows the
+    # running system; this file is regenerated by the same switch that would
+    # move that path anyway.
+    ${tvRun}/bin/tv-run /run/current-system/sw/bin/dashboard
   '';
 
   environment.systemPackages = [
@@ -209,10 +321,10 @@ in
     tvRun
   ];
 
-  # The board on this TV is `tv-run dashboard`. The launcher comes from
-  # graphide.hackerboard (system/graphide/hackerboard.nix), which also
-  # generates its config; the seat's part is exporting GRAPHIDE_MONOLITH
-  # above, which is how the wrapper finds the monorepo checkout.
+  # The board on this TV is `tv-run dashboard`, started by the autostart above.
+  # The launcher comes from graphide.hackerboard (system/graphide/hackerboard.nix),
+  # which also generates its config; the seat's part is exporting
+  # GRAPHIDE_MONOLITH above, which is how the wrapper finds the monorepo checkout.
 
   # Audio is socket-activated for applications that need the TV speakers.
   # No Bluetooth manager, mixer UI, JACK or 32-bit audio stack is installed.
