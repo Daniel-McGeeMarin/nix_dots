@@ -145,6 +145,10 @@ in
     serviceConfig = {
       Type = "oneshot";
       ExecStart = "${updater}/bin/hackerboard-update";
+      # Echo update activity to the console as well as the journal: a Pi with
+      # a TV plugged in shows what the updater did without anyone SSHing in.
+      StandardOutput = "journal+console";
+      StandardError = "journal+console";
     };
   };
   systemd.timers.hackerboard-update = {
