@@ -50,6 +50,7 @@ pys = "source ./venv/bin/activate";
       sudoedit = "doas rnano";
       n = "cd ~/nixos/";
       apps="librewolf --no-remote --profile ~/.librewolf/default-kiosk &";      tethering = "sudo iptables -t mangle -A POSTROUTING -j TTL --ttl-set 65";
+      inhibit-sleep = ''systemd-inhibit --what=handle-lid-switch --why="lid closed, keep running" sleep infinity'';
 
       #Bens
 
