@@ -111,6 +111,7 @@ in
       HACKERBOARD_HOST = "0.0.0.0";
       HACKERBOARD_PORT = "8420";
       HACKERBOARD_DATA_DIR = "${dataDir}/data";
+      HACKERBOARD_WEB_DIST = "${dataDir}/web-dist";
       PYTHONPATH = "${dataDir}/api-root";
     };
     serviceConfig = {
