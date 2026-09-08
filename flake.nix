@@ -35,6 +35,16 @@
     # This commit (2026-06-09) has electron-41.7.1 which IS cached.
     # To unpin: remove this input, remove overlay-electron-pin, run nix flake lock.
     nixpkgs-electron-pin.url = "github:NixOS/nixpkgs/8a6fd288ce1b6f52fa0038397f36608f64743d5a";
+
+    # The Graphide monorepo, for baking the hackerboard into the HackerPi
+    # image. flake = false keeps monolith's own (enormous) input set out of
+    # this lock file -- we import hackerboard/nix/ as a plain expression.
+    # git+file because the repo is private and the checkout is already here;
+    # `nix flake lock --update-input monolith` re-pins to its current HEAD.
+    monolith = {
+      url = "git+file:///home/xia/Documents/startup/Graphide/monolith";
+      flake = false;
+    };
   };
 
   outputs = { self, nixpkgs, home-manager, nixpkgs-unstable, caelestia-shell, nixvim, ... }@inputs:
@@ -68,8 +78,35 @@
       dashboard = import ./dashboard.nix { inherit pkgs; };
     in
     rec {
-      packages.${system}.dashboard = dashboard;
+      packages.${system} = {
+        dashboard = dashboard;
+        # nix build .#hackerpi-vm -> ./result/bin/run-hackerpi-vm
+        hackerpi-vm = nixosConfigurations.HackerPiSim.config.system.build.vm;
+      };
       apps.${system}.dashboard = { type = "app"; program = "${dashboard}/bin/dashboard"; };
+      # The dd-able .img for the real Pi (needs aarch64 binfmt on the builder):
+      #   nix build .#packages.aarch64-linux.hackerpi-image
+      packages.aarch64-linux.hackerpi-image = nixosConfigurations.HackerPi.config.system.build.sdImage;
+
+      # HackerPi: the Raspberry Pi 3B that serves the hackerboard. Two builds
+      # of the same modules -- real aarch64 hardware and an x86 qemu sim; see
+      # hosts/HackerPi/configuration.nix. No overlays on purpose: they
+      # hardcode x86_64, and nothing here needs them. No home-manager either;
+      # the box has no interactive user environment worth managing.
+      nixosConfigurations.HackerPi = nixpkgs.lib.nixosSystem {
+        specialArgs = { inherit inputs; };
+        modules = [
+          ./hosts/HackerPi/configuration.nix
+          ./hosts/HackerPi/sd-image.nix
+        ];
+      };
+      nixosConfigurations.HackerPiSim = nixpkgs.lib.nixosSystem {
+        specialArgs = { inherit inputs; };
+        modules = [
+          ./hosts/HackerPi/configuration.nix
+          ./hosts/HackerPi/sim.nix
+        ];
+      };
 
       nixosConfigurations.XiaNix = nixpkgs.lib.nixosSystem rec {
         specialArgs = { inherit inputs secrets; };

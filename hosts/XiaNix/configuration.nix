@@ -22,6 +22,10 @@ in
   '';
   boot.extraModulePackages = with config.boot.kernelPackages; [ v4l2loopback ];
   boot.kernelModules = [ "binder_linux" ];
+  # Run aarch64 binaries through qemu-user, so this laptop can build the
+  # HackerPi SD image (nix build .#hackerpi-image). Emulated, so that build
+  # is slow -- but it only happens when the Pi's system changes.
+  boot.binfmt.emulatedSystems = [ "aarch64-linux" ];
 
   networking.hostName = "XiaNix";
 
