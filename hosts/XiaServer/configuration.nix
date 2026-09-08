@@ -248,6 +248,18 @@ in
     # applications only connect to labwc's socket, so broad video/input group
     # membership is unnecessary.
     extraGroups = [ "wheel" ];
+
+    # Login keys. These land in /etc/ssh/authorized_keys.d/XiaServer, which sshd
+    # reads in addition to ~/.ssh/authorized_keys -- so declaring one here does
+    # not disturb any key still sitting in the home-directory file.
+    #
+    # Anything listed here gets a wheel shell on the box that runs the
+    # mcgeedan.com estate and the Graphide stack. Revoking a key means deleting
+    # its line and rebuilding; there is no other copy to chase.
+    openssh.authorizedKeys.keys = [
+      # greencheetah@fedora -- SHA256:4N4R/OxyXPAss9aEnqBtRm4YIInJHfBL/k7lkHUbzIM
+      "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQChQYMz+Q2dzTLTISmBlFHPUDRAzvupt3Sw/u2fpjZXjM3VLVU/VFq8gjmMMVVKTJBXUHwbdJiiNzvx0CobBYYXz5dMjV5Q3dubC2iikS70CX1M13n1yFzIebMsL8vTQaM/g5g0Sg9woAW8b74uWH5r6h6xmXOR7tfFi8m2tDmIllpRxXe49G9Hcmr4NQaHs3hb/A/31JTFjJDTvFqRN9BNUYgC4OR51FNFRsj2TZ8ecaYsSTcFioRG4jBYpU6URbFHLVrs3C5g9Fh8LKW6ISSd3G9XFnEYYXFAp0C8SiEZR02VYvU61N68IeDRikscjQ1JOm8r2HKGhi+Nv4Mc22qxPrpn4bg4jbAPzwms2OTX2rkI6ghZYhzXYOHzqszqe+J7bPXUdHmDLzXIb1mTNy9dAU1FY3UqbCUXb4Hqx0CjvTzbCE7R8ME537qfy0QkvtjLFek9Azh36iKzGnH7rVdmKQuzShVkYCnUqItPViamm7Py1Rbv1HPO7X4eIrsy2vc= greencheetah@fedora"
+    ];
   };
 
   home-manager = {
