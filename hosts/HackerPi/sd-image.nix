@@ -2,7 +2,7 @@
 #
 # Build (needs aarch64 emulation on the build host -- see binfmt in
 # hosts/XiaNix/configuration.nix):
-#   nix build .#hackerpi-image
+#   nix build .#packages.aarch64-linux.hackerpi-image
 # The result is an uncompressed .img; write it with dd. It is a ~3 GB image
 # that expands its root partition to fill the card on first boot (the
 # sd-image module ships that hook), so a 32 GB stick ends up ~29 GB free.

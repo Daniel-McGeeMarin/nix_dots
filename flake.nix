@@ -84,7 +84,8 @@
         hackerpi-vm = nixosConfigurations.HackerPiSim.config.system.build.vm;
       };
       apps.${system}.dashboard = { type = "app"; program = "${dashboard}/bin/dashboard"; };
-      # The dd-able .img for the real Pi (needs aarch64 binfmt on the builder).
+      # The dd-able .img for the real Pi (needs aarch64 binfmt on the builder):
+      #   nix build .#packages.aarch64-linux.hackerpi-image
       packages.aarch64-linux.hackerpi-image = nixosConfigurations.HackerPi.config.system.build.sdImage;
 
       # HackerPi: the Raspberry Pi 3B that serves the hackerboard. Two builds
