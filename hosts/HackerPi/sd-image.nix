@@ -9,7 +9,10 @@
 { config, lib, pkgs, inputs, ... }:
 
 {
-  imports = [ "${inputs.nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix" ];
+  imports = [
+    "${inputs.nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
+    ./kiosk.nix  # the TV kiosk -- hardware only, never the sim
+  ];
 
   nixpkgs.hostPlatform = "aarch64-linux";
 
