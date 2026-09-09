@@ -18,6 +18,9 @@
   ai.cursorCli.enable = true;
   ai.codex.enable = true;
   ai.privatellm.enable = true;
+
+  graphide.enable = true;
+  graphide.autoUpdate.enable = true;
   programs.claudeAgents.enable = true;
 
   desktop = {

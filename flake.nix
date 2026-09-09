@@ -35,6 +35,20 @@
     # This commit (2026-06-09) has electron-41.7.1 which IS cached.
     # To unpin: remove this input, remove overlay-electron-pin, run nix flake lock.
     nixpkgs-electron-pin.url = "github:NixOS/nixpkgs/8a6fd288ce1b6f52fa0038397f36608f64743d5a";
+
+    graphide = {
+      # git+ssh, not `github:`: the repo is private and the GitHub *API*
+      # fetcher `github:` uses needs an access token in nix.conf, which this
+      # machine deliberately does not have. SSH reuses the key git already
+      # authenticates with. Still a GitHub-hosted, revision-locked input --
+      # NOT the local ~/Documents/startup/Graphide/monolith checkout, whose
+      # branch state changes constantly and isn't what should end up
+      # installed system-wide.
+      url = "git+ssh://git@github.com/graphideHQ/monolith";
+      # Deliberately NO inputs.nixpkgs.follows. graphide keeps its own tested
+      # nixpkgs pin independent of this flake's, so the installed gr/grat/gred
+      # is exactly what graphide's own dev shell and CI built and tested.
+    };
   };
 
   outputs = { self, nixpkgs, home-manager, nixpkgs-unstable, caelestia-shell, nixvim, ... }@inputs:
