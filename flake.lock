@@ -218,21 +218,6 @@
         "type": "github"
       }
     },
-    "monolith": {
-      "flake": false,
-      "locked": {
-        "dirtyRev": "13d9637cf0e80b3eb12663011e0447ba5215616e-dirty",
-        "dirtyShortRev": "13d9637cf-dirty",
-        "lastModified": 1788856680,
-        "narHash": "sha256-+nMoy6MveQnYxa9p59yFmrHDVoJL3X12CnJh5V8G5lY=",
-        "type": "git",
-        "url": "file:///home/xia/Documents/startup/Graphide/monolith"
-      },
-      "original": {
-        "type": "git",
-        "url": "file:///home/xia/Documents/startup/Graphide/monolith"
-      }
-    },
     "nix-flatpak": {
       "locked": {
         "lastModified": 1780908363,
@@ -369,7 +354,6 @@
         "agenix": "agenix",
         "caelestia-shell": "caelestia-shell",
         "home-manager": "home-manager_2",
-        "monolith": "monolith",
         "nix-flatpak": "nix-flatpak",
         "nixpkgs": "nixpkgs",
         "nixpkgs-electron-pin": "nixpkgs-electron-pin",
