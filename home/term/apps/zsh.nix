@@ -133,6 +133,34 @@ pys = "source ./venv/bin/activate";
               git clone "git@github.com:''${name}.git"
             }
 
+            # Repo dashboard for any checkout: `lg` here, `lg ~/some/repo` there.
+            # lazygit only accepts another repo via -p, so a bare directory
+            # argument gets rewritten; anything else is passed through as flags.
+            # The newdir dance is lazygit's "open another repo and leave the
+            # shell there" feature -- it writes the destination to a file on
+            # exit and expects the shell to cd to it. (home-manager ships this
+            # same wrapper, but without the directory argument, so its version
+            # is switched off in programming/default.nix.)
+            lg() {
+              local -a args
+              if [[ -z "$1" ]]; then
+                args=(-p "$PWD")
+              elif [[ -d "$1" ]]; then
+                args=(-p "$1"); shift; args+=("$@")
+              else
+                args=("$@")
+              fi
+              export LAZYGIT_NEW_DIR_FILE="''${XDG_CACHE_HOME:-$HOME/.cache}/lazygit/newdir"
+              command lazygit "''${args[@]}"
+              if [[ -f "$LAZYGIT_NEW_DIR_FILE" ]]; then
+                cd "$(cat "$LAZYGIT_NEW_DIR_FILE")"
+                rm -f "$LAZYGIT_NEW_DIR_FILE"
+              fi
+            }
+
+            # Commit graph only, for reading history rather than acting on it.
+            gg() { (cd "''${1:-$PWD}" && serie) }
+
             # Fuzzy-search git branches (local + remote) and switch to one
             fb() {
               emulate -L zsh -o no_aliases

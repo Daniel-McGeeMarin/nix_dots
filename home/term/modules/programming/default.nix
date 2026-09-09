@@ -45,6 +45,26 @@ in
 
 
 
+    # Repo dashboard. `lg [dir]` (see zsh.nix) opens every repo fact on one
+    # screen: dirty/staged files, every branch with how far ahead or behind its
+    # upstream it is, worktrees, stashes, and the commit graph. It is a client,
+    # not a daemon -- it reads whatever repo you point it at and exits.
+    programs.lazygit = {
+      enable = true;
+      # Its zsh integration defines an `lg` wrapper of its own, which would win
+      # (it is appended after initExtra) and which cannot be pointed at another
+      # directory. zsh.nix has a superset of it.
+      enableZshIntegration = false;
+      settings = {
+        gui = {
+          nerdFontsVersion = "3";                     # the terminal font has them
+          showBranchCommitHash = true;
+          showDivergenceFromBaseBranch = "arrowAndNumber";  # "+3 -1" per branch
+        };
+        git.log.showGraph = "always";                 # keep the graph even when unmaximised
+      };
+    };
+
     programs.direnv = {
       enable = true;
       nix-direnv.enable = true;
@@ -59,6 +79,7 @@ in
       uv
       nodejs
       gh
+      serie                                # standalone commit-graph browser (`gg`)
       depot-cli
       (lib.mkIf config.programming.R.enable R)
     ];
