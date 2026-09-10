@@ -19,8 +19,6 @@
     ./auth.nix
     ./api.nix
     ./web.nix
-    ./demo.nix
-    ./gate.nix
     ./hackerboard.nix
   ];
 
@@ -56,8 +54,15 @@
     graphide.auth.enable     = lib.mkDefault true;
     graphide.api.enable      = lib.mkDefault true;
     graphide.web.enable      = lib.mkDefault true;
-    graphide.demo.enable     = lib.mkDefault true;
-    # Follows the demo boxes, not the master: no pods means no gate.
-    graphide.gate.enable     = lib.mkDefault config.graphide.demo.enable;
+
+    # The shared clone PAT. demo.nix declared it until the demo boxes retired
+    # to Azure (2026-09-10, monolith deploy/demo-pod/azure/); web's autobuild
+    # still borrows it, so the declaration lives on here with that consumer.
+    age.secrets.graphide-demo-token = lib.mkIf
+      (config.graphide.web.enable && config.graphide.web.autoBuild.enable
+       && config.graphide.web.autoBuild.tokenFile == null) {
+        file = ../../secrets/graphide/clone-token.age;
+        mode = "0400";
+      };
   };
 }

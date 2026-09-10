@@ -34,7 +34,10 @@ in
 
     srcDir = lib.mkOption {
       type = lib.types.str;
-      default = "${config.graphide.demo.autoBuild.srcDir}/monolith";
+      # Literal form of the retired demo module's `autoBuild.srcDir` default —
+      # the demo boxes moved to Azure 2026-09-10, but the checkout their
+      # autobuild kept here is still the monolith clone this board runs from.
+      default = "${config.graphide.dataDir}/demo/src/monolith";
       description = ''
         The monorepo checkout the launcher runs the board out of, baked into
         `dashboard` at build time.

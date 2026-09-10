@@ -8,7 +8,8 @@
 #
 # That is deliberate and it is confined to this one file, so the cost of cutting
 # it later is known rather than discovered. The demo boxes no longer live here
-# — they moved to the signed-token gate in ./gate.nix. Authelia here is for
+# — they moved to the signed-token gate, since retired to the Azure demo
+# host (monolith deploy/demo-pod/azure/gate.py). Authelia here is for
 # Graphide staff (admins + the demo/cofounder account), at /demo and
 # /feedback/results. Product guests never get an Authelia account; they get a
 # magic link. The mcgeedan.com estate stays admins-only.

@@ -23,12 +23,6 @@ in
   # Read by graphide-postgres and graphide-api. See system/graphide/api.nix.
   "secrets/graphide/api-env.age".publicKeys = all;
 
-  # OPENROUTER_API_KEY for every demo pod. Any guest can read this from a
-  # terminal, so it must be a dedicated key with a low spend cap, never the
-  # production one, and never ANTHROPIC_API_KEY (Claude Code would inherit it).
-  # See system/graphide/demo.nix.
-  "secrets/graphide/demo-env.age".publicKeys = all;
-
   # Fine-grained GitHub PAT, read-only, scoped to monolith + gred + website.
   # Used by both autobuild units to clone the private repos.
   "secrets/graphide/clone-token.age".publicKeys = all;
@@ -45,7 +39,7 @@ in
   # agenix takes its recipients from here and refuses a path it has no rule for.
   "secrets/graphide/web-env.age".publicKeys = all;
 
-  # HMAC key for demo magic links. One line: DEMO_GATE_KEY=<64 hex chars>.
-  # See system/graphide/gate.nix. Without this file the boxes 401.
-  "secrets/graphide/gate-key.age".publicKeys = all;
+  # demo-env.age and gate-key.age left with the demo boxes when they retired
+  # to Azure (2026-09-10) — their successors live in the graphide-prod-kv
+  # Key Vault as DEMO-OPENROUTER-API-KEY and DEMO-GATE-KEY.
 }

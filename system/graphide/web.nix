@@ -203,8 +203,8 @@ in
         default = null;
         description = ''
           File holding a GitHub token able to clone the website repo, which is
-          private. Defaults to the token graphide-demo.nix already declares for
-          its own autoBuild, so enabling this needs no new secret — but that
+          private. Defaults to the shared clone PAT declared in default.nix (it
+          lived in demo.nix until the boxes retired to Azure, 2026-09-10), so enabling this needs no new secret — but that
           PAT is fine-grained and scoped to monolith and gred only, so it must
           be re-scoped to include the website repo. Re-scoping a fine-grained
           PAT does not change its value, so the existing .age file stays valid
@@ -274,27 +274,13 @@ in
           that takes down every vhost on Graphide's Caddy with it.
         '';
       }
-      {
-        assertion = !cfg.autoBuild.enable
-                    || cfg.autoBuild.tokenFile != null
-                    || config.graphide.demo.autoBuild.enable;
-        message = ''
-          graphide.web.autoBuild needs a GitHub token to clone the private
-          website repo. With tokenFile unset it borrows the one
-          graphide-demo.nix declares, and that module only declares it when its
-          own autoBuild is on — so as written the secret does not exist and
-          activation will fail on a missing decryption target.
-
-          Either set graphide.demo.autoBuild.enable = true, or point
-          graphide.web.autoBuild.tokenFile at your own token file.
-
-          Note also that the borrowed PAT is fine-grained and scoped to
-          monolith and gred. It must be re-scoped in GitHub to include the
-          website repo, or the clone 404s as though the branch were gone.
-          Re-scoping does not change the token value, so the .age file does not
-          need re-encrypting.
-        '';
-      }
+      # An assertion tying web's autoBuild to demo.nix's stood here: the clone
+      # PAT used to be declared only by demo.nix and only when ITS autoBuild
+      # was on. The demo boxes retired to Azure (2026-09-10) and default.nix
+      # now declares the PAT whenever web's autoBuild needs it, so the only
+      # remaining foot-gun is scope: the fine-grained PAT must include the
+      # website repo, or the clone 404s as though the branch were gone.
+      # Re-scoping does not change the token value; no re-encrypt needed.
       {
         assertion = !cfg.autoBuild.enable || !cfg.autoUpdate;
         message = ''

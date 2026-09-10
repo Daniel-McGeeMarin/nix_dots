@@ -66,7 +66,7 @@ in
   # The one exception, and the last thread tying the two stacks together.
   # Graphide's admin pages authenticate against the Authelia instance declared
   # in system/serv/auth.nix, so it stays up on its own. Demo boxes do not use
-  # it — they are behind the magic-link gate in system/graphide/gate.nix.
+  # it — they were behind the magic-link gate, retired to Azure 2026-09-10.
   # Authelia binds 0.0.0.0:9091 and Graphide's own Caddy proxies
   # auth.graphide.net to it. See the header of system/graphide/auth.nix.
   serv.auth.enable = true;
@@ -95,51 +95,15 @@ in
   graphide.web.autoUpdate = false;
   graphide.web.autoBuild.enable = true;
 
-  # One throwaway browser IDE per name, at <name>.graphide.net behind the
-  # magic-link gate. Mint a link on the box with:
-  #   graphide-demo-mint --box demobox1 --ttl 12h --label "press"
-  graphide.demo.enable = true;
-  # Lowercase: the hostname is the Authelia/Caddy/token `box` id. URLs are
-  # case-insensitive, so DemoBox1.graphide.net still reaches demobox1.
-  graphide.demo.sessions = [ "demobox1" "demobox2" "demobox3" ];
-
-  # Build on this host from the repos rather than pulling a prebuilt image.
-  # The other services take images from GHCR because CI publishes them; this
-  # needs no Actions minutes and no registry, so it keeps working when Actions
-  # is unavailable. A local tag cannot be pulled, hence autoUpdate = false.
-  graphide.demo.image = "localhost/graphide-demo:latest";
-  graphide.demo.autoUpdate = false;
-  graphide.demo.autoBuild.enable = true;
-
-  # All three boxes run the patched editor.
+  # The demo boxes RETIRED from this host on 2026-09-10. They live on Azure
+  # now: VM graphide-demo-prod, built from monolith deploy/demo-pod/azure/
+  # (image from GHCR, magic-link gate behind Caddy, secrets from Key Vault).
+  # demo.nix, gate.nix and gate.py left this repo with them.
   #
-  # The two images differ in exactly one thing - which VSCodium server they
-  # carry - and only the patched one has the Graphide title bar, the
-  # Home/File/Edit/Advanced menu bar, full-window page mode and the
-  # reserved-canvas guarantees. Everything else, including the extension, is
-  # identical.
-  #
-  # Moving a box back to stock is deleting its `imageFor` line and letting it
-  # take the default. Do NOT instead point `image` at the fork tag: the
-  # autobuild promotes the STOCK build into `image`, so that would overwrite
-  # the fork tag on every cycle.
-  #
-  # Note what is given up here. A cycle where the patched server is stale or
-  # absent skips the fork pod build and promotes only stock, so with no box on
-  # the default there is no longer one that keeps updating when the fork half
-  # is stuck.
-  graphide.demo.autoBuild.buildFork = true;
-  graphide.demo.imageFor.demobox1 = "localhost/graphide-demo:fork";
-  graphide.demo.imageFor.demobox2 = "localhost/graphide-demo:fork";
-  graphide.demo.imageFor.demobox3 = "localhost/graphide-demo:fork";
-
-  # Keep what guests do, and open a real project rather than an empty folder.
-  # This is a deliberate trade: the hourly wipe was what expired a guest's
-  # access to their own session, so with it off, whatever one visitor leaves in
-  # a workspace is what the next one opens.
-  graphide.demo.persist = true;
-  graphide.demo.recycle.enable = false;
-  graphide.demo.seedDir = "/srv/graphide/demo/seed";
+  # Note also that since 2026-09-07 this machine's DEPLOYED system is built
+  # from the monolith flake — `nixos-rebuild switch --flake <monolith>#XiaServer`
+  # (nix/hosts/XiaServer + nix/modules/build-host.nix) — not from this repo,
+  # so what follows describes the pre-switch world, kept for reference.
 
   # The wall board on the attached TV. Launch it with `tv-run dashboard`.
   #

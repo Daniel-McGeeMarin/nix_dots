@@ -2,7 +2,8 @@
 # One `podman login ghcr.io` at boot, so any container in this tree can pull
 # from the private registry.
 #
-# Its own file because both web.nix and demo.nix order themselves behind this
+# Its own file because web.nix orders itself behind this (demo.nix did too, until the
+# boxes retired to Azure 2026-09-10)
 # unit, and it used to live inside api.nix -- which meant the marketing site and
 # the demo pods had a hard dependency on the API server module being enabled for
 # a reason that had nothing to do with the API server.

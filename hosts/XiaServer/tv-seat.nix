@@ -1,7 +1,9 @@
 { config, lib, pkgs, ... }:
 let
   user = "XiaServer";
-  monolith = "${config.graphide.demo.autoBuild.srcDir}/monolith";
+  # Literal form of what used to be `${graphide.demo.autoBuild.srcDir}` —
+  # the demo module retired to Azure 2026-09-10 and its options with it.
+  monolith = "${config.graphide.dataDir}/demo/src/monolith";
 
   startTvSeat = pkgs.writeShellScript "start-tv-seat" ''
     export NIXOS_OZONE_WL=1
