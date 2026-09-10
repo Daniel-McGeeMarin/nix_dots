@@ -25,6 +25,7 @@ let
   dashboard = import ../../dashboard.nix {
     inherit pkgs;
     defaultSrc = cfg.srcDir;
+    nix = config.nix.package;
   };
 in
 {
