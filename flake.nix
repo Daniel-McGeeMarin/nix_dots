@@ -49,6 +49,19 @@
       # nixpkgs pin independent of this flake's, so the installed gr/grat/gred
       # is exactly what graphide's own dev shell and CI built and tested.
     };
+
+    # The SAME repo a second time, pinned separately, and only ever used for
+    # gred. gr/grat come from `graphide` above and follow the newest green
+    # master on the autoupdate timer; gred's derivation refuses a release
+    # tarball that predates the tree it is evaluated in, and that tarball is
+    # a long Docker build that fails or times out often enough that, while
+    # the two shared one pin, one bad gred build froze gr/grug too: the
+    # daemon on this machine sat on a 2026-09-08 build for four days (docs
+    # Tech/_inbox/grug-cpu-2026-09-12). This input advances only after a
+    # gred build actually succeeded at that commit.
+    graphide-gred = {
+      url = "git+ssh://git@github.com/graphideHQ/monolith";
+    };
   };
 
   outputs = { self, nixpkgs, home-manager, nixpkgs-unstable, caelestia-shell, nixvim, ... }@inputs:

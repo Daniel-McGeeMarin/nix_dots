@@ -8,6 +8,9 @@
 # repo's layout; see that commit for the fuller original rationale.
 let
   gp = inputs.graphide.packages.${pkgs.stdenv.hostPlatform.system};
+  # gred comes from its own input so a failed editor build cannot hold the
+  # CLI and daemon back; see the `graphide-gred` comment in flake.nix.
+  gpGred = inputs.graphide-gred.packages.${pkgs.stdenv.hostPlatform.system};
 
   cfg = config.graphide;
 
@@ -31,7 +34,7 @@ let
   # needs to be run by hand for an out-of-cycle rebuild, e.g. right after
   # pulling gred changes you want installed before the next timer tick.
   gredDistTarball = /home/xia/MyApps/graphide-dist/graphide-linux-x64.tar.gz;
-  gred = gp.gred.overrideAttrs (_: { src = gredDistTarball; });
+  gred = gpGred.gred.overrideAttrs (_: { src = gredDistTarball; });
 
   rebuildGredScript = pkgs.writeShellApplication {
     name = "graphide-rebuild-gred";
@@ -56,7 +59,14 @@ let
       }
 
       WORK="$(mktemp -d)"
-      trap 'rm -rf "$WORK"' EXIT
+      # One named container, removed before a new one starts and removed when
+      # this script dies. `docker run --rm` alone does NOT stop the container
+      # when the client is killed: on 2026-09-12 the timer's timeout killed two
+      # launchers and left two 4 GB gulp builds of the same commit compiling
+      # under containerd for over an hour each, with a third started on top.
+      CONTAINER=graphide-autobuild
+      trap 'docker rm -f "$CONTAINER" >/dev/null 2>&1 || true; rm -rf "$WORK"' EXIT TERM INT
+      docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 
       echo "[1/3] Building Go binaries (grug, gr, grach) + bwrap in a stock-glibc container ..."
       bash "$MONOLITH_DIR/scripts/build-dist-container.sh" linux amd64 "$WORK/bins"
@@ -64,7 +74,9 @@ let
       echo "[2/3] Building the release image and tarball (this reuses the npm/build cache under ~/.cache/graphide) ..."
       docker build -t graphide-build-env -f "$MONOLITH_DIR/gred/build/Dockerfile" "$MONOLITH_DIR/gred"
       mkdir -p "$HOME/.cache/graphide"
-      docker run --rm -u "$(id -u):$(id -g)" \
+      docker run --rm --name "$CONTAINER" \
+        --memory 12g --memory-swap 12g --cpus 12 \
+        -u "$(id -u):$(id -g)" \
         -v "$HOME/.cache/graphide":"$HOME/.cache/graphide" \
         -v "$MONOLITH_DIR":"$MONOLITH_DIR" \
         -v "$WORK/bins":"$WORK/bins" \
@@ -152,6 +164,8 @@ let
         echo "graphide-autoupdate: flake.lock has no graphide input, nothing to do"
         exit 0
       fi
+      # gred's own pin; advances only after a build succeeded at that commit.
+      gred_current=$(jq -r '.nodes."graphide-gred".locked.rev // empty' flake.lock)
 
       # Soft-fail on anything that is just the network or GitHub being
       # unavailable: the timer comes back in ${cfg.autoUpdate.interval}, and a
@@ -202,7 +216,7 @@ let
       # already equal $green on every later run, so this check would keep
       # exiting early and gred would never get retried until master moved
       # again.
-      if [ "$green" = "$current" ] && [ "$green" = "$gred_built" ]; then
+      if [ "$green" = "$current" ] && [ "$green" = "$gred_built" ] && [ "$green" = "$gred_current" ]; then
         echo "graphide-autoupdate: already up to date at $current"
         exit 0
       fi
@@ -247,6 +261,18 @@ let
           notify-send -u normal "Graphide gred build skipped" \
             "could not sync the build clone; will retry next cycle" || true
         fi
+      fi
+
+      # gred's pin follows the tarball that actually exists, never $green
+      # directly: the derivation checks the tarball against the tree it is
+      # evaluated in, so pinning ahead of a build is exactly the failure this
+      # split exists to prevent.
+      if [ -n "$gred_built" ] && [ "$gred_built" != "$gred_current" ]; then
+        echo "graphide-autoupdate: re-pinning graphide-gred $gred_current -> $gred_built"
+        if ! nix flake lock --override-input graphide-gred "$GIT_URL?rev=$gred_built"; then
+          fail "could not re-pin graphide-gred to $gred_built"
+        fi
+        need_switch=1
       fi
 
       if [ "$green" = "$current" ]; then
@@ -369,7 +395,9 @@ in
           # rebuild is a real Docker build, not just a nix re-pin. Same value
           # as the analogous timer-triggered builds in
           # system/graphide/{web,demo}.nix.
-          TimeoutStartSec = "60min";
+          # The container guard in graphide-rebuild-gred is what stops a
+          # timed-out build from living on, not this number.
+          TimeoutStartSec = "2h";
         };
       };
 
