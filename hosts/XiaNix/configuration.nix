@@ -53,6 +53,27 @@ in
   # reach host services like auth-shim on :8081 for the OAuth token exchange.
   networking.firewall.trustedInterfaces = [ "podman1" ];
 
+  # Keep Supabase's ports out of the kernel's outbound-connection pool.
+  #
+  # The Graphide dev stack has Supabase listen on 54321-54327, and this
+  # kernel's ephemeral range (net.ipv4.ip_local_port_range) is 32768-60999 --
+  # which contains them. So any program making an OUTGOING connection can be
+  # handed one of Supabase's ports as its source port, and while that
+  # connection lives, nothing can listen there. `nix run .#gr-srv` then dies
+  # with `rootlessport listen tcp 0.0.0.0:54324: bind: address already in
+  # use`, with no stale stack to blame and nothing to kill.
+  #
+  # It is not always the brief TIME-WAIT that gr-srv's guard assumes and waits
+  # out. On 2026-09-08 the holder was a long-lived HTTPS connection to an API
+  # that had taken 54326 and kept it for the length of the session, so the
+  # 90-second wait could never have cleared it.
+  #
+  # Reserving the range is the standing cure gr-srv itself recommends: the
+  # kernel simply never hands these out as ephemeral source ports. A little
+  # wider than 54321-54327 so a future Supabase service that claims one more
+  # port does not reintroduce this quietly.
+  boot.kernel.sysctl."net.ipv4.ip_local_reserved_ports" = "54320-54330";
+
   head.gaming = true;
 
   # Exclude tailscaled from the Mullvad tunnel so Tailscale P2P/DERP works.
@@ -147,6 +168,15 @@ in
     isNormalUser = true;
     shell = pkgs.zsh;
     extraGroups = [ "adbusers" "docker" "wheel" "uinput" "input" "video" "lxc" ];
+    # Rootless podman needs a subordinate uid/gid range to map container users
+    # other than root. Without one (/etc/subuid did not exist on this host until
+    # 2026-09-12) every such user became `nobody` on disk: the Supabase
+    # postgres container could not create /var/lib/postgresql/data, and the
+    # files containers did write could only be removed by root. See the two
+    # rootless-podman entries in the monorepo's QUIRKS.md. After the rebuild:
+    # `podman system migrate`, and recreate the dev database volume
+    # (`podman volume rm supabase_db_graphide`).
+    autoSubUidGidRange = true;
   };
 
   home-manager = {
