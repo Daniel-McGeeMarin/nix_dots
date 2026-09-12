@@ -24,13 +24,12 @@ let
   # locally-built artifact instead of graphide's pin, so `nix build` actually
   # works on this machine.
   #
-  # Consequence worth knowing: this ties gred to whatever commit
-  # graphide-rebuild-gred was last run against. graphide.autoUpdate re-pins
-  # gr/grat to the newest green master commit on its own, but gred stays on
-  # this exact build until graphide-rebuild-gred is run again by hand --
-  # there is no CI artifact for the timer to fetch instead. Run it after
-  # pulling meaningful gred changes; there's no way to automate that without
-  # graphide publishing real releases.
+  # Consequence worth knowing: this ties gred to whatever commit it was last
+  # built against. graphide.autoUpdate's timer keeps this current on its own
+  # (see autoUpdateScript below, which runs graphide-rebuild-gred against a
+  # dedicated clean clone before every switch) -- graphide-rebuild-gred only
+  # needs to be run by hand for an out-of-cycle rebuild, e.g. right after
+  # pulling gred changes you want installed before the next timer tick.
   gredDistTarball = /home/xia/MyApps/graphide-dist/graphide-linux-x64.tar.gz;
   gred = gp.gred.overrideAttrs (_: { src = gredDistTarball; });
 
@@ -94,6 +93,10 @@ let
 
   graphideRepo = "GraphideHQ/monolith";
   graphideGitURL = "git+ssh://git@github.com/graphideHQ/monolith";
+  # Same repo, as a plain git URL `git clone`/`git fetch` understand -- the
+  # git+ssh:// scheme above is nix's flake-input syntax, not a URL a bare git
+  # command accepts.
+  graphideCloneURL = "ssh://git@github.com/graphideHQ/monolith";
 
   autoUpdateScript = pkgs.writeShellApplication {
     name = "graphide-autoupdate";
@@ -107,6 +110,12 @@ let
       pkgs.util-linux
       pkgs.libnotify
       pkgs.coreutils
+      # So `graphide-rebuild-gred` (below) is just a name on PATH here, same
+      # as it is in an interactive shell. docker itself is deliberately NOT
+      # in this list -- see the comment on rebuildGredScript for why -- and
+      # is picked up from the ambient PATH NixOS gives every systemd unit
+      # (/run/current-system/sw/bin), same as a manual run would find it.
+      rebuildGredScript
     ];
     text = ''
       FLAKE_DIR=${lib.escapeShellArg cfg.autoUpdate.flakeDir}
@@ -114,6 +123,12 @@ let
       REPO=${lib.escapeShellArg graphideRepo}
       WORKFLOW=${lib.escapeShellArg cfg.autoUpdate.workflow}
       GIT_URL=${lib.escapeShellArg graphideGitURL}
+      CLONE_URL=${lib.escapeShellArg graphideCloneURL}
+      GRED_SRC_DIR=${lib.escapeShellArg cfg.autoUpdate.gredBuildDir}
+      # Sidecar next to the tarball itself, recording which commit it was
+      # actually built from -- see the "already up to date" check below for
+      # why this has to be tracked separately from flake.lock's pin.
+      GRED_REV_MARKER=${lib.escapeShellArg "${toString gredDistTarball}.built-rev"}
 
       fail() {
         echo "graphide-autoupdate: $1" >&2
@@ -141,49 +156,126 @@ let
       # Soft-fail on anything that is just the network or GitHub being
       # unavailable: the timer comes back in ${cfg.autoUpdate.interval}, and a
       # red unit every cycle on a train would be noise, not information.
-      # NOT `gh run list --workflow "push gate"`. That resolves the name
-      # against the repo's workflow *listing*; asking for every recent master
-      # run and picking the workflow out in jq is version-independent, and one
-      # request either way.
-      if ! runs=$(gh run list --repo "$REPO" --branch master \
-            --json workflowName,headSha,conclusion,createdAt --limit 60 2>&1); then
-        echo "graphide-autoupdate: gh lookup failed, will retry next cycle: $runs"
+      # Depot CI is the gate, and it does NOT appear in the Actions API --
+      # `gh run list` stopped seeing "push gate" when CI moved to Depot, which
+      # left this timer pinned to a 2026-09-08 commit for four days. Depot
+      # reports as CHECK RUNS on each commit from the app `depot-code-access`,
+      # named "<workflow> / <job>" (same reading as monolith's
+      # scripts/ci-status.sh). Walk master newest-first and take the first
+      # commit where the workflow posted checks and every one succeeded. A
+      # commit with none is skipped: push gate is path-filtered.
+      if ! shas=$(gh api "repos/$REPO/commits?sha=master&per_page=40" --jq '.[].sha' 2>&1); then
+        echo "graphide-autoupdate: gh lookup failed, will retry next cycle: $shas"
         exit 0
       fi
 
-      green=$(printf '%s' "$runs" \
-        | jq -r --arg wf "$WORKFLOW" \
-            'map(select(.workflowName == $wf and .conclusion == "success"))
-             | sort_by(.createdAt) | reverse | .[0].headSha // empty' 2>/dev/null || true)
+      green=""
+      for sha in $shas; do
+        if ! checks=$(gh api "repos/$REPO/commits/$sha/check-runs?per_page=100" 2>/dev/null); then
+          echo "graphide-autoupdate: gh check-runs lookup failed, will retry next cycle"
+          exit 0
+        fi
+        verdict=$(printf '%s' "$checks" | jq -r --arg wf "$WORKFLOW" '
+          [.check_runs[] | select(.app.slug == "depot-code-access" and (.name | startswith($wf + " / ")))]
+          | if length == 0 then "none"
+            elif all(.conclusion == "success") then "success"
+            else "other" end')
+        if [ "$verdict" = "success" ]; then
+          green=$sha
+          break
+        fi
+      done
       if [ -z "$green" ]; then
-        echo "graphide-autoupdate: no successful '$WORKFLOW' run on master in the last 60, skipping"
+        echo "graphide-autoupdate: no commit in master's last 40 has a fully green '$WORKFLOW', skipping"
         exit 0
       fi
 
-      if [ "$green" = "$current" ]; then
+      gred_built=""
+      [ -f "$GRED_REV_MARKER" ] && gred_built=$(cat "$GRED_REV_MARKER")
+
+      # Tracked separately from flake.lock's pin on purpose: the marker only
+      # advances on a *successful* gred build (see below), while the re-pin
+      # a few lines down happens unconditionally once gr/grat's build is
+      # done. Comparing "already up to date" against $current alone would
+      # mean a single failed gred build (e.g. the transient apt-get network
+      # blip this hit once) got silently locked in forever -- $current would
+      # already equal $green on every later run, so this check would keep
+      # exiting early and gred would never get retried until master moved
+      # again.
+      if [ "$green" = "$current" ] && [ "$green" = "$gred_built" ]; then
         echo "graphide-autoupdate: already up to date at $current"
         exit 0
       fi
 
-      echo "graphide-autoupdate: re-pinning graphide $current -> $green"
-      # Local only, on purpose: this rewrites flake.lock in the working tree
-      # and never commits or pushes it. The lock in git stays whatever a
-      # human put there; `git checkout flake.lock` is the whole undo.
-      # No --refresh here or on the switch below -- nix re-reads a dirty
-      # worktree on every evaluation, so the switch already sees the
-      # flake.lock this call just wrote.
-      if ! nix flake lock --override-input graphide "$GIT_URL?rev=$green"; then
-        fail "could not re-pin flake.lock to $green"
+      need_switch=0
+
+      if [ "$green" = "$gred_built" ]; then
+        echo "graphide-autoupdate: gred already built from $green, skipping"
+      else
+        # Rebuild gred from $green in a dedicated clean clone -- NOT the
+        # interactive checkout under Documents/startup/Graphide/monolith,
+        # which is a live working tree that can hold uncommitted edits an
+        # unattended `git checkout $green` would discard. graphide-rebuild-
+        # gred already does the actual build (Docker, reusing the layer
+        # cache and the npm/build cache under ~/.cache/graphide), so this
+        # just keeps that clone in sync with $green and hands it off.
+        #
+        # A failure here does not call fail(): it would abort the gr/grat
+        # re-pin below over a problem that is purely gred's. Worst case,
+        # gred stays on its previous build and $GRED_REV_MARKER is left
+        # untouched, so the check above retries it next cycle instead of
+        # accepting the failure as final.
+        echo "graphide-autoupdate: syncing gred build clone to $green ..."
+        if [ ! -d "$GRED_SRC_DIR/.git" ]; then
+          mkdir -p "$(dirname "$GRED_SRC_DIR")"
+          git clone --quiet "$CLONE_URL" "$GRED_SRC_DIR" || true
+        fi
+        if [ -d "$GRED_SRC_DIR/.git" ] \
+            && git -C "$GRED_SRC_DIR" fetch --quiet origin "$green" \
+            && git -C "$GRED_SRC_DIR" checkout --quiet --detach FETCH_HEAD; then
+          if graphide-rebuild-gred "$GRED_SRC_DIR"; then
+            echo "$green" > "$GRED_REV_MARKER"
+            need_switch=1
+            echo "graphide-autoupdate: gred rebuilt from $green"
+          else
+            echo "graphide-autoupdate: gred rebuild failed at $green, leaving gred on its previous build" >&2
+            notify-send -u normal "Graphide gred build failed" \
+              "gred stays on its previous build; will retry next cycle" || true
+          fi
+        else
+          echo "graphide-autoupdate: could not sync gred clone to $green, leaving gred on its previous build" >&2
+          notify-send -u normal "Graphide gred build skipped" \
+            "could not sync the build clone; will retry next cycle" || true
+        fi
       fi
 
-      # home-manager switch builds before it activates, so a broken commit
-      # leaves the current generation running and just fails this unit. That
-      # is the correct outcome -- do not wrap it in a rollback.
-      if ! home-manager switch --flake "$FLAKE_DIR#$FLAKE_ATTR"; then
-        fail "home-manager switch failed on graphide $green"
+      if [ "$green" = "$current" ]; then
+        echo "graphide-autoupdate: gr/grat already at $current"
+      else
+        echo "graphide-autoupdate: re-pinning graphide $current -> $green"
+        # Local only, on purpose: this rewrites flake.lock in the working
+        # tree and never commits or pushes it. The lock in git stays
+        # whatever a human put there; `git checkout flake.lock` is the whole
+        # undo. No --refresh here or on the switch below -- nix re-reads a
+        # dirty worktree on every evaluation, so the switch already sees
+        # the flake.lock this call just wrote.
+        if ! nix flake lock --override-input graphide "$GIT_URL?rev=$green"; then
+          fail "could not re-pin flake.lock to $green"
+        fi
+        need_switch=1
       fi
 
-      echo "graphide-autoupdate: switched to graphide $green"
+      if [ "$need_switch" = 1 ]; then
+        # home-manager switch builds before it activates, so a broken
+        # commit leaves the current generation running and just fails this
+        # unit. That is the correct outcome -- do not wrap it in a rollback.
+        if ! home-manager switch --flake "$FLAKE_DIR#$FLAKE_ATTR" --impure; then
+          fail "home-manager switch failed on graphide $green"
+        fi
+        echo "graphide-autoupdate: switched to graphide $green"
+      else
+        echo "graphide-autoupdate: nothing to switch"
+      fi
     '';
   };
 in
@@ -226,6 +318,19 @@ in
             that actually gates merges to master.
           '';
         };
+
+        gredBuildDir = lib.mkOption {
+          type = lib.types.str;
+          default = "${config.home.homeDirectory}/.cache/graphide/gred-autobuild-src";
+          description = ''
+            Dedicated clean clone the timer builds gred from, kept in sync
+            with the newest green master commit. Deliberately separate from
+            the interactive checkout under
+            Documents/startup/Graphide/monolith -- that one is a live working
+            tree that can hold uncommitted edits, and an unattended
+            `git checkout` there on every timer tick would discard them.
+          '';
+        };
       };
     };
   };
@@ -243,10 +348,16 @@ in
     (lib.mkIf cfg.autoUpdate.enable {
       systemd.user.services.graphide-autoupdate = {
         Unit = {
-          Description = "Re-pin the graphide flake input to the newest green master commit and switch";
+          Description = "Rebuild gred and re-pin gr/grat to the newest green graphide master commit, then switch";
           After = [ "network-online.target" ];
           Wants = [ "network-online.target" ];
         };
+        # Unlike a NixOS system unit, home-manager never auto-restarts a
+        # running service whose definition changed -- systemd-activate.sh
+        # only prints a "Suggested commands: systemctl --user restart ..."
+        # after `switch`, it doesn't run it. So a `homeswitch` while this is
+        # mid-build (this file gets edited a lot) can't get stuck stopping
+        # it; no restartIfChanged/stopIfChanged equivalent needed here.
         Service = {
           Type = "oneshot";
           ExecStart = lib.getExe autoUpdateScript;
@@ -254,6 +365,11 @@ in
           # it's about to replace.
           Nice = 10;
           IOSchedulingClass = "idle";
+          # Default TimeoutStartSec (90s) would kill this mid-build: the gred
+          # rebuild is a real Docker build, not just a nix re-pin. Same value
+          # as the analogous timer-triggered builds in
+          # system/graphide/{web,demo}.nix.
+          TimeoutStartSec = "60min";
         };
       };
 
