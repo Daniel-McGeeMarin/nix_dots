@@ -72,8 +72,17 @@ let
       bash "$MONOLITH_DIR/scripts/build-dist-container.sh" linux amd64 "$WORK/bins"
 
       echo "[2/3] Building the release image and tarball (this reuses the npm/build cache under ~/.cache/graphide) ..."
+      # Only the tarball is consumed here (packages.gred wraps it); the
+      # AppImage step needs mksquashfs, which the build image lacks, and on
+      # 2026-09-12 that made every otherwise-successful hour-long build
+      # count as failed and the timer redo it each cycle.
       docker build -t graphide-build-env -f "$MONOLITH_DIR/gred/build/Dockerfile" "$MONOLITH_DIR/gred"
       mkdir -p "$HOME/.cache/graphide"
+      # Backgrounded and waited on, not run in the foreground: bash runs a
+      # signal trap only after the foreground command returns, so a
+      # foreground `docker run` would make the TERM from a systemd stop wait
+      # for the whole build. With `wait`, TERM interrupts the wait, the trap
+      # removes the container, and the build actually stops.
       docker run --rm --name "$CONTAINER" \
         --memory 12g --memory-swap 12g --cpus 12 \
         -u "$(id -u):$(id -g)" \
@@ -82,8 +91,10 @@ let
         -v "$WORK/bins":"$WORK/bins" \
         -e HOME=/tmp \
         -e MONOREPO_DIR="$MONOLITH_DIR" \
+        -e GRAPHIDE_SKIP_APPIMAGE=1 \
         -e GRAPHIDE_GO_BIN_DIR="$WORK/bins" \
-        graphide-build-env bash "$MONOLITH_DIR/gred/build/build-release.sh" linux-x64
+        graphide-build-env bash "$MONOLITH_DIR/gred/build/build-release.sh" linux-x64 &
+      wait $!
 
       echo "[3/3] Installing the tarball ..."
       mkdir -p "$HOME/MyApps/graphide-dist"
