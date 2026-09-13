@@ -641,6 +641,61 @@ $first_msg" 2>/dev/null | head -1 | tr -d '"' | cut -c1-40) || true
     '';
   };
 
+  # ── Sleep inhibitor ───────────────────────────────────────────────────────────
+  # Holds a lid-switch inhibitor lock for as long as any agent's state file
+  # reads "working", so closing the lid mid-task doesn't suspend the machine
+  # out from under a running agent. Released the moment nothing is working, so
+  # the laptop still sleeps normally the rest of the time. Deliberately keyed
+  # on "working" only, not "needs-approval" -- an agent blocked on a permission
+  # prompt is waiting on you, not burning CPU, so there's nothing to protect.
+
+  sleepInhibitDaemon = pkgs.writeShellApplication {
+    name = "claude-agents-sleep-inhibit";
+    runtimeInputs = [ pkgs.inotify-tools pkgs.coreutils pkgs.systemd ];
+    text = ''
+      mkdir -p "${stateDir}"
+
+      inhibit_pid=""
+
+      any_working() {
+        local sf state
+        for sf in "${stateDir}"/*.state; do
+          [ -f "$sf" ] || continue
+          state=$(cat "$sf" 2>/dev/null || true)
+          [ "$state" = "working" ] && return 0
+        done
+        return 1
+      }
+
+      start_inhibit() {
+        if [ -n "$inhibit_pid" ] && kill -0 "$inhibit_pid" 2>/dev/null; then
+          return 0
+        fi
+        systemd-inhibit --what=handle-lid-switch \
+          --why="Claude Code agent is working" sleep infinity &
+        inhibit_pid=$!
+      }
+
+      stop_inhibit() {
+        [ -z "$inhibit_pid" ] && return 0
+        kill "$inhibit_pid" 2>/dev/null || true
+        wait "$inhibit_pid" 2>/dev/null || true
+        inhibit_pid=""
+      }
+
+      sync_inhibit() {
+        if any_working; then start_inhibit; else stop_inhibit; fi
+      }
+
+      sync_inhibit
+
+      inotifywait -m -e close_write,moved_to,delete "${stateDir}" --format '%w%f' \
+        | while read -r sf; do
+            [[ "$sf" == *.state ]] && sync_inhibit || true
+          done
+    '';
+  };
+
   # ── Hover-to-expand daemon ────────────────────────────────────────────────────
   # Listens to Hyprland socket2 activewindowv2 events (follow_mouse=1 makes
   # these fire on hover). When an agent window is hovered it expands to 50% of
@@ -968,7 +1023,7 @@ in {
     mkEnableOption "Claude Code agent management with Hyprland workspace integration";
 
   config = mkIf cfg.enable {
-    home.packages = [ watcher spawner smartO smartP smartI smartRestart smartRestore hoverDaemon ];
+    home.packages = [ watcher spawner smartO smartP smartI smartRestart smartRestore hoverDaemon sleepInhibitDaemon ];
 
     # Runs after linkGeneration so it lands after HM has cleaned up the old
     # symlink from the previous generation.
@@ -1004,6 +1059,21 @@ in {
         RestartSec = "2s";
         # socat needs to locate the Hyprland socket
         PassEnvironment = [ "HYPRLAND_INSTANCE_SIGNATURE" ];
+      };
+      Install.WantedBy = [ "graphical-session.target" ];
+    };
+
+    systemd.user.services.claude-agents-sleep-inhibit = {
+      Unit = {
+        Description = "Inhibit lid-switch sleep while a Claude Code agent is working";
+        After = [ "graphical-session.target" ];
+        PartOf = [ "graphical-session.target" ];
+      };
+      Service = {
+        Type = "simple";
+        ExecStart = "${sleepInhibitDaemon}/bin/claude-agents-sleep-inhibit";
+        Restart = "on-failure";
+        RestartSec = "2s";
       };
       Install.WantedBy = [ "graphical-session.target" ];
     };
