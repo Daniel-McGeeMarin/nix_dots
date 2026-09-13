@@ -55,6 +55,19 @@
       playerctl                              # MPRIS media player control
       syncplay                               # synchronized media playback
 
+      # ── Remote desktop / VNC ──────────────────────────────────────────────────
+      # view-agent-desktops.sh ($mainMod,A -- see hyprland/binds.nix) checks
+      # `command -v` for each of these and re-execs itself inside `nix shell`
+      # for whatever it can't find. rofi and imagemagick are already installed
+      # elsewhere (programs.rofi.enable, media.enable), but x11vnc/tigervnc/
+      # wlvncc were not, so every single invocation of that Super+A picker was
+      # paying for a fresh `nix shell` -- evaluating and re-fetching/building
+      # these on every launch instead of once. Installing them here makes the
+      # `command -v` checks pass and skips that path entirely.
+      x11vnc                                 # VNC server for the local Xvfb test desktops
+      tigervnc                               # vncviewer, for the read-only local desktop view
+      wlvncc                                 # Wayland VNC client, for the interactive VM tunnels
+
       # ── Communications ────────────────────────────────────────────────────────
       inputs.nixpkgs-unstable.legacyPackages.${pkgs.stdenv.hostPlatform.system}.signal-desktop
       element-desktop

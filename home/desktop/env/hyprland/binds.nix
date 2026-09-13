@@ -35,13 +35,17 @@ in
         "CTRL$mainMod,M,exit,"
         "$mainMod,E,exec,xdg-open '/'"
         "$mainMod,W,exec,firefox"
-        "$mainMod,A,exec,pkill aiclip; aiclip"
+        # Agent desktop picker (Rofi): the Xvfb desktops gred visual-verify
+        # runs in, plus the Windows test VM. Lives in the agent-config repo,
+        # not in nixpkgs, so this is a plain path rather than a store path.
+        "$mainMod,A,exec,/home/xia/Documents/startup/Graphide/agent-config/skills/gred-visual-verify/scripts/view-agent-desktops.sh"
+        "$mainMod SHIFT,A,exec,pkill aiclip; aiclip"
         "$mainMod,V,togglefloating,"
 "$mainMod SHIFT,R,exec,pkill rofi || rofi -show drun"
 
         # Caelestia global binds
         "$mainMod,R,global,caelestia:launcher"
-        "$mainMod,A,global,caelestia:sidebar"
+        "$mainMod SHIFT,A,global,caelestia:sidebar"
 
         "$mainMod SHIFT, V, exec, mullvad reconnect"
 
