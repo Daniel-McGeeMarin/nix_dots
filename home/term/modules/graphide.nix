@@ -58,6 +58,14 @@ let
         exit 1
       }
 
+      CACHE_ROOT="$HOME/.cache/graphide"
+      # Per-fork-key build trees. Each key gets its OWN parent directory,
+      # because gulp writes its packaged output as a SIBLING of BUILD_DIR
+      # (build-release.sh looks for "$(dirname "$BUILD_DIR")"/VSCode-linux-*),
+      # so two keys sharing a parent would fight over one output directory.
+      TREES_ROOT="$CACHE_ROOT/release-trees"
+      KEEP_TREES=2
+
       WORK="$(mktemp -d)"
       # One named container, removed before a new one starts and removed when
       # this script dies. `docker run --rm` alone does NOT stop the container
@@ -68,16 +76,75 @@ let
       trap 'docker rm -f "$CONTAINER" >/dev/null 2>&1 || true; rm -rf "$WORK"' EXIT TERM INT
       docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 
-      echo "[1/3] Building Go binaries (grug, gr, grach) + bwrap in a stock-glibc container ..."
+      echo "[1/5] Building Go binaries (grug, gr, grach) + bwrap in a stock-glibc container ..."
       bash "$MONOLITH_DIR/scripts/build-dist-container.sh" linux amd64 "$WORK/bins"
 
-      echo "[2/3] Building the release image and tarball (this reuses the npm/build cache under ~/.cache/graphide) ..."
+      echo "[2/5] Building the release image ..."
       # Only the tarball is consumed here (packages.gred wraps it); the
       # AppImage step needs mksquashfs, which the build image lacks, and on
       # 2026-09-12 that made every otherwise-successful hour-long build
       # count as failed and the timer redo it each cycle.
       docker build -t graphide-build-env -f "$MONOLITH_DIR/gred/build/Dockerfile" "$MONOLITH_DIR/gred"
-      mkdir -p "$HOME/.cache/graphide"
+      mkdir -p "$TREES_ROOT"
+
+      # ── The build tree has to live in the bind mount, and be keyed ──────────
+      #
+      # This used to pass no BUILD_DIR at all, and the comment above the docker
+      # run claimed it "reuses the npm/build cache under ~/.cache/graphide".
+      # It did not. build-release.sh derives
+      #   BUILD_DIR=''${XDG_CACHE_HOME:-$HOME/.cache}/graphide/vscode-src
+      # and this container sets HOME=/tmp, so the tree landed on
+      # /tmp/.cache/graphide/vscode-src -- inside the container's own
+      # filesystem, NOT the bind mount beside it -- and `--rm` deleted it on
+      # exit. Every single rebuild was therefore a cold build: a fresh
+      # prepare-src, a fresh npm install of ~1580 packages, fresh native module
+      # compiles and a full 34-minute gulp, all thrown away afterwards.
+      # Confirmed on 2026-09-13 by inspecting a live build container.
+      #
+      # Setting BUILD_DIR explicitly is the fix, and it is also what makes the
+      # cache key below mean anything: with no persistent tree there is nothing
+      # for GRAPHIDE_REUSE_TREE to reuse.
+      #
+      # The key is computed INSIDE the build image rather than on the host.
+      # fork-key.sh folds in `node --version`, node's ABI number and `uname
+      # -sm`, which describe the toolchain the native modules are compiled
+      # against; a host node of a different version would produce a key that
+      # does not describe the tree the container actually builds. Same reason
+      # desktop-release.yml keys on the runner image.
+      FORK_KEY="$(docker run --rm \
+        -u "$(id -u):$(id -g)" \
+        -v "$MONOLITH_DIR":"$MONOLITH_DIR" \
+        -e HOME=/tmp \
+        graphide-build-env \
+        bash -c "cd '$MONOLITH_DIR/gred' && bash build/fork-key.sh linux-x64" 2>/dev/null | tail -n 1)"
+
+      REUSE=0
+      if [ -z "$FORK_KEY" ]; then
+        # Never guess. A missing key means a cold build into a fixed directory
+        # that is never reused, not a heuristic hit -- build-release.sh's own
+        # comment is the rule here: the failure mode of guessing wrong is an
+        # artifact that launches, works, and contains the wrong code.
+        echo "graphide-rebuild-gred: could not compute a fork key; cold build, no reuse" >&2
+        FORK_KEY=nokey
+      fi
+      TREE_PARENT="$TREES_ROOT/$FORK_KEY"
+      BUILD_DIR="$TREE_PARENT/vscode-src"
+
+      # Reuse only on all three: the completion marker, the source tree, and
+      # the packaged output beside it. build-release.sh hard-fails when
+      # GRAPHIDE_REUSE_TREE=1 and the gulp output is missing, which is correct
+      # but is a failed timer cycle; checking here turns that into a cache miss.
+      if [ "$FORK_KEY" != nokey ] && [ -f "$TREE_PARENT/.complete" ] && [ -d "$BUILD_DIR" ]; then
+        for d in "$TREE_PARENT"/VSCode-linux-*; do
+          [ -d "$d" ] && REUSE=1
+        done
+      fi
+
+      if [ "$REUSE" = 1 ]; then
+        echo "[3/5] Fork key ''${FORK_KEY:0:12}: HIT -- packaging the cached tree (skips npm install and gulp) ..."
+      else
+        echo "[3/5] Fork key ''${FORK_KEY:0:12}: MISS -- full build (npm install + gulp, ~40 min) ..."
+      fi
       # Backgrounded and waited on, not run in the foreground: bash runs a
       # signal trap only after the foreground command returns, so a
       # foreground `docker run` would make the TERM from a systemd stop wait
@@ -86,19 +153,44 @@ let
       docker run --rm --name "$CONTAINER" \
         --memory 12g --memory-swap 12g --cpus 12 \
         -u "$(id -u):$(id -g)" \
-        -v "$HOME/.cache/graphide":"$HOME/.cache/graphide" \
+        -v "$CACHE_ROOT":"$CACHE_ROOT" \
         -v "$MONOLITH_DIR":"$MONOLITH_DIR" \
         -v "$WORK/bins":"$WORK/bins" \
         -e HOME=/tmp \
+        -e BUILD_DIR="$BUILD_DIR" \
         -e MONOREPO_DIR="$MONOLITH_DIR" \
         -e GRAPHIDE_SKIP_APPIMAGE=1 \
+        -e GRAPHIDE_REUSE_TREE="$REUSE" \
         -e GRAPHIDE_GO_BIN_DIR="$WORK/bins" \
         graphide-build-env bash "$MONOLITH_DIR/gred/build/build-release.sh" linux-x64 &
       wait $!
 
-      echo "[3/3] Installing the tarball ..."
+      # Only after the build actually returned 0. The marker is what the next
+      # run tests, so writing it earlier would lock in a half-built tree.
+      if [ "$FORK_KEY" != nokey ]; then
+        touch "$TREE_PARENT/.complete"
+      fi
+
+      echo "[4/5] Installing the tarball ..."
       mkdir -p "$HOME/MyApps/graphide-dist"
       cp "$MONOLITH_DIR/gred/dist/graphide-linux-x64.tar.gz" "$HOME/MyApps/graphide-dist/graphide-linux-x64.tar.gz"
+
+      # ── Prune ──────────────────────────────────────────────────────────────
+      #
+      # Each tree is roughly 5 GB (checkout + node_modules + out-build +
+      # packaged output). Nothing has ever pruned this cache directory, which
+      # is how it reached 48 GB with ten stale 3 GB copies in it, so a cache
+      # that now creates a directory per key has to clean up after itself.
+      # Keep the newest two: the current key, and the one before it, so a key
+      # that flips back and forth still hits.
+      echo "[5/5] Pruning release trees, keeping the newest $KEEP_TREES ..."
+      for d in "$TREES_ROOT"/*; do
+        [ -d "$d" ] || continue
+        printf '%s %s\n' "$(stat -c %Y "$d")" "$d"
+      done | sort -rn | cut -d' ' -f2- | tail -n +$((KEEP_TREES + 1)) | while IFS= read -r old_tree; do
+        echo "  pruning $(basename "$old_tree")"
+        rm -rf "$old_tree"
+      done
 
       echo "Done. Run 'homeswitch' to rebuild gred against the new tarball."
     '';
@@ -388,20 +480,61 @@ in
           Description = "Rebuild gred and re-pin gr/grat to the newest green graphide master commit, then switch";
           After = [ "network-online.target" ];
           Wants = [ "network-online.target" ];
+
+          # A `homeswitch` MUST NOT kill a build that is already running.
+          #
+          # The comment that used to sit here said home-manager never
+          # auto-restarts a running service whose definition changed, on the
+          # grounds that systemd-activate.sh only PRINTS "Suggested commands:
+          # systemctl --user restart ...". That stopped being true when
+          # home-manager moved to sd-switch, which runs it. Observed here on
+          # 2026-09-12:
+          #
+          #   23:28:51 Reexecution requested from client PID ('switch-to-confi')
+          #   23:28:52 graphide-autoupdate.service: Main process exited,
+          #            code=killed, status=15/TERM
+          #   23:28:58 Reload requested from client PID ('sd-switch')
+          #   23:28:58 Starting Rebuild gred and re-pin gr/grat...
+          #
+          # Ten minutes into a 34-minute gulp: SIGTERM, then a fresh run that
+          # starts the same build again from zero. Five times in the seven
+          # days to 2026-09-12 -- this file gets edited often, and every edit
+          # changes the unit, so the build is most likely to die exactly when
+          # someone is iterating on it.
+          #
+          # keep-old rather than a timing fix: this is a oneshot driven by a
+          # timer, so nothing needs the new definition mid-flight. systemd
+          # still reloads the unit file, so the NEXT tick runs the new
+          # ExecStart. The only cost is that an edit does not reach a run
+          # already in progress, which is the entire point.
+          #
+          # sd-switch 0.6.2 reads X-SwitchMethod from [Unit]; the accepted
+          # values include keep-old, restart, reload, sighup and stop-start.
+          X-SwitchMethod = "keep-old";
         };
-        # Unlike a NixOS system unit, home-manager never auto-restarts a
-        # running service whose definition changed -- systemd-activate.sh
-        # only prints a "Suggested commands: systemctl --user restart ..."
-        # after `switch`, it doesn't run it. So a `homeswitch` while this is
-        # mid-build (this file gets edited a lot) can't get stuck stopping
-        # it; no restartIfChanged/stopIfChanged equivalent needed here.
         Service = {
           Type = "oneshot";
           ExecStart = lib.getExe autoUpdateScript;
           # A nix build should never win a scheduling fight with the editor
-          # it's about to replace.
+          # it is about to replace -- but "never scheduled at all" is not the
+          # same as "scheduled last", and idle is the former. The idle I/O
+          # class hands this unit the disk only when NOTHING else wants it;
+          # on a machine running several agents plus a 12-CPU Docker build it
+          # can be starved indefinitely, and nix evaluation is almost pure
+          # small-file I/O, so it is the worst possible workload to put there.
+          #
+          # Measured on 2026-09-12: the 19:56 run took 2h49m of wall clock and
+          # consumed 36 SECONDS of CPU. It was not working, it was blocked --
+          # 44 min for the first flake eval, then 2h01m for home-manager's
+          # post-activation `news` eval, with a 3-minute derivation build in
+          # between. It holds the flock throughout, so it also blocks every
+          # later cycle behind it.
+          #
+          # best-effort 7 is the lowest non-idle priority: still behind
+          # anything interactive, but guaranteed forward progress.
           Nice = 10;
-          IOSchedulingClass = "idle";
+          IOSchedulingClass = "best-effort";
+          IOSchedulingPriority = 7;
           # Default TimeoutStartSec (90s) would kill this mid-build: the gred
           # rebuild is a real Docker build, not just a nix re-pin. Same value
           # as the analogous timer-triggered builds in
