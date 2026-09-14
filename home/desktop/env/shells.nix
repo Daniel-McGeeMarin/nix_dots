@@ -31,7 +31,29 @@ let
   available = lib.optional cfg.caelestia.enable "caelestia"
     ++ lib.optional cfg.graphide.enable "graphide";
 
-  hyprctl = "${config.wayland.windowManager.hyprland.package}/bin/hyprctl";
+  # Caelestia's own `drawers` IPC handler, NOT `hyprctl dispatch global`.
+  #
+  # The global dispatcher looked like the obvious route -- it is what the
+  # keybinds used before -- but it cannot work for the launcher. Caelestia
+  # binds that shortcut to the key *release*, not the press
+  # (modules/Shortcuts.qml: `onPressed` only clears launcherInterrupted,
+  # `onReleased` does the toggle), and Hyprland's global-shortcut protocol
+  # sends press/release from real key state. A `hyprctl dispatch global` is not
+  # a key, so the release edge never arrives and the launcher never opens.
+  # Sidebar happened to survive because it toggles on press.
+  #
+  # `caelestia-shell ipc call drawers toggle <drawer>` is the mechanism
+  # caelestia itself exposes for this, has no press/release semantics, and
+  # keeps the same fullscreen guard the shortcut had. Called directly rather
+  # than through the `caelestia` Python CLI, which is a ~100ms interpreter
+  # start in front of exactly this command -- too slow for a launcher key.
+  #
+  # Guarded on .enable so a caelestia-less build does not drag the shell into
+  # the closure just to hold a path it will never run.
+  caelestiaDrawer =
+    if cfg.caelestia.enable
+    then "${config.programs.caelestia.package}/bin/caelestia-shell ipc call drawers toggle"
+    else "true";
 
   rice = pkgs.writeShellApplication {
     name = "rice";
@@ -146,17 +168,17 @@ let
           exec "$0" use "$(other "$(active)")"
           ;;
 
-        # Open a surface on whichever shell is up. The two expose completely
-        # different mechanisms for this -- caelestia registers Hyprland
-        # globals, the Graphide shell answers on Quickshell IPC -- so the
+        # Open a surface on whichever shell is up. Both shells answer on
+        # Quickshell IPC, but on different targets with different verbs
+        # (caelestia: drawers/toggle, Graphide: desktop/<surface>), so the
         # keybinds go through here rather than calling either one directly.
         ipc)
           surface="''${2:-launcher}"
           case "$(active)" in
             caelestia)
               case "$surface" in
-                launcher) ${hyprctl} dispatch global caelestia:launcher ;;
-                sidebar)  ${hyprctl} dispatch global caelestia:sidebar ;;
+                launcher) ${caelestiaDrawer} launcher ;;
+                sidebar)  ${caelestiaDrawer} sidebar ;;
                 *)        note "rice" "no '$surface' in caelestia" ;;
               esac
               ;;
