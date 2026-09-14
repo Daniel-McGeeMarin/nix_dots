@@ -40,6 +40,14 @@ in
 
       inherit (cfg) widgetMonitor reserveWidgetSpace rbwPinentry;
 
+      # Clicking the panel's TODO section (or its OPEN button) edits the shared
+      # list. The window it opens is titled TODO, which is what the
+      # `### TODO scratchpad ###` rules in ../hyprland/rules.nix already match:
+      # float, 600x800, centred and pinned. The board keeps showing the
+      # *committed* copy from GitHub, so an edit appears on the panel once it
+      # is pushed, not when it is saved.
+      todoCommand = [ "nvim" "${config.home.homeDirectory}/Documents/startup/Graphide/docs/TODO.md" ];
+
       hyprland = {
         # OFF, and the rules are written by hand below instead. Upstream emits
         # Hyprland's newer `match:namespace ^(...)$` rule syntax; the Hyprland
