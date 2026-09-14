@@ -35,18 +35,26 @@ in
         "CTRL$mainMod,M,exit,"
         "$mainMod,E,exec,xdg-open '/'"
         "$mainMod,W,exec,firefox"
-        # Agent desktop picker (Rofi): the Xvfb desktops gred visual-verify
-        # runs in, plus the Windows test VM. Lives in the agent-config repo,
-        # not in nixpkgs, so this is a plain path rather than a store path.
-        "$mainMod,A,exec,/home/xia/Documents/startup/Graphide/agent-config/skills/gred-visual-verify/scripts/view-agent-desktops.sh"
+        # Agent desktop picker: the Xvfb desktops gred visual-verify runs in,
+        # plus the Windows test VM. Goes through `rice` so the key means the
+        # same thing in both shells -- the Graphide launcher opens on its
+        # Desktops tab, caelestia gets the Rofi picker -- and both end up
+        # calling `agent-desktops open <id>`.
+        #
+        # This used to point at a plain path in the agent-config repo. That
+        # file is now only a shim in front of `view-agent-desktops-rofi`, which
+        # was never installed here, so the bind had been exiting 127.
+        # ../shells.nix installs the real package.
+        "$mainMod,A,exec,rice ipc desktops"
         "$mainMod SHIFT,A,exec,pkill aiclip; aiclip"
         "$mainMod,V,togglefloating,"
 "$mainMod SHIFT,R,exec,pkill rofi || rofi -show drun"
 
         # Desktop-shell surfaces. These do NOT name a shell: `rice ipc`
         # dispatches to whichever of caelestia / the Graphide shell is
-        # currently running, because the two answer on different mechanisms
-        # (Hyprland globals vs Quickshell IPC). See ../shells.nix.
+        # currently running. Both answer on Quickshell IPC but on different
+        # targets, and some surfaces exist in only one of them. See
+        # ../shells.nix.
         "$mainMod,R,exec,rice ipc launcher"
         "$mainMod SHIFT,A,exec,rice ipc sidebar"
 
@@ -58,7 +66,6 @@ in
         # doing nothing silently.
         "$mainMod,U,exec,rice ipc vault"
         "$mainMod SHIFT,U,exec,rice ipc accounts"
-        "CTRL$mainMod,D,exec,rice ipc desktops"
         "$mainMod,B,exec,rice ipc bar"
         "$mainMod SHIFT,B,exec,rice ipc widgets"
 

@@ -1,4 +1,4 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, inputs, ... }:
 # Which desktop shell this host runs, and how to change your mind about it
 # without a rebuild.
 #
@@ -50,6 +50,19 @@ let
   #
   # Guarded on .enable so a caelestia-less build does not drag the shell into
   # the closure just to hold a path it will never run.
+  # The Rofi front-end for the agent-desktop picker, used as the caelestia-mode
+  # fallback for `rice ipc desktops`. It is the same backend the Graphide
+  # launcher's Desktops tab drives -- both end in `agent-desktops open <id>` --
+  # so SUPER+A means the same thing in either shell, it just looks different.
+  #
+  # This has to be installed explicitly. The path the keybind used before
+  # (agent-config/.../view-agent-desktops.sh) stopped being an implementation
+  # some time ago; it is now a shim that execs `view-agent-desktops-rofi` and
+  # exits 127 with "Missing view-agent-desktops-rofi" when that is not on PATH,
+  # which is exactly what SUPER+A had been doing on this machine. The real
+  # thing lives in the Graphide flake.
+  viewAgentDesktops = inputs.graphide.packages.${pkgs.stdenv.hostPlatform.system}.view-agent-desktops;
+
   caelestiaDrawer =
     if cfg.caelestia.enable
     then "${config.programs.caelestia.package}/bin/caelestia-shell ipc call drawers toggle"
@@ -179,6 +192,7 @@ let
               case "$surface" in
                 launcher) ${caelestiaDrawer} launcher ;;
                 sidebar)  ${caelestiaDrawer} sidebar ;;
+                desktops) ${viewAgentDesktops}/bin/view-agent-desktops-rofi ;;
                 *)        note "rice" "no '$surface' in caelestia" ;;
               esac
               ;;
@@ -277,7 +291,7 @@ in
       message = "desktop.shell: both shells are disabled, so the session would have no bar and no launcher at all. Enable at least one of desktop.shell.caelestia.enable / desktop.shell.graphide.enable.";
     }];
 
-    home.packages = [ rice ];
+    home.packages = [ rice viewAgentDesktops ];
 
     # The login path. Neither shell unit is wanted by graphical-session.target
     # on its own (see the mkForce in each module), so this is the only thing

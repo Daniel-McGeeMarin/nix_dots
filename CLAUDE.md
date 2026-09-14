@@ -198,10 +198,20 @@ knob for the closure, not the knob for choosing.
 
 The keybinds in `env/hyprland/binds.nix` never name a shell. `$mainMod,R` and
 `$mainMod SHIFT,A` call `rice ipc launcher` / `rice ipc sidebar`, and `rice`
-translates to whichever mechanism the running shell speaks. `$mainMod,U`
-(vault), `$mainMod SHIFT,U` (accounts), `CTRL$mainMod,D` (agent desktops),
-`$mainMod,B` (bar) and `$mainMod SHIFT,B` (company widgets) are Graphide-only
-surfaces; under caelestia they raise a notification rather than failing silently.
+translates to whatever the running shell answers on. `$mainMod,A` is
+`rice ipc desktops`, the agent-desktop picker, and is the one surface with a
+real implementation on *both* sides: the Graphide launcher opens on its
+Desktops tab, caelestia gets `view-agent-desktops-rofi`, and both end in
+`agent-desktops open <id>`. `$mainMod,U` (vault), `$mainMod SHIFT,U`
+(accounts), `$mainMod,B` (bar) and `$mainMod SHIFT,B` (company widgets) are
+Graphide-only; under caelestia they raise a notification rather than failing
+silently.
+
+`shells.nix` installs `view-agent-desktops` from the graphide flake for that
+fallback. It has to: the path `$mainMod,A` used to point at,
+`agent-config/skills/gred-visual-verify/scripts/view-agent-desktops.sh`, is now
+only a shim that execs `view-agent-desktops-rofi` and exits 127 when it is not
+installed -- which it was not, so that bind had been silently dead.
 
 Two things the Graphide module upstream would do that are deliberately not done
 here, both because they are `mkForce` over the whole session and would follow
