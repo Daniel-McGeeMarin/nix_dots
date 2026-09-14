@@ -1,6 +1,12 @@
 { config, lib, pkgs, inputs, ... }:
+# The personal rice. One of the two shells this host can run -- see
+# ../shells.nix for the option that picks between them and the `rice` command
+# that swaps them at runtime. Everything here is behind
+# `desktop.shell.caelestia.enable` so that turning it off removes the build,
+# not just the autostart.
 
 let
+  cfg = config.desktop.shell.caelestia;
   patched-caelestia = import ./patches {
     caelestia-shell = inputs.caelestia-shell.packages.${pkgs.stdenv.hostPlatform.system}.with-cli;
   };
@@ -10,7 +16,7 @@ in
     inputs.caelestia-shell.homeManagerModules.default
   ];
 
-  config = {
+  config = lib.mkIf cfg.enable {
     programs.caelestia = {
       enable = true;
       package = patched-caelestia;
@@ -34,6 +40,10 @@ in
     # monitor et al) are reparented to init instead of being reaped, so a few
     # megabytes leak per restart. Cheap next to losing an editor.
     systemd.user.services.caelestia.Service.KillMode = "process";
+
+    # The session picks one shell at login (../shells.nix); neither unit may
+    # start itself, or both would come up at once on the same screen.
+    systemd.user.services.caelestia.Install.WantedBy = lib.mkForce [ ];
 
     xdg.configFile."caelestia/shell.json".source =
       config.lib.file.mkOutOfStoreSymlink

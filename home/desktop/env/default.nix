@@ -4,7 +4,12 @@ let
 in
 {
   imports = [
+    # Two desktop shells and the runtime switch between them. ./shells.nix
+    # declares `desktop.shell`, installs the `rice` command and owns the one
+    # unit that starts a shell at login; the two directories are the shells.
+    ./shells.nix
     ./caelestia
+    ./graphide-shell
     ./claude-agents.nix
     ./gnome
     ./hyprland

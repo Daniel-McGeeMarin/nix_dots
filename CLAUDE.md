@@ -98,6 +98,10 @@ import, not by an option — see "Composition" above.
 | `serv.<service>.enable` | one per file in `system/serv/` | that service's container, Caddy vhost, auth rules, data dirs, timers |
 | `graphide.enable` | `system/graphide/default.nix` | master switch for the Graphide stack: API, marketing site, demo boxes |
 | `graphide.<part>.enable` | `network`/`registry`/`auth`/`api`/`web`/`demo`/`gate` | one part of that stack; each defaults to the master (`gate` follows `demo`) |
+| `desktop.shell.default` | `home/desktop/env/shells.nix` | which shell a fresh login starts: `caelestia` or `graphide` |
+| `desktop.shell.caelestia.enable` | same | build/install the personal caelestia rice (default: true) |
+| `desktop.shell.graphide.enable` | same | build/install the Graphide company shell (default: true) |
+| `desktop.shell.graphide.<widgetMonitor\|reserveWidgetSpace\|decoration\|rbwPinentry>` | same | Graphide shell appearance and rbw knobs; the last two are `mkForce` over the whole session, so both default off |
 | `desktop.gaming.enable` | `home/desktop/modules/gaming.nix` | Flatpak Steam, r2modman, steam-run |
 | `desktop.workmic.enable` | `home/desktop/modules/workmic/` | push-to-talk mic gating (SUPER+SPACE) |
 | `media.enable` | `home/term/default.nix` | ffmpeg-full, imagemagick, yt-dlp, mpc (default: true) |
@@ -163,13 +167,65 @@ All LG Gram-specific config lives in `hosts/XiaNix/` and is only loaded by that 
 - `hosts/XiaNix/gram.nix` — audio systemd service, input-remapper, iio-hyprland, fcitx5, IME session vars, waydroid sudo rules
 - `hosts/XiaNix/lg-gram-audio.sh` — speaker amp init script (referenced by gram.nix)
 
-### Caelestia
+### Desktop shells: caelestia and the Graphide company rice
 
-Everything caelestia lives under `home/desktop/env/caelestia/`:
-- `default.nix` — HM module; enables and configures `programs.caelestia` for any host with `desktop.enable`
+XiaNix builds **two** Quickshell desktop shells and runs exactly one at a time:
+
+| | caelestia | Graphide |
+|---|---|---|
+| Lives in | `home/desktop/env/caelestia/` | `home/desktop/env/graphide-shell/` |
+| Comes from | `caelestia-shell` flake input | `graphide` flake input (`homeManagerModules.quickshell`, i.e. the monolith's `nix/home-manager/quickshell.nix`) |
+| systemd unit | `caelestia.service` | `graphide-shell.service` |
+| Surfaces answer on | Hyprland globals (`caelestia:launcher`) | Quickshell IPC (`graphide-shell ipc call desktop apps`) |
+
+Both units exist but **neither starts itself** — each sets
+`Install.WantedBy = lib.mkForce []`. The one thing that ever starts a shell is
+`rice-session.service`, a oneshot wanted by `graphical-session.target`, which
+reads `~/.local/state/rice/active` and brings up whichever shell it names.
+That file is the live switch, so changing desktops does not need a rebuild:
+
+```
+rice                  # what is running now
+rice toggle           # swap to the other one         -- SUPER+CTRL+R
+rice use graphide     # switch to a named shell
+rice ipc launcher     # open a surface on whichever shell is active
+```
+
+`desktop.shell.default` only decides what a machine with no recorded choice
+comes up with. A `rice use` outlives reboots and rebuilds. Set either
+`.enable` to `false` to drop a shell out of the build entirely — that is the
+knob for the closure, not the knob for choosing.
+
+The keybinds in `env/hyprland/binds.nix` never name a shell. `$mainMod,R` and
+`$mainMod SHIFT,A` call `rice ipc launcher` / `rice ipc sidebar`, and `rice`
+translates to whichever mechanism the running shell speaks. `$mainMod,U`
+(vault), `$mainMod SHIFT,U` (accounts), `CTRL$mainMod,D` (agent desktops),
+`$mainMod,B` (bar) and `$mainMod SHIFT,B` (company widgets) are Graphide-only
+surfaces; under caelestia they raise a notification rather than failing silently.
+
+Two things the Graphide module upstream would do that are deliberately not done
+here, both because they are `mkForce` over the whole session and would follow
+you back into caelestia mode: `hyprland.decoration` (gaps/rounding/border) and
+`rbwPinentry` (rewires pinentry for *every* rbw call). Each is behind
+`desktop.shell.graphide.*` if you want it.
+
+`hyprland.layerRules` is also off, for a different reason: upstream emits
+Hyprland's newer `match:namespace ^(...)$` rule syntax and the Hyprland in
+nixpkgs 25.11 is 0.52.2, which answers "Invalid rule found". The equivalent
+0.52 rules are written by hand in `graphide-shell/default.nix` instead.
+
+Caelestia-specific contents of `home/desktop/env/caelestia/`:
+- `default.nix` — HM module; configures `programs.caelestia`, gated on `desktop.shell.caelestia.enable`
 - `patches/` — patch overlay applied to caelestia-shell at build time
 - `confs/` — live-editable shell.json and shell-tokens.json, symlinked out of store so the control-centre can write to them
 - `CAELESTIA.md` — caelestia-specific documentation
+
+Note that the caelestia *CLI* is pulled in by `programs.caelestia.cli.enable`,
+so `home/desktop/apps/firefox.nix` (caelestiafox native host), `home/term/apps/
+zsh.nix` (colour sequences) and `home/term/apps/vim.nix` (caelestia-nvim) all
+depend on caelestia staying enabled, even while the Graphide shell is the one
+on screen. `home/desktop/modules/workmic/` does not — it takes Quickshell
+straight from caelestia's flake input and builds its own indicator.
 
 ### Key module locations
 

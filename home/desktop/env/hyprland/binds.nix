@@ -43,9 +43,24 @@ in
         "$mainMod,V,togglefloating,"
 "$mainMod SHIFT,R,exec,pkill rofi || rofi -show drun"
 
-        # Caelestia global binds
-        "$mainMod,R,global,caelestia:launcher"
-        "$mainMod SHIFT,A,global,caelestia:sidebar"
+        # Desktop-shell surfaces. These do NOT name a shell: `rice ipc`
+        # dispatches to whichever of caelestia / the Graphide shell is
+        # currently running, because the two answer on different mechanisms
+        # (Hyprland globals vs Quickshell IPC). See ../shells.nix.
+        "$mainMod,R,exec,rice ipc launcher"
+        "$mainMod SHIFT,A,exec,rice ipc sidebar"
+
+        # Swap the whole desktop shell, live, no rebuild.
+        "CTRL$mainMod,R,exec,rice toggle"
+
+        # Graphide-shell surfaces with no caelestia equivalent. Under
+        # caelestia they pop a "no such surface" notification rather than
+        # doing nothing silently.
+        "$mainMod,U,exec,rice ipc vault"
+        "$mainMod SHIFT,U,exec,rice ipc accounts"
+        "CTRL$mainMod,D,exec,rice ipc desktops"
+        "$mainMod,B,exec,rice ipc bar"
+        "$mainMod SHIFT,B,exec,rice ipc widgets"
 
         "$mainMod SHIFT, V, exec, mullvad reconnect"
 
