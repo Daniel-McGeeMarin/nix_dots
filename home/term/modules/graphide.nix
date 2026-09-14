@@ -77,7 +77,21 @@ let
       docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 
       echo "[1/5] Building Go binaries (grug, gr, grach) + bwrap in a stock-glibc container ..."
-      bash "$MONOLITH_DIR/scripts/build-dist-container.sh" linux amd64 "$WORK/bins"
+      # The monolith moved every shell script under utilities/scripts/ on
+      # 2026-09-14. A hard-coded path that quietly stops existing is exactly
+      # how gred froze here: from 2026-09-13 every timer cycle died on
+      # "scripts/build-dist-container.sh: No such file or directory", left the
+      # pin on the previous build, and that older tree's stale vendor hash then
+      # failed every home-manager switch on the machine. Try the new path, fall
+      # back to the old one so an older checkout still builds, and say which is
+      # missing rather than letting bash report it.
+      dist_builder="$MONOLITH_DIR/utilities/scripts/build-dist-container.sh"
+      [ -f "$dist_builder" ] || dist_builder="$MONOLITH_DIR/scripts/build-dist-container.sh"
+      [ -f "$dist_builder" ] || {
+        echo "graphide-rebuild-gred: no build-dist-container.sh under $MONOLITH_DIR (looked in utilities/scripts/ and scripts/)" >&2
+        exit 1
+      }
+      bash "$dist_builder" linux amd64 "$WORK/bins"
 
       echo "[2/5] Building the release image ..."
       # Only the tarball is consumed here (packages.gred wraps it); the
