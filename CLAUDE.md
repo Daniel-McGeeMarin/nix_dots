@@ -111,6 +111,7 @@ import, not by an option — see "Composition" above.
 | `ai.claudeCode.enable` | same | claude-code CLI |
 | `ai.cursorCli.enable` | same | Cursor CLI (`cursor-agent`) |
 | `ai.codex.enable` | same | OpenAI Codex CLI |
+| `ai.autoUpdate.enable` | same | user timer: re-pin `nixpkgs-unstable` to its newest revision and `home-manager switch`, so claude-code/codex track upstream |
 | `ai.privatellm.enable` | `home/term/modules/privatellm.nix` | local llama.cpp chatbot (GPU) |
 | `programs.claudeAgents.enable` | `home/desktop/env/claude-agents.nix` | Claude Code agent-state hooks + hotkeys |
 

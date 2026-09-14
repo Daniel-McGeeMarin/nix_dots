@@ -17,6 +17,7 @@
   ai.claudeCode.enable = true;
   ai.cursorCli.enable = true;
   ai.codex.enable = true;
+  ai.autoUpdate.enable = true;
   ai.privatellm.enable = true;
 
   graphide.enable = true;

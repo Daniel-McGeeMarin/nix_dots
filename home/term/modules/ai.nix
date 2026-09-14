@@ -1,4 +1,70 @@
-{ lib, config, inputs, pkgs, ... }:
+{ lib, config, inputs, pkgs, osConfig ? null, flakeAttr ? "XiaNix", ... }:
+# claude-code and codex are both packaged straight from upstream's own
+# releases (an npm publish), which lands in nixpkgs-unstable far faster than
+# in stable nixpkgs -- pkgs.codex (from the nixos-25.11 stable channel) was
+# found stuck on 0.92.0 while upstream and nixpkgs-unstable were already on
+# 0.153.4/0.154.0. Both are sourced from pkgs.unstable here so they track
+# that faster channel, and ai.autoUpdate (below) keeps flake.lock's
+# nixpkgs-unstable pin itself from going stale the same way graphide's
+# pin would without graphide.autoUpdate.
+let
+  cfg = config.ai;
+
+  # Same nix the rest of the machine runs (Lix, per hosts/*/configuration.nix
+  # nix.package). Falling back to pkgs.nix would put a second, different
+  # client in front of the same daemon for no reason.
+  nixPackage = if osConfig != null then osConfig.nix.package else pkgs.nix;
+
+  # Same home-manager the flake is evaluated with, not whatever happens to be
+  # in ~/.nix-profile -- an auto-switch must not drift from the checkout it
+  # switches.
+  homeManagerPackage = inputs.home-manager.packages.${pkgs.stdenv.hostPlatform.system}.home-manager;
+
+  autoUpdateScript = pkgs.writeShellApplication {
+    name = "ai-cli-autoupdate";
+    runtimeInputs = [ nixPackage homeManagerPackage pkgs.libnotify pkgs.coreutils pkgs.util-linux ];
+    text = ''
+      FLAKE_DIR=${lib.escapeShellArg cfg.autoUpdate.flakeDir}
+      FLAKE_ATTR=${lib.escapeShellArg flakeAttr}
+
+      fail() {
+        echo "ai-cli-autoupdate: $1" >&2
+        notify-send -u critical "AI CLI auto-update failed" "$1" || true
+        exit 1
+      }
+
+      # Only guards against two runs of this service overlapping. A manual
+      # `homeswitch` in a shell does not take this lock; nix's own profile and
+      # store locks are what keep that case honest.
+      exec 9>"''${XDG_RUNTIME_DIR:-/tmp}/ai-cli-autoupdate.lock"
+      if ! flock -n 9; then
+        echo "ai-cli-autoupdate: another run holds the lock, skipping"
+        exit 0
+      fi
+
+      cd "$FLAKE_DIR" || fail "flake directory $FLAKE_DIR is missing"
+
+      # Local only, on purpose: this rewrites flake.lock in the working tree
+      # and never commits or pushes it. The lock in git stays whatever a
+      # human put there; `git checkout flake.lock` is the whole undo. This
+      # also re-pins everything else sourced from pkgs.unstable (llama-cpp,
+      # code-cursor, zoom-us) -- there is one nixpkgs-unstable pin for the
+      # whole flake, not one per package.
+      if ! nix flake update nixpkgs-unstable; then
+        fail "could not update the nixpkgs-unstable flake input"
+      fi
+
+      # home-manager switch builds before it activates, so a broken commit
+      # leaves the current generation running and just fails this unit. That
+      # is the correct outcome -- do not wrap it in a rollback.
+      if ! home-manager switch --flake "$FLAKE_DIR#$FLAKE_ATTR"; then
+        fail "home-manager switch failed after updating nixpkgs-unstable"
+      fi
+
+      echo "ai-cli-autoupdate: switched onto the newest nixpkgs-unstable"
+    '';
+  };
+in
 {
   options = {
     ai = {
@@ -7,6 +73,36 @@
       claudeCode.enable = lib.mkEnableOption "Enable Claude Code CLI";
       cursorCli.enable = lib.mkEnableOption "Enable Cursor CLI";
       codex.enable = lib.mkEnableOption "Enable OpenAI Codex CLI";
+
+      autoUpdate = {
+        enable = lib.mkEnableOption ''
+          a user timer that re-pins the nixpkgs-unstable flake input to its
+          newest revision and switches home-manager onto it, so claude-code
+          and codex (both sourced from pkgs.unstable -- see the comment at
+          the top of this file) stay close to their upstream releases
+          instead of drifting for months until someone runs
+          `nix flake update` by hand. Separate from ai.enable on purpose:
+          unattended re-pinning of a whole nixpkgs channel is a materially
+          bigger behaviour than just having the packages
+        '';
+
+        interval = lib.mkOption {
+          type = lib.types.str;
+          default = "1d";
+          description = ''
+            OnUnitActiveSec for the update timer. Longer than graphide's
+            30m default: this re-pins the whole nixpkgs-unstable channel
+            (a much bigger closure than one small flake input), so every
+            run is a heavier rebuild/download than is worth doing often.
+          '';
+        };
+
+        flakeDir = lib.mkOption {
+          type = lib.types.str;
+          default = "${config.home.homeDirectory}/nixos";
+          description = "Checkout whose flake.lock is re-pinned and switched.";
+        };
+      };
     };
   };
   config = lib.mkMerge [
@@ -17,7 +113,43 @@
       home.packages = [ pkgs.unstable.unfree.cursor-cli ];
     })
     (lib.mkIf config.ai.codex.enable {
-      home.packages = [ pkgs.codex ];
+      home.packages = [ pkgs.unstable.codex ];
+    })
+    (lib.mkIf cfg.autoUpdate.enable {
+      systemd.user.services.ai-cli-autoupdate = {
+        Unit = {
+          Description = "Re-pin nixpkgs-unstable to its newest revision and switch, to keep claude-code/codex current";
+          After = [ "network-online.target" ];
+          Wants = [ "network-online.target" ];
+        };
+        Service = {
+          Type = "oneshot";
+          ExecStart = lib.getExe autoUpdateScript;
+          # A nix build should never win a scheduling fight with the editor
+          # or CLI it's about to replace.
+          Nice = 10;
+          IOSchedulingClass = "idle";
+          # A nixpkgs-unstable re-pin can pull in a real rebuild (llama-cpp
+          # with Vulkan support, in particular), not just a fast re-lock.
+          TimeoutStartSec = "60min";
+        };
+      };
+
+      systemd.user.timers.ai-cli-autoupdate = {
+        Unit.Description = "Check for a newer nixpkgs-unstable revision";
+        Timer = {
+          # OnStartupSec, not OnBootSec: this is a user manager, and the
+          # first check should land shortly after login rather than after a
+          # full interval. Both these and OnUnitActiveSec are
+          # CLOCK_BOOTTIME, so a suspended laptop catches up on wake rather
+          # than losing the cycle.
+          OnStartupSec = "5m";
+          OnUnitActiveSec = cfg.autoUpdate.interval;
+          RandomizedDelaySec = "10m";
+          Persistent = true;
+        };
+        Install.WantedBy = [ "timers.target" ];
+      };
     })
     (lib.mkIf config.ai.enable {
     home.packages = [
