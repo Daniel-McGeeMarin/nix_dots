@@ -347,8 +347,27 @@ let
           mkdir -p "$(dirname "$GRED_SRC_DIR")"
           git clone --quiet "$CLONE_URL" "$GRED_SRC_DIR" || true
         fi
+        # Discard whatever the last build left behind BEFORE checking out.
+        # gred commits its own compiled artifacts under
+        # gred/extensions/graphide/out, so every build writes over tracked
+        # files and also drops new untracked ones. The moment master starts
+        # tracking a file the previous build had only generated locally,
+        # `git checkout` refuses -- "untracked working tree files would be
+        # overwritten" -- and since nothing ever cleaned this clone, that is
+        # not a transient failure: it wedges gred on its last good build and
+        # every later cycle hits the identical wall. That is exactly what
+        # happened on 2026-09-13, when 34 generated out/webview/*.js files
+        # became tracked and froze the editor 104 commits behind master
+        # while gr/grat kept advancing normally.
+        #
+        # -ffd, deliberately NOT -ffdx: the ignored paths here are
+        # node_modules and gred/dist, i.e. the npm and build caches this
+        # whole clone exists to reuse. Clearing those would turn every
+        # cycle into a from-scratch install.
         if [ -d "$GRED_SRC_DIR/.git" ] \
             && git -C "$GRED_SRC_DIR" fetch --quiet origin "$green" \
+            && git -C "$GRED_SRC_DIR" reset --quiet --hard \
+            && git -C "$GRED_SRC_DIR" clean -qffd \
             && git -C "$GRED_SRC_DIR" checkout --quiet --detach FETCH_HEAD; then
           if graphide-rebuild-gred "$GRED_SRC_DIR"; then
             echo "$green" > "$GRED_REV_MARKER"
