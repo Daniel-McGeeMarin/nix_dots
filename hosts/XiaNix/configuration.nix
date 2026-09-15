@@ -127,6 +127,18 @@ in
     enable = true;
     package = pkgs.docker_29;
   };
+  # Rootless podman's systemd user socket ($XDG_RUNTIME_DIR/podman/podman.sock),
+  # which the Graphide dev stack (`nix run .#gr-srv`) uses when present.
+  #
+  # The socket is the point, not the CLI. Agents run inside Orca's bubblewrap
+  # sandbox, which has its own /etc without /etc/subuid and sets no_new_privs,
+  # so the setuid newuidmap cannot run there. A `podman system service` started
+  # from an agent shell gets a one-uid map (`0 1000 1`) and Postgres fails with
+  # `crun: mkdir /var/lib/postgresql/data: Permission denied`, even though the
+  # subuid range on xia below exists. The user systemd manager runs outside the
+  # sandbox, so its service gets the range. dockerCompat/dockerSocket stay off:
+  # they conflict with docker above. See the crun entry in monolith's QUIRKS.md.
+  virtualisation.podman.enable = true;
   virtualisation.waydroid.enable = true;
 
   fonts.packages = with pkgs; [
