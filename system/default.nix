@@ -66,8 +66,11 @@
   # Collect on low disk, not just on the daily timer. min-free triggers a GC
   # mid-build once free space drops below it, which is what actually protects a
   # nearly-full root; the daily timer alone cannot react to a large build.
-  nix.settings.min-free = 5 * 1024 * 1024 * 1024;
-  nix.settings.max-free = 20 * 1024 * 1024 * 1024;
+  # Raised 5 -> 20 GB on 2026-09-14: /tmp shares this partition, and at 5 GB the
+  # store filled it to 0 bytes free while ~20 Claude sessions were writing
+  # scratch files (35 "command output was lost" failures in one week).
+  nix.settings.min-free = 20 * 1024 * 1024 * 1024;
+  nix.settings.max-free = 40 * 1024 * 1024 * 1024;
 
   # The journal had grown to 3.4 GB: the default cap is 10% of the filesystem,
   # which on a 126 GB root is 12.6 GB before it would ever rotate.
