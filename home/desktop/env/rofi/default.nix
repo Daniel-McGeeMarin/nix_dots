@@ -5,9 +5,8 @@
 {
   home.packages = lib.mkIf config.programs.rofi.enable [
     (lib.mkIf config.programs.rbw.enable (pkgs.rofi-rbw.override { waylandSupport = true; }))
-    (pkgs.writeShellScriptBin "dmenu" ''
-      ${pkgs.rofi}/bin/rofi -dmenu $@
-    '')
+    # No `dmenu` shim here: graphide-shell's dmenu uses its own picker when that
+    # shell is running and falls back to `rofi -dmenu` when it is not.
   ];
   programs = {
     rofi = {
