@@ -1,5 +1,27 @@
 { pkgs, config, inputs, lib, osConfig, flakeAttr, ... }:
-
+let
+  # Rebuild the system WITHOUT running the whole thing as root.
+  #
+  # `nixos-rebuild --sudo` evaluates and builds as the invoking user and only
+  # prefixes the final activation commands with sudo. The old form -- `sudo
+  # HOME=$HOME nixos-rebuild ...` -- evaluated the flake as root, and that broke
+  # every time the graphide auto-update timer re-pinned flake.lock:
+  #
+  #   * nix refuses to use a $HOME it does not own, so it fell back to /root
+  #     ("$HOME ('/home/xia') is not owned by you, falling back to ... /root")
+  #     and used root's cold fetcher cache instead of the one the user's own
+  #     `homeswitch` / auto-update runs had already filled;
+  #   * the `graphide` and `graphide-gred` flake inputs are git+ssh on a
+  #     PRIVATE repo. root has no key, so the fetch died with
+  #     "git@github.com: Permission denied (publickey)" and took the whole
+  #     rebuild down during evaluation.
+  #
+  # Evaluating as xia uses xia's ~/.ssh/id_ed25519, which already has access.
+  # `sudo -v` first so the password prompt still appears up front rather than
+  # at the end of the build, when activation is the thing that asks for it.
+  rebuild = subcommand:
+    "st=\"$(date +%s)\"; sudo -v && nixos-rebuild ${subcommand} --sudo --flake $HOME/nixos/#${flakeAttr} --cores 8 --impure && timeout 5 notify-send 'updated' \"Took: $(($(date +%s)-$st))s\"";
+in
 {
   # To escape bashisms use ''${}
   home.packages = with pkgs; [
@@ -54,9 +76,11 @@ pys = "source ./venv/bin/activate";
 
       #Bens
 
-      nixswitch = "st=\"$(date +%s)\"; sudo HOME=$HOME nixos-rebuild switch --flake $HOME/nixos/#${flakeAttr} --cores 8 --impure && timeout 5 notify-send 'updated' \"Took: $(($(date +%s)-$st))s\"";
+      nixswitch = rebuild "switch";
       homeswitch = "st=\"$(date +%s)\"; home-manager switch --flake $HOME/nixos/#${flakeAttr} --cores 8 --impure && notify-send 'updated' \"Took: $(($(date +%s)-$st))s\"";
-      nixtest = "st=\"$(date +%s)\"; sudo HOME=$HOME nixos-rebuild test --fast --flake $HOME/nixos/#${flakeAttr} --cores 8 --impure && notify-send 'updated' \"Took: $(($(date +%s)-$st))s\"";
+      # --no-reexec is what --fast became in nixos-rebuild-ng; the old spelling
+      # still works but prints a deprecation warning on every run.
+      nixtest = rebuild "test --no-reexec";
       nixwatch = "cd ~/nixos && dirwatch nixtest";
       homewatch = "cd ~/nixos && dirwatch homeswitch";
       powerinfo = "upower -i /org/freedesktop/UPower/devices/battery_BAT1";

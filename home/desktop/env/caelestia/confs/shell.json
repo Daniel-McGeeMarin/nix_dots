@@ -316,7 +316,7 @@
                     "-e",
                     "bash",
                     "-c",
-                    "sudo HOME=$HOME nixos-rebuild switch --flake $HOME/nixos/#XiaNix --cores 8 --impure && notify-send 'nixswitch done'; read -rp 'Done. Press Enter to close...'"
+                    "sudo -v && nixos-rebuild switch --sudo --flake $HOME/nixos/#XiaNix --cores 8 --impure && notify-send 'nixswitch done'; read -rp 'Done. Press Enter to close...'"
                 ],
                 "dangerous": false,
                 "description": "Rebuild and switch NixOS config",

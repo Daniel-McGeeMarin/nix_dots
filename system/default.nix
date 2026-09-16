@@ -53,6 +53,12 @@
   # transfer", which is fatal. So a slow DNS reply aborted the whole rebuild.
   # 30s is generous enough that the retry path is never entered.
   nix.settings.connect-timeout = 30;
+
+  # "warning: Git tree '/home/xia/nixos' is dirty", twice per command, on every
+  # rebuild. This flake is edited in place and is essentially never clean, so
+  # the warning never carries information -- it just pushes the real output of
+  # a failed build off the top of the terminal.
+  nix.settings.warn-dirty = false;
   nix.gc = {
     automatic = true;
     dates = "daily";
@@ -63,14 +69,25 @@
     dates = [ "weekly" ];
   };
 
-  # Collect on low disk, not just on the daily timer. min-free triggers a GC
-  # mid-build once free space drops below it, which is what actually protects a
-  # nearly-full root; the daily timer alone cannot react to a large build.
-  # Raised 5 -> 20 GB on 2026-09-14: /tmp shares this partition, and at 5 GB the
-  # store filled it to 0 bytes free while ~20 Claude sessions were writing
-  # scratch files (35 "command output was lost" failures in one week).
-  nix.settings.min-free = 20 * 1024 * 1024 * 1024;
-  nix.settings.max-free = 40 * 1024 * 1024 * 1024;
+  # Automatic mid-build GC is OFF. The daily timer above is the only collector.
+  #
+  # History: min-free was raised 5 -> 20 GB on 2026-09-14 because /tmp shares
+  # the root partition and at 5 GB the store filled it to 0 bytes free while
+  # ~20 Claude sessions wrote scratch files (35 "command output was lost"
+  # failures in one week). That backfired. A 126 GB root holding a 75 GB store
+  # cannot get 20 GB below the floor, so every single store write - every
+  # build, every nix develop, every editor launch - started a GC that scanned
+  # the whole store, found nothing deletable (all of it was still referenced by
+  # live generations), and blocked meanwhile. On 2026-09-15 that stall ran long
+  # enough to time out home-manager's activation mid-switch, which removed the
+  # user profile's package set and did not put the new one back.
+  #
+  # Root is moving to the 507 GB partition on nvme0n1, where the disk-full
+  # scenario the floor defended against does not arise. If root ever ends up
+  # tight again, re-enable it with a floor small enough to actually be
+  # reachable - min-free below (partition size - store size), not above it.
+  nix.settings.min-free = 0;
+  nix.settings.max-free = 0;
 
   # The journal had grown to 3.4 GB: the default cap is 10% of the filesystem,
   # which on a 126 GB root is 12.6 GB before it would ever rotate.
