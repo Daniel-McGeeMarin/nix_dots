@@ -158,6 +158,14 @@ in
         runtimeInputs = [ pkgs.curl pkgs.jq pkgs.wl-clipboard pkgs.libnotify ];
         text = builtins.readFile ./privatellm-redact.sh;
       })
+
+      # Pick a Signal conversation and sender, then stream that sender's text
+      # directly from the encrypted database into privatellm-redact.
+      (pkgs.writeShellApplication {
+        name = "signal-redact";
+        runtimeInputs = [ pkgs.sqlcipher pkgs.jq pkgs.fzf pkgs.coreutils ];
+        text = builtins.readFile ./signal-redact.sh;
+      })
     ];
 
     xdg.desktopEntries."privatellm-chat" = {
