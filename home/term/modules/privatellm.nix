@@ -43,6 +43,24 @@ in
   options.ai.privatellm.enable = lib.mkEnableOption "Local, no-retention chatbot (llama.cpp + gemma3, GPU-accelerated)";
 
   config = lib.mkIf cfg.enable {
+    # These commands are already part of home.packages. Installing either with
+    # `nix profile install` creates a second priority-5 provider for the same
+    # bin path, which makes Home Manager's installPackages activation fail.
+    # Remove only those unmanaged duplicates before replacing the managed
+    # home-manager-path so one accidental test install cannot break a rebuild.
+    home.activation.removeImperativePrivateLlmDuplicates =
+      lib.hm.dag.entryBefore [ "installPackages" ] ''
+        profile_json="$(${pkgs.nix}/bin/nix profile list --json)"
+        for package in privatellm-redact signal-redact; do
+          if printf '%s' "$profile_json" \
+            | ${pkgs.jq}/bin/jq -e --arg package "$package" \
+                '.elements | has($package)' >/dev/null; then
+            echo "Removing imperatively installed $package; Home Manager owns it"
+            $DRY_RUN_CMD ${pkgs.nix}/bin/nix profile remove "$package"
+          fi
+        done
+      '';
+
     home.packages = [
       (pkgs.writeShellApplication {
         name = "privatellm-chat";
