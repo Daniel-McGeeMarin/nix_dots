@@ -149,6 +149,15 @@ in
           unset input raw_lines chunks current digest new_digest response payload user_msg
         '';
       })
+
+      # Conservatively remove personal, offensive, casual, and non-Graphide
+      # material from pasted chats. The local model returns character ranges;
+      # the script validates and applies them without sending text off-device.
+      (pkgs.writeShellApplication {
+        name = "privatellm-redact";
+        runtimeInputs = [ pkgs.curl pkgs.jq pkgs.wl-clipboard pkgs.libnotify ];
+        text = builtins.readFile ./privatellm-redact.sh;
+      })
     ];
 
     xdg.desktopEntries."privatellm-chat" = {
