@@ -19,29 +19,27 @@ while (( $# )); do
   fi
 done
 
-message="$(jq -r '.messages[1].content' <<< "$payload")"
-line="$(jq -nr --arg message "$message" '$message | capture("^ORIGINAL LINE:\\n(?<line>[^\\n]*)").line')"
+line="$(jq -r '.messages[1].content' <<< "$payload")"
 if [[ "${PRIVATE_LLM_TEST_FAIL_LINE:-}" == "$line" ]]; then
   echo 'simulated local model timeout' >&2
   exit 28
 fi
 case "$line" in
   *"deadline is Friday. damn")
-    start="$(jq -nr --arg line "$line" '$line | index("damn")')"
-    content="$(jq -cn --argjson start "$start" '{remove_entire_line:false,spans:[{start:$start,end:($start + 4),category:"profanity"}]}')"
+    content='1'
     ;;
   *"called Mom"*)
-    content='{"remove_entire_line":true,"spans":[]}'
+    content='0'
     ;;
   *"Graphide relay"*)
-    content=$'```json\n{"remove_entire_line":false,"spans":[]}\n```'
+    content='1'
     ;;
   *"malformed model output"*)
     printf '%s\n' '{"choices":[{"message":{"content":"not json"}}]}'
     exit 0
     ;;
   *)
-    content='{"remove_entire_line":false,"spans":[]}'
+    content='1'
     ;;
 esac
 
@@ -65,7 +63,7 @@ export PRIVATE_LLM_TEST_CLIPBOARD="$tmp_dir/clipboard"
 export PRIVATE_LLM_STATE_DIR="$tmp_dir/state"
 
 input=$'Graphide deadline is Friday. damn\n\nI called Mom about dinner\n\nShip the Graphide relay by Tuesday.\nmalformed model output\n'
-expected=$'Graphide deadline is Friday.\n\nShip the Graphide relay by Tuesday.'
+expected=$'Graphide deadline is Friday. damn\n\nShip the Graphide relay by Tuesday.'
 
 actual="$(printf '%s' "$input" | "$script_dir/privatellm-redact.sh" 2> "$tmp_dir/stderr")"
 
@@ -79,7 +77,7 @@ if [[ "$(cat "$PRIVATE_LLM_TEST_CLIPBOARD")" != "$expected" ]]; then
   exit 1
 fi
 
-if ! grep -q 'withholding line' "$tmp_dir/stderr"; then
+if ! grep -q 'invalid model response' "$tmp_dir/stderr"; then
   echo "malformed model output was not reported" >&2
   exit 1
 fi
