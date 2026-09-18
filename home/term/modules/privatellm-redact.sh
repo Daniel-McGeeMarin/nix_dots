@@ -5,6 +5,7 @@ endpoint="${PRIVATE_LLM_URL:-http://127.0.0.1:8090/v1/chat/completions}"
 model="${PRIVATE_LLM_MODEL:-gemma3}"
 max_line_chars=1500
 state_root="${PRIVATE_LLM_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/privatellm-redact}"
+output_dir="${PRIVATE_LLM_OUTPUT_DIR:-${XDG_DOCUMENTS_DIR:-$HOME/Documents}/Redacted Signal Transcripts}"
 
 system_prompt=$(cat <<'PROMPT'
 Reply with exactly 0 or 1.
@@ -42,6 +43,18 @@ if [[ -f "$checkpoint_dir/next" ]]; then
   echo "resuming redaction at line $((resume_at + 1))" >&2
 fi
 
+mkdir -p "$output_dir"
+if [[ -f "$checkpoint_dir/output_path" ]]; then
+  output_path="$(< "$checkpoint_dir/output_path")"
+  if [[ ! "$output_path" == "$output_dir"/* ]]; then
+    echo "error: invalid local redaction output path at $checkpoint_dir" >&2
+    exit 1
+  fi
+else
+  output_path="$(mktemp "$output_dir/signal-redacted-$(date '+%Y-%m-%d_%H-%M-%S')-XXXXXX.txt")"
+  printf '%s\n' "$output_path" > "$checkpoint_dir/output_path"
+fi
+
 checkpoint_line_path() {
   printf '%s/line-%08d' "$checkpoint_dir" "$1"
 }
@@ -61,6 +74,34 @@ save_progress() {
   local temp="$checkpoint_dir/next.tmp"
   printf '%s\n' "$next" > "$temp"
   mv "$temp" "$checkpoint_dir/next"
+}
+
+write_output() {
+  local rendered=""
+  local blank_pending=false
+  local rendered_line
+
+  for rendered_line in "${output_lines[@]}"; do
+    if [[ -z "$rendered_line" ]]; then
+      if [[ -n "$rendered" ]]; then
+        blank_pending=true
+      fi
+      continue
+    fi
+
+    if [[ -n "$rendered" ]]; then
+      if [[ "$blank_pending" == "true" ]]; then
+        rendered+=$'\n\n'
+      else
+        rendered+=$'\n'
+      fi
+    fi
+    rendered+="$rendered_line"
+    blank_pending=false
+  done
+
+  printf '%s\n' "$rendered" > "$output_path.tmp"
+  mv "$output_path.tmp" "$output_path"
 }
 
 mapfile -t lines <<< "$input"
@@ -114,6 +155,8 @@ for index in "${!lines[@]}"; do
       --data-binary "$payload" \
       "$endpoint")"; then
     echo "error: local model request failed on line $number/$total" >&2
+    write_output
+    echo "Partial redacted output saved to $output_path" >&2
     echo "Progress through line $index is saved locally. Run the same input again to resume." >&2
     exit 1
   fi
@@ -142,37 +185,25 @@ for index in "${!lines[@]}"; do
   output_lines+=("$line")
   save_line "$index" "$line"
   save_progress "$number"
+
+  if (( number % 100 == 0 )); then
+    write_output
+  fi
 done
 
-result=""
-blank_pending=false
-for line in "${output_lines[@]}"; do
-  if [[ -z "$line" ]]; then
-    if [[ -n "$result" ]]; then
-      blank_pending=true
-    fi
-    continue
-  fi
-
-  if [[ -n "$result" ]]; then
-    if [[ "$blank_pending" == "true" ]]; then
-      result+=$'\n\n'
-    else
-      result+=$'\n'
-    fi
-  fi
-  result+="$line"
-  blank_pending=false
-done
+write_output
+result="$(< "$output_path")"
 
 printf '%s\n' "$result"
 if [[ "${PRIVATE_LLM_NO_CLIPBOARD:-0}" != "1" ]] && command -v wl-copy >/dev/null 2>&1; then
   printf '%s' "$result" | wl-copy
 fi
 if command -v notify-send >/dev/null 2>&1; then
-  notify-send "privatellm-redact" "Done -- redacted text copied to clipboard ($total lines checked)." >/dev/null 2>&1 || true
+  notify-send "privatellm-redact" "Done -- saved redacted text to $(basename "$output_path") ($total lines checked)." >/dev/null 2>&1 || true
 fi
+
+echo "Redacted output saved to $output_path" >&2
 
 rm -rf "$checkpoint_dir"
 
-unset input input_hash checkpoint_dir resume_at lines output_lines line response decision result payload saved_line
+unset input input_hash checkpoint_dir resume_at output_dir output_path lines output_lines line response decision result payload saved_line
