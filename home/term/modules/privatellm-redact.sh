@@ -4,6 +4,7 @@ set -euo pipefail
 endpoint="${PRIVATE_LLM_URL:-http://127.0.0.1:8090/v1/chat/completions}"
 model="${PRIVATE_LLM_MODEL:-gemma3}"
 max_line_chars=1500
+state_root="${PRIVATE_LLM_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/privatellm-redact}"
 
 system_prompt=$(cat <<'PROMPT'
 You are a strict redaction classifier for a mixed work/personal chat. The only
@@ -66,6 +67,41 @@ if [[ ! "$input" =~ [^[:space:]] ]]; then
   exit 1
 fi
 
+umask 077
+input_hash="$(printf '%s' "$input" | sha256sum | awk '{print $1}')"
+checkpoint_dir="$state_root/$input_hash"
+mkdir -p "$checkpoint_dir"
+resume_at=0
+if [[ -f "$checkpoint_dir/next" ]]; then
+  resume_at="$(< "$checkpoint_dir/next")"
+  if [[ ! "$resume_at" =~ ^[0-9]+$ ]]; then
+    echo "error: invalid local redaction checkpoint at $checkpoint_dir" >&2
+    exit 1
+  fi
+  echo "resuming redaction at line $((resume_at + 1))" >&2
+fi
+
+checkpoint_line_path() {
+  printf '%s/line-%08d' "$checkpoint_dir" "$1"
+}
+
+save_line() {
+  local line_index="$1"
+  local value="$2"
+  local target temp
+  target="$(checkpoint_line_path "$line_index")"
+  temp="$target.tmp"
+  printf '%s' "$value" > "$temp"
+  mv "$temp" "$target"
+}
+
+save_progress() {
+  local next="$1"
+  local temp="$checkpoint_dir/next.tmp"
+  printf '%s\n' "$next" > "$temp"
+  mv "$temp" "$checkpoint_dir/next"
+}
+
 mapfile -t lines <<< "$input"
 total="${#lines[@]}"
 output_lines=()
@@ -74,14 +110,25 @@ for index in "${!lines[@]}"; do
   line="${lines[$index]}"
   number=$((index + 1))
 
+  if (( index < resume_at )); then
+    saved_line="$(checkpoint_line_path "$index")"
+    if [[ -e "$saved_line" ]]; then
+      output_lines+=("$(< "$saved_line")")
+    fi
+    continue
+  fi
+
   if [[ -z "$line" ]]; then
     output_lines+=("")
+    save_line "$index" ""
+    save_progress "$number"
     continue
   fi
 
   line_length="$(jq -nr --arg line "$line" '$line | length')"
   if (( line_length > max_line_chars )); then
     echo "[$number/$total] line exceeds $max_line_chars characters; withholding line" >&2
+    save_progress "$number"
     continue
   fi
 
@@ -123,6 +170,7 @@ $indexed_characters"
       --data-binary "$payload" \
       "$endpoint")"; then
       echo "error: local model request failed on line $number/$total" >&2
+      echo "Progress through line $index is saved locally. Run the same input again to resume." >&2
       exit 1
     fi
 
@@ -157,6 +205,7 @@ $indexed_characters"
       jq -r '"[debug] raw model content: " + (.choices[0].message.content // "(missing)")' <<< "$response" >&2 || true
     fi
     echo "[$number/$total] invalid model response after retry; withholding line" >&2
+    save_progress "$number"
     continue
   fi
 
@@ -165,6 +214,7 @@ $indexed_characters"
   fi
 
   if [[ "$(jq -r '.remove_entire_line' <<< "$decision")" == "true" ]]; then
+    save_progress "$number"
     continue
   fi
 
@@ -192,7 +242,9 @@ $indexed_characters"
 
   if jq -en --arg line "$cleaned" '$line | test("[\\p{L}\\p{N}]")' >/dev/null; then
     output_lines+=("$cleaned")
+    save_line "$index" "$cleaned"
   fi
+  save_progress "$number"
 done
 
 result=""
@@ -224,4 +276,6 @@ if command -v notify-send >/dev/null 2>&1; then
   notify-send "privatellm-redact" "Done -- redacted text copied to clipboard ($total lines checked)." >/dev/null 2>&1 || true
 fi
 
-unset input lines output_lines line response decision cleaned result payload indexed_characters user_content
+rm -rf "$checkpoint_dir"
+
+unset input input_hash checkpoint_dir resume_at lines output_lines line response decision cleaned result payload indexed_characters user_content saved_line

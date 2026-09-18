@@ -21,6 +21,10 @@ done
 
 message="$(jq -r '.messages[1].content' <<< "$payload")"
 line="$(jq -nr --arg message "$message" '$message | capture("^ORIGINAL LINE:\\n(?<line>[^\\n]*)").line')"
+if [[ "${PRIVATE_LLM_TEST_FAIL_LINE:-}" == "$line" ]]; then
+  echo 'simulated local model timeout' >&2
+  exit 28
+fi
 case "$line" in
   *"deadline is Friday. damn")
     start="$(jq -nr --arg line "$line" '$line | index("damn")')"
@@ -58,6 +62,7 @@ chmod +x "$tmp_dir/curl" "$tmp_dir/wl-copy" "$tmp_dir/notify-send"
 
 export PATH="$tmp_dir:$PATH"
 export PRIVATE_LLM_TEST_CLIPBOARD="$tmp_dir/clipboard"
+export PRIVATE_LLM_STATE_DIR="$tmp_dir/state"
 
 input=$'Graphide deadline is Friday. damn\n\nI called Mom about dinner\n\nShip the Graphide relay by Tuesday.\nmalformed model output\n'
 expected=$'Graphide deadline is Friday.\n\nShip the Graphide relay by Tuesday.'
@@ -76,6 +81,30 @@ fi
 
 if ! grep -q 'withholding line' "$tmp_dir/stderr"; then
   echo "malformed model output was not reported" >&2
+  exit 1
+fi
+
+export PRIVATE_LLM_TEST_FAIL_LINE='Ship the Graphide relay by Tuesday.'
+if printf '%s' "$input" | "$script_dir/privatellm-redact.sh" > /dev/null 2> "$tmp_dir/resume-stderr"; then
+  echo "redactor unexpectedly succeeded after a simulated model timeout" >&2
+  exit 1
+fi
+
+if ! grep -q 'Run the same input again to resume' "$tmp_dir/resume-stderr"; then
+  echo "redactor did not report how to resume after a model timeout" >&2
+  exit 1
+fi
+
+unset PRIVATE_LLM_TEST_FAIL_LINE
+actual="$(printf '%s' "$input" | "$script_dir/privatellm-redact.sh" 2> "$tmp_dir/resumed-stderr")"
+
+if [[ "$actual" != "$expected" ]]; then
+  printf 'unexpected resumed output\nexpected:\n%s\nactual:\n%s\n' "$expected" "$actual" >&2
+  exit 1
+fi
+
+if find "$PRIVATE_LLM_STATE_DIR" -mindepth 1 -type d | grep -q .; then
+  echo "redactor left a checkpoint after completing the resumed run" >&2
   exit 1
 fi
 

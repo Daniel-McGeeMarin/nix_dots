@@ -77,7 +77,7 @@ in
       # same "print/copy, don't persist" shape as everything else here.
       (pkgs.writeShellApplication {
         name = "privatellm-digest";
-        runtimeInputs = [ pkgs.curl pkgs.jq pkgs.wl-clipboard pkgs.libnotify ];
+        runtimeInputs = [ pkgs.curl pkgs.jq pkgs.wl-clipboard pkgs.libnotify pkgs.coreutils ];
         text = ''
           chunk_chars=4800  # ~1200 tokens; leaves headroom in the 16384-token
                              # context for the growing digest + response.
