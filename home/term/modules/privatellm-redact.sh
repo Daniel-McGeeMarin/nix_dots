@@ -5,7 +5,7 @@ endpoint="${PRIVATE_LLM_URL:-http://127.0.0.1:8090/v1/chat/completions}"
 model="${PRIVATE_LLM_MODEL:-gemma3}"
 max_line_chars=1500
 state_root="${PRIVATE_LLM_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/privatellm-redact}"
-output_dir="${PRIVATE_LLM_OUTPUT_DIR:-${XDG_DOCUMENTS_DIR:-$HOME/Documents}/Redacted Signal Transcripts}"
+output_dir="${PRIVATE_LLM_OUTPUT_DIR:-${XDG_DOCUMENTS_DIR:-$HOME/Documents}/redacted-signal-transcripts}"
 
 system_prompt=$(cat <<'PROMPT'
 Reply with exactly 0 or 1.
