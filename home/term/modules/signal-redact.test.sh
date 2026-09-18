@@ -103,4 +103,13 @@ if [[ "$actual" != "$expected" ]]; then
   exit 1
 fi
 
+export SIGNAL_REDACT_BEFORE='1970-01-01 00:00:03'
+expected=$'1970-01-01 00:00:01 Alice Builder: Graphide alpha decision\n1970-01-01 00:00:02 Bob Writer: Bob side note'
+actual="$("$script_dir/signal-redact.sh")"
+
+if [[ "$actual" != "$expected" ]]; then
+  printf 'unexpected date-bounded transcript\nexpected:\n%s\nactual:\n%s\n' "$expected" "$actual" >&2
+  exit 1
+fi
+
 echo "signal-redact tests passed"

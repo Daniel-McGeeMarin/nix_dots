@@ -5,6 +5,7 @@ signal_db="${SIGNAL_DB:-$HOME/.config/Signal/sql/db.sqlite}"
 signal_config="${SIGNAL_CONFIG:-$HOME/.config/Signal/config.json}"
 sqlite_bin="${SIGNAL_SQLITE_BIN:-sqlcipher}"
 plaintext_db="${SIGNAL_PLAINTEXT_DB:-0}"
+before="${SIGNAL_REDACT_BEFORE:-}"
 
 if [[ ! -r "$signal_db" ]]; then
   echo "error: Signal database is not readable at $signal_db" >&2
@@ -47,6 +48,17 @@ run_sql() {
 to_sql_hex() {
   printf '%s' "$1" | od -An -v -tx1 | tr -d ' \n'
 }
+
+before_filter=""
+if [[ -n "$before" ]]; then
+  if [[ ! "$before" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}\ [0-9]{2}:[0-9]{2}:[0-9]{2}$ ]]; then
+    echo "error: SIGNAL_REDACT_BEFORE must be YYYY-MM-DD HH:MM:SS" >&2
+    exit 1
+  fi
+  before_seconds="$(date -d "$before" +%s)"
+  before_milliseconds=$((before_seconds * 1000))
+  before_filter="AND COALESCE(m.timestamp, m.sent_at, m.received_at_ms, 0) < $before_milliseconds"
+fi
 
 chat_query=$(cat <<'SQL'
 SELECT
@@ -203,10 +215,11 @@ LEFT JOIN conversations AS s
   OR (m.sourceServiceId IS NULL AND s.e164 = m.source)
 WHERE m.conversationId = CAST(X'$chat_hex' AS TEXT)
   AND $sender_filter
+  $before_filter
   AND NULLIF(trim(m.body), '') IS NOT NULL
   AND COALESCE(m.isErased, 0) = 0
 ORDER BY COALESCE(m.timestamp, m.sent_at, m.received_at_ms, 0), m.rowid;"
 
 run_sql "$extract_query" | privatellm-redact
 
-unset db_key chat_choice chat_id chat_hex sender_choice sender_key sender_id sender_hex sender_filter extract_query
+unset db_key before before_seconds before_milliseconds before_filter chat_choice chat_id chat_hex sender_choice sender_key sender_id sender_hex sender_filter extract_query
