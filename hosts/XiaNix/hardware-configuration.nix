@@ -13,12 +13,21 @@
   boot.kernelModules = [ "kvm-intel" ];
   boot.extraModulePackages = [ ];
 
+  # Root moved off the 128 GB partition on nvme1n1 (LUKS 1354cd7c…, ext4
+  # 06fec35a…) on 2026-09-16. It was 94% full with a 75 GB Nix store and no
+  # room to grow: the partitions either side of it are swap and /home, so it
+  # could not be extended without relocating 532 GB of /home.
+  #
+  # This is the 507 GB partition on the other NVMe, which was an unused backup
+  # volume holding nothing but 145 GB of never-emptied desktop trash. The old
+  # root partition is deliberately left untouched and unreferenced, so the
+  # older generations in the boot menu still boot the old system.
   fileSystems."/" =
-    { device = "/dev/disk/by-uuid/06fec35a-3496-48db-97c2-b933933b79b0";
+    { device = "/dev/disk/by-uuid/137ff254-7c03-4681-820d-4bc4a33c4da4";
       fsType = "ext4";
     };
 
-  boot.initrd.luks.devices."luks-1354cd7c-7d75-40c0-aa69-094594ed94e8".device = "/dev/disk/by-uuid/1354cd7c-7d75-40c0-aa69-094594ed94e8";
+  boot.initrd.luks.devices."luks-6eebbd3d-bbdf-440b-980d-2218be1f17e9".device = "/dev/disk/by-uuid/6eebbd3d-bbdf-440b-980d-2218be1f17e9";
 
   fileSystems."/boot" =
     { device = "/dev/disk/by-uuid/DF5C-C6B2";

@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# The command intentionally renders timestamps in local time; pin it here so
+# the transcript contract is deterministic on every developer machine and CI.
+export TZ=UTC
+
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
@@ -53,11 +57,11 @@ input="$(cat)"
 case "$*" in
   *"Signal chat> "*) grep $'^[^\t]*\tGraphide Work\t' <<< "$input" ;;
   *"Sender> "*)
-    if [[ "${SIGNAL_REDACT_TEST_SENDER:-alice}" == "me" ]]; then
-      grep $'^outgoing:me\tMe\t' <<< "$input"
-    else
-      grep $'^incoming:ACI:alice\tAlice Builder\t' <<< "$input"
-    fi
+    case "${SIGNAL_REDACT_TEST_SENDER:-alice}" in
+      all) grep $'^all\tBoth\t' <<< "$input" ;;
+      me) grep $'^outgoing:me\tMe\t' <<< "$input" ;;
+      *) grep $'^incoming:ACI:alice\tAlice Builder\t' <<< "$input" ;;
+    esac
     ;;
   *) echo "unexpected fzf prompt: $*" >&2; exit 1 ;;
 esac
@@ -77,7 +81,7 @@ export SIGNAL_PLAINTEXT_DB=1
 export SIGNAL_SQLITE_BIN="$sqlite3_bin"
 export SIGNAL_REDACT_TEST_CAPTURE="$tmp_dir/captured"
 
-expected=$'Graphide alpha decision\nGraphide deadline Friday'
+expected=$'1970-01-01 00:00:01 Alice Builder: Graphide alpha decision\n1970-01-01 00:00:04 Alice Builder: Graphide deadline Friday'
 actual="$($script_dir/signal-redact.sh)"
 
 if [[ "$actual" != "$expected" ]]; then
@@ -90,12 +94,12 @@ if [[ "$(cat "$SIGNAL_REDACT_TEST_CAPTURE")" != "$expected" ]]; then
   exit 1
 fi
 
-export SIGNAL_REDACT_TEST_SENDER=me
-expected='My reply'
+export SIGNAL_REDACT_TEST_SENDER=all
+expected=$'1970-01-01 00:00:01 Alice Builder: Graphide alpha decision\n1970-01-01 00:00:02 Bob Writer: Bob side note\n1970-01-01 00:00:03 Me: My reply\n1970-01-01 00:00:04 Alice Builder: Graphide deadline Friday'
 actual="$($script_dir/signal-redact.sh)"
 
 if [[ "$actual" != "$expected" ]]; then
-  printf 'unexpected self-authored text\nexpected:\n%s\nactual:\n%s\n' "$expected" "$actual" >&2
+  printf 'unexpected complete transcript\nexpected:\n%s\nactual:\n%s\n' "$expected" "$actual" >&2
   exit 1
 fi
 

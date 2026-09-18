@@ -95,6 +95,19 @@ sender_query="
 SELECT sender_key, sender_name, message_count
 FROM (
   SELECT
+    'all' AS sender_key,
+    'Both' AS sender_name,
+    COUNT(*) AS message_count,
+    -1 AS sort_order
+  FROM messages
+  WHERE conversationId = CAST(X'$chat_hex' AS TEXT)
+    AND NULLIF(trim(body), '') IS NOT NULL
+    AND COALESCE(isErased, 0) = 0
+  HAVING COUNT(*) > 0
+
+  UNION ALL
+
+  SELECT
     'outgoing:me' AS sender_key,
     'Me' AS sender_name,
     COUNT(*) AS message_count,
@@ -145,8 +158,11 @@ fi
 
 sender_key="${sender_choice%%$'\t'*}"
 case "$sender_key" in
+  all)
+    sender_filter='1 = 1'
+    ;;
   outgoing:me)
-    sender_filter="type = 'outgoing'"
+    sender_filter="m.type = 'outgoing'"
     ;;
   incoming:*)
     sender_id="${sender_key#incoming:}"
@@ -155,7 +171,7 @@ case "$sender_key" in
       exit 1
     fi
     sender_hex="$(to_sql_hex "$sender_id")"
-    sender_filter="type = 'incoming' AND COALESCE(sourceServiceId, source, 'unknown') = CAST(X'$sender_hex' AS TEXT)"
+    sender_filter="m.type = 'incoming' AND COALESCE(m.sourceServiceId, m.source, 'unknown') = CAST(X'$sender_hex' AS TEXT)"
     ;;
   *)
     echo "error: selected sender has an unexpected type" >&2
@@ -165,13 +181,31 @@ esac
 
 extract_query="
 .mode list
-SELECT body
-FROM messages
-WHERE conversationId = CAST(X'$chat_hex' AS TEXT)
+SELECT
+  datetime(COALESCE(m.timestamp, m.sent_at, m.received_at_ms, 0) / 1000, 'unixepoch', 'localtime')
+    || ' ' ||
+  CASE
+    WHEN m.type = 'outgoing' THEN 'Me'
+    ELSE replace(replace(replace(
+      COALESCE(
+        NULLIF(s.profileFullName, ''),
+        NULLIF(trim(COALESCE(s.profileName, '') || ' ' || COALESCE(s.profileFamilyName, '')), ''),
+        NULLIF(s.name, ''),
+        NULLIF(m.source, ''),
+        NULLIF(m.sourceServiceId, ''),
+        'Unknown sender'
+      ), char(9), ' '), char(10), ' '), char(13), ' ')
+  END || ': ' ||
+  replace(replace(m.body, char(13), ''), char(10), char(10) || '    ')
+FROM messages AS m
+LEFT JOIN conversations AS s
+  ON s.serviceId = m.sourceServiceId
+  OR (m.sourceServiceId IS NULL AND s.e164 = m.source)
+WHERE m.conversationId = CAST(X'$chat_hex' AS TEXT)
   AND $sender_filter
-  AND NULLIF(trim(body), '') IS NOT NULL
-  AND COALESCE(isErased, 0) = 0
-ORDER BY COALESCE(timestamp, sent_at, received_at_ms, 0), rowid;"
+  AND NULLIF(trim(m.body), '') IS NOT NULL
+  AND COALESCE(m.isErased, 0) = 0
+ORDER BY COALESCE(m.timestamp, m.sent_at, m.received_at_ms, 0), m.rowid;"
 
 run_sql "$extract_query" | privatellm-redact
 

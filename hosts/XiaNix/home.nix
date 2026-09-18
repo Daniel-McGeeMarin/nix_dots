@@ -21,7 +21,10 @@
   ai.privatellm.enable = true;
 
   graphide.enable = true;
-  graphide.autoUpdate.enable = true;
+  # Auto-update timer turned off 2026-09-17 (Dan): rebuild manually with
+  # `graphide-autoupdate` instead of a 30m background timer. See graphide.nix
+  # for why the update script stays on PATH unconditionally.
+  graphide.autoUpdate.enable = false;
   programs.claudeAgents.enable = true;
 
   desktop = {

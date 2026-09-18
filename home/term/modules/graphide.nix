@@ -504,6 +504,11 @@ in
         gp.grat
         gred
         rebuildGredScript
+        # On PATH unconditionally (not gated on autoUpdate.enable) so the
+        # 30m timer can stay off and this becomes the manual "update now"
+        # command instead. Reads the same cfg.autoUpdate.* options
+        # (flakeDir/workflow/gredBuildDir) for its defaults either way.
+        autoUpdateScript
       ];
     }
 
