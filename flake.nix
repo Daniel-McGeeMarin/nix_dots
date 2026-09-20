@@ -12,11 +12,15 @@
       url = "github:gmodena/nix-flatpak";
     };
     caelestia-shell = {
-      url = "github:caelestia-dots/shell";
-      # Share the single unstable nixpkgs so caelestia only builds its own
-      # components (quickshell, cef, the shell) instead of pulling a whole
-      # separate nixpkgs + toolchain.
-      inputs.nixpkgs.follows = "nixpkgs-unstable";
+      # Pinned to a release tag, and deliberately NOT following
+      # nixpkgs-unstable. It used to follow, and ai-cli-autoupdate re-pins
+      # nixpkgs-unstable daily (to keep claude-code/codex current), so every
+      # tick changed caelestia's inputs and nix recompiled quickshell and the
+      # shell (C++/Qt, ~10+ min at full CPU) for no benefit. With its own
+      # nixpkgs it rebuilds only when this tag is bumped by hand.
+      # Releases land roughly every 3 weeks; bump with
+      #   nix flake lock --override-input caelestia-shell github:caelestia-dots/shell/vX.Y.Z
+      url = "github:caelestia-dots/shell/v2.5.0";
     };
 
     nixvim = {
@@ -48,19 +52,6 @@
       # Deliberately NO inputs.nixpkgs.follows. graphide keeps its own tested
       # nixpkgs pin independent of this flake's, so the installed gr/grat/gred
       # is exactly what graphide's own dev shell and CI built and tested.
-    };
-
-    # The SAME repo a second time, pinned separately, and only ever used for
-    # gred. gr/grat come from `graphide` above and follow the newest green
-    # master on the autoupdate timer; gred's derivation refuses a release
-    # tarball that predates the tree it is evaluated in, and that tarball is
-    # a long Docker build that fails or times out often enough that, while
-    # the two shared one pin, one bad gred build froze gr/grug too: the
-    # daemon on this machine sat on a 2026-09-08 build for four days (docs
-    # Tech/_inbox/grug-cpu-2026-09-12). This input advances only after a
-    # gred build actually succeeded at that commit.
-    graphide-gred = {
-      url = "git+ssh://git@github.com/graphideHQ/monolith";
     };
   };
 
