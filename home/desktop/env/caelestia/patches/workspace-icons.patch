@@ -1,18 +1,22 @@
 --- a/modules/bar/components/workspaces/Workspace.qml
 +++ b/modules/bar/components/workspaces/Workspace.qml
-@@ -48,9 +48,14 @@
-             const label = Config.bar.workspaces.label || displayName;
-             const occupiedLabel = Config.bar.workspaces.occupiedLabel || label;
-             const activeLabel = Config.bar.workspaces.activeLabel || (root.isOccupied ? occupiedLabel : label);
--            return root.activeWsId === root.ws ? activeLabel : root.isOccupied ? occupiedLabel : label;
-+            const icons = {"1":"󰖟","2":"","3":"3","4":"4","5":"","6":"󰮂","7":"󰈮","8":"󰅨","9":"󰅱","10":"10"};
-+            const wsIcon = icons[root.ws.toString()];
-+            if (wsIcon && root.isOccupied)
-+                return wsIcon;
-+            return root.activeWsId === root.ws ? activeLabel : root.isOccupied ? occupiedLabel : label;
+@@ -112,6 +112,11 @@
+         StyledText {
+             animate: true
+             text: {
++                const icons = {"1":"󰖟","2":"","3":"3","4":"4","5":"","6":"󰮂","7":"󰈮","8":"󰅨","9":"󰅱","10":"10"};
++                const wsIcon = icons[root.ws.toString()];
++                if (wsIcon && root.isOccupied)
++                    return wsIcon;
++
+                 if (root.focused) {
+                     const label = root.activeLabel;
+                     if (label)
+@@ -141,6 +146,7 @@
+             color: root.fgColour
+             verticalAlignment: Qt.AlignVCenter
+             font.family: Tokens.font.workspaces
++            font.pointSize: Tokens.font.icon.small.pointSize
          }
-         color: Config.bar.workspaces.occupiedBg || root.isOccupied || root.activeWsId === root.ws ? Colours.palette.m3onSurface : Colours.layer(Colours.palette.m3outlineVariant, 2)
-         verticalAlignment: Qt.AlignVCenter
-         font.family: Tokens.font.workspaces
-+        font.pointSize: Tokens.font.icon.small.pointSize
      }
+ 
