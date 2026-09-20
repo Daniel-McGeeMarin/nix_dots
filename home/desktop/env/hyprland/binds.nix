@@ -89,7 +89,7 @@ in
         "$mainMod,D,togglespecialworkspace,scratch"
         "$mainMod SHIFT,D,movetoworkspace,special:scratch"
         "$mainMod,T,togglespecialworkspace,todo"
-        "SHIFT$mainMod,t,exec,todo"
+        "$mainMod SHIFT,T,movetoworkspace,special:todo"
 
         # Workspace cycle (1-12 normal; 21 waydroid; 22 xournal++)
         "$mainMod,X,exec,${hyprWorkspaceCycle}/bin/hypr-workspace-cycle toggle"
