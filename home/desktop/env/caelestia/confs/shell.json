@@ -127,8 +127,8 @@
             "activeIndicator": true,
             "activeLabel": "󰮯",
             "activeTrail": false,
-            "capitalisation": "preserve",
-            "displayType": "text",
+            "capitalisation": "Preserve",
+            "displayType": "Text",
             "label": "  ",
             "maxWindowIcons": 1,
             "occupiedBg": false,
@@ -170,12 +170,14 @@
             "criticalLevel": 3,
             "warnLevels": [
                 {
+                    "critical": false,
                     "icon": "battery_android_frame_2",
                     "level": 20,
                     "message": "You might want to plug in a charger",
                     "title": "Low battery"
                 },
                 {
+                    "critical": false,
                     "icon": "battery_android_frame_1",
                     "level": 10,
                     "message": "You should probably plug in a charger <b>now</b>",
@@ -195,22 +197,34 @@
             "lockBeforeSleep": false,
             "timeouts": [
                 {
+                    "enabled": true,
                     "idleAction": [
                         "swaylock",
                         "-f"
                     ],
+                    "inhibitWhenAudio": false,
+                    "inhibitWhenCharging": false,
+                    "respectInhibitors": true,
                     "timeout": 600
                 },
                 {
+                    "enabled": true,
                     "idleAction": "dpms off",
+                    "inhibitWhenAudio": false,
+                    "inhibitWhenCharging": false,
+                    "respectInhibitors": true,
                     "returnAction": "dpms on",
                     "timeout": 1200
                 },
                 {
+                    "enabled": true,
                     "idleAction": [
                         "systemctl",
                         "suspend-then-hibernate"
                     ],
+                    "inhibitWhenAudio": false,
+                    "inhibitWhenCharging": false,
+                    "respectInhibitors": true,
                     "timeout": 3000
                 }
             ]
@@ -613,15 +627,21 @@
             "vpnChanged": true
         },
         "vpn": {
-            "enabled": true,
+            "enabled": false,
             "provider": [
                 {
+                    "connectCmd": [
+                    ],
+                    "disconnectCmd": [
+                    ],
                     "displayName": "Mullvad",
                     "enabled": true,
+                    "id": "vpn-mu9khne0-3dy0l",
                     "interface": "wg0-mullvad",
                     "name": "wireguard"
                 }
-            ]
+            ],
+            "selectedProvider": "vpn-mu9khne0-3dy0l"
         }
     }
 }
