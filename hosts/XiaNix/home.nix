@@ -21,6 +21,11 @@
   ai.privatellm.enable = true;
 
   graphide.enable = true;
+  # The release build on PATH, not gr-dev. Since 2026-09-14 a checkout-channel
+  # gr refuses the host daemon socket (monolith grug/daemonclient/channel.go),
+  # so a gr-dev `gr claude` launched Claude Code with no Graphide integration
+  # and every other daemon command failed the same way.
+  graphide.variant = "prod";
   # Auto-update timer turned off 2026-09-17 (Dan): rebuild manually with
   # `graphide-autoupdate` instead of a 30m background timer. See graphide.nix
   # for why the update script stays on PATH unconditionally.
