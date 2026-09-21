@@ -57,7 +57,9 @@ let
       # home-manager switch builds before it activates, so a broken commit
       # leaves the current generation running and just fails this unit. That
       # is the correct outcome -- do not wrap it in a rollback.
-      if ! home-manager switch --flake "$FLAKE_DIR#$FLAKE_ATTR"; then
+      # --impure to match `homeswitch`: hyprland/binds.nix reads secrets from
+      # an absolute path, which pure evaluation refuses.
+      if ! home-manager switch --flake "$FLAKE_DIR#$FLAKE_ATTR" --impure; then
         fail "home-manager switch failed after updating nixpkgs-unstable"
       fi
 
@@ -86,14 +88,13 @@ in
           bigger behaviour than just having the packages
         '';
 
-        interval = lib.mkOption {
+        onCalendar = lib.mkOption {
           type = lib.types.str;
-          default = "1d";
+          default = "*-*-* 08:00:00";
           description = ''
-            OnUnitActiveSec for the update timer. Longer than graphide's
-            30m default: this re-pins the whole nixpkgs-unstable channel
-            (a much bigger closure than one small flake input), so every
-            run is a heavier rebuild/download than is worth doing often.
+            OnCalendar for the update timer: once a day at 08:00 local time.
+            Persistent, so a morning the machine was off or asleep runs at
+            the next wake instead of being skipped.
           '';
         };
 
@@ -138,14 +139,7 @@ in
       systemd.user.timers.ai-cli-autoupdate = {
         Unit.Description = "Check for a newer nixpkgs-unstable revision";
         Timer = {
-          # OnStartupSec, not OnBootSec: this is a user manager, and the
-          # first check should land shortly after login rather than after a
-          # full interval. Both these and OnUnitActiveSec are
-          # CLOCK_BOOTTIME, so a suspended laptop catches up on wake rather
-          # than losing the cycle.
-          OnStartupSec = "5m";
-          OnUnitActiveSec = cfg.autoUpdate.interval;
-          RandomizedDelaySec = "10m";
+          OnCalendar = cfg.autoUpdate.onCalendar;
           Persistent = true;
         };
         Install.WantedBy = [ "timers.target" ];
