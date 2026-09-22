@@ -37,7 +37,7 @@ in
         display-drun = " Apps";
         display-run = " Run";
         display-filebrowser = " File";
-        display-artifacts = "\u{f0219} Artifacts";
+        display-artifacts = "󰈙 Artifacts";
       };
       theme =
         let

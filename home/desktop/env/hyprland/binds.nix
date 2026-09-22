@@ -50,8 +50,9 @@ in
         "$mainMod,V,togglefloating,"
 "$mainMod SHIFT,R,exec,pkill rofi || rofi -show drun"
         # Internal artifact store (agent-made pages on XiaServer); also a tab
-        # in the drun launcher above. See ../rofi/default.nix.
-        "$mainMod,I,exec,pkill rofi || rofi -show artifacts"
+        # in the drun launcher above. See ../rofi/default.nix. Not SUPER+I:
+        # claude-agents.nix owns that one.
+        "$mainMod,Y,exec,pkill rofi || rofi -show artifacts"
 
         # Desktop-shell surfaces. These do NOT name a shell: `rice ipc`
         # dispatches to whichever of caelestia / the Graphide shell is
