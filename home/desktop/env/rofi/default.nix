@@ -2,8 +2,24 @@
 
 # Yoinked from: https://github.com/vasujain275/rudra
 
+let
+  # The Artifacts tab: pages agents published to the internal artifact store
+  # on XiaServer (monolith nix/modules/artifacts), newest first. A rofi script
+  # mode: called with nothing it lists rows, called again with ROFI_RETV=1 it
+  # opens the chosen row's URL (carried in ROFI_INFO) and prints nothing,
+  # which closes rofi.
+  #
+  # Tries MagicDNS first and the LAN address second, because on this laptop
+  # Mullvad can hide the tailnet while the home LAN still answers.
+  rofiArtifacts = pkgs.writeShellApplication {
+    name = "rofi-artifacts";
+    runtimeInputs = with pkgs; [ curl jq xdg-utils util-linux ];
+    text = builtins.readFile ./rofi-artifacts.sh;
+  };
+in
 {
   home.packages = lib.mkIf config.programs.rofi.enable [
+    rofiArtifacts
     (lib.mkIf config.programs.rbw.enable (pkgs.rofi-rbw.override { waylandSupport = true; }))
     # No `dmenu` shim here: graphide-shell's dmenu uses its own picker when that
     # shell is running and falls back to `rofi -dmenu` when it is not.
@@ -12,7 +28,7 @@
     rofi = {
       package = pkgs.rofi;
       extraConfig = {
-        modi = "drun,filebrowser,run";
+        modi = "drun,filebrowser,run,artifacts:${rofiArtifacts}/bin/rofi-artifacts";
         show-icons = true;
         icon-theme = "Papirus";
         location = 0;
@@ -21,6 +37,7 @@
         display-drun = " Apps";
         display-run = " Run";
         display-filebrowser = " File";
+        display-artifacts = "\u{f0219} Artifacts";
       };
       theme =
         let
