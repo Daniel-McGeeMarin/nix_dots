@@ -27,9 +27,12 @@
   # and every other daemon command failed the same way.
   graphide.variant = "prod";
   # Auto-update timer turned off 2026-09-17 (Dan): rebuild manually with
-  # `graphide-autoupdate` instead of a 30m background timer. See graphide.nix
-  # for why the update script stays on PATH unconditionally.
+  # `graphide-autoupdate` instead of a 30m background timer. See the monolith's
+  # nix/home-manager/graphide.nix for why the update script stays on PATH.
   graphide.autoUpdate.enable = false;
+  # Where the tarball has always lived on this machine, rather than the
+  # module's XDG default, so the existing download is reused.
+  graphide.gredTarball = "${config.home.homeDirectory}/MyApps/graphide-dist/graphide-linux-x64.tar.gz";
   programs.claudeAgents.enable = true;
 
   desktop = {
