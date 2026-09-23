@@ -123,6 +123,10 @@ in
     noisetorch.enable = true;
   };
 
+  # VA-API driver for the Meteor Lake (Arc) iGPU. Without it vainfo fails and
+  # Moonlight (the M6 Mac viewer) falls back to software decoding.
+  hardware.graphics.extraPackages = [ pkgs.intel-media-driver ];
+
   virtualisation.docker = {
     enable = true;
     package = pkgs.docker_29;
