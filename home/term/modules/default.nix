@@ -14,6 +14,7 @@
   # The updater switches this flake's own homeConfigurations entry, with the
   # home-manager this flake is evaluated with rather than whatever is on PATH.
   graphide.releaseFlake = inputs.graphide;
+  graphide.autoUpdate.followInputs = [ "graphide-tools" ];
   graphide.autoUpdate.flakeAttr = lib.mkDefault flakeAttr;
   graphide.autoUpdate.homeManagerPackage =
     lib.mkDefault inputs.home-manager.packages.${pkgs.stdenv.hostPlatform.system}.home-manager;
