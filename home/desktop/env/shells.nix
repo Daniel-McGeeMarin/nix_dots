@@ -61,7 +61,7 @@ let
   # exits 127 with "Missing view-agent-desktops-rofi" when that is not on PATH,
   # which is exactly what SUPER+A had been doing on this machine. The real
   # thing lives in the Graphide flake.
-  viewAgentDesktops = inputs.graphide.packages.${pkgs.stdenv.hostPlatform.system}.view-agent-desktops;
+  viewAgentDesktops = inputs.graphide-tools.packages.${pkgs.stdenv.hostPlatform.system}.view-agent-desktops;
 
   caelestiaDrawer =
     if cfg.caelestia.enable

@@ -5,15 +5,17 @@
 # command that swaps them at runtime.
 #
 # The module itself lives in the monolith repo (nix/home-manager/quickshell.nix)
-# and reaches us through the `graphide` flake input, the same input that already
-# supplies gr/grat. Importing it costs nothing on its own: every knob that would
-# impose something on the rest of this configuration defaults off upstream.
+# and reaches us through the `graphide-tools` flake input, which follows master
+# rather than a release: the shell is pure QML with no tie to CI's tarball, so
+# waiting for a release would only delay rice changes. Importing it costs nothing
+# on its own: every knob that would impose something on the rest of this
+# configuration defaults off upstream.
 let
   cfg = config.desktop.shell.graphide;
 in
 {
   imports = [
-    inputs.graphide.homeManagerModules.quickshell
+    inputs.graphide-tools.homeManagerModules.quickshell
   ];
 
   config = lib.mkIf cfg.enable {
