@@ -231,11 +231,11 @@
         "vscode-src": "vscode-src"
       },
       "locked": {
-        "lastModified": 1790051627,
-        "narHash": "sha256-bQBKMAfv46wYazkliu8R4ZZ72h0Y+B6y/Retys8pjaM=",
+        "lastModified": 1790226231,
+        "narHash": "sha256-9SmRSUGsrBu8HMMqT3lfxjgoKalw7RGlreCc/4a1U14=",
         "ref": "refs/heads/master",
-        "rev": "e47521054ca96bb4a3e0de31d904cb5bcc30cf7e",
-        "revCount": 8091,
+        "rev": "0348a923bea4c90292f95010b084179deac9c0a6",
+        "revCount": 8880,
         "type": "git",
         "url": "ssh://git@github.com/graphideHQ/monolith"
       },
@@ -253,11 +253,11 @@
         "vscode-src": "vscode-src_2"
       },
       "locked": {
-        "lastModified": 1790149788,
-        "narHash": "sha256-RqjVjKTl3Fkp7jiUG2nGKgM5JeClFFSjVF7H77iCLPo=",
+        "lastModified": 1790326352,
+        "narHash": "sha256-AKpFtJDVllUp4fYpX2PqqflGq1PxwUw5XgVcIsynUXc=",
         "ref": "refs/heads/master",
-        "rev": "84206bc03494539660c68105199b354000e5b698",
-        "revCount": 8384,
+        "rev": "debfa5c71d787b6a3ef95e47f154f6b2fc1ba675",
+        "revCount": 9270,
         "type": "git",
         "url": "ssh://git@github.com/graphideHQ/monolith"
       },
@@ -407,11 +407,11 @@
     },
     "nixpkgs-unstable": {
       "locked": {
-        "lastModified": 1790046670,
-        "narHash": "sha256-MYiI+CzL0tuWgRPjGsKCDHqYs2T3OzMlMQWOYWG0qso=",
+        "lastModified": 1790185690,
+        "narHash": "sha256-xJ+X4hBtOcAFGBOe5nAMyMUeF9foJBmIOu3NjBqBycU=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "6774f7bc253789b113a4f39285dc0fa100abeacc",
+        "rev": "4975466d324710c576dc11ad614684e6bd8cad8e",
         "type": "github"
       },
       "original": {
