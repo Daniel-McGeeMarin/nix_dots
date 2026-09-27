@@ -1,7 +1,7 @@
 { ... }:
 
 # Wi-Fi on the Gram's Intel AX211 (iwlwifi). NetworkManager stays the brain --
-# nmcli, nm-applet, the shells' network widgets and the rofi Wi-Fi tab all talk
+# nmcli, the shells' Wi-Fi items and the rofi Wi-Fi tab (SUPER+N) all talk
 # to it -- but three things underneath it change:
 #
 # 1. A country code. With none set the card runs in the "00" world domain,

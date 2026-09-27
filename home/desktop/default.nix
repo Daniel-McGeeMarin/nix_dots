@@ -45,7 +45,6 @@
       blueberry                              # bluetooth manager GUI
       wlr-randr                              # display management (wlroots)
       wlsunset                               # blue light filter (any Wayland compositor)
-      networkmanagerapplet                   # network manager system tray
 
       # ── Audio ─────────────────────────────────────────────────────────────────
       (lib.mkIf ((osConfig.services or { }).pipewire.enable or false) helvum)       # PipeWire patchbay GUI

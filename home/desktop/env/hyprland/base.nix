@@ -22,7 +22,6 @@ in
       "systemctl --user restart xdg-desktop-portal.service"
       "nmcli radio wifi off && nmcli radio wifi on &"
       "bwfloat &"
-      "nm-applet &"
       "squeekboard &"
       "signal-desktop &"
       "kitty --class StartupTerm &"

@@ -139,7 +139,7 @@ list() {
   done
 
   printf '󰑐  Rescan\0info\x1frescan\n'
-  printf '󰒓  Advanced settings\0info\x1feditor\n'
+  printf '󰒓  Edit saved networks (nmtui)\0info\x1feditor\n'
   printf '󰖪  Turn Wi-Fi off\0info\x1foff\n'
 }
 
@@ -166,7 +166,7 @@ if [ "${ROFI_RETV:-0}" = 1 ]; then
       nmcli radio wifi off
       exit 0 ;;
     editor)
-      setsid -f nm-connection-editor >/dev/null 2>&1
+      setsid -f kitty --title nmtui -- nmtui edit >/dev/null 2>&1
       exit 0 ;;
   esac
   exit 0

@@ -60,6 +60,9 @@ in
       "pin,class:^(org\\.pulseaudio\\.pavucontrol)$"
       "noanim,class:^(pavucontrol)$"
       (f "nm-connection-editor")
+      # The rofi Wi-Fi tab's "Edit saved networks" (../rofi/rofi-wifi.sh).
+      "float,title:^(nmtui)$"
+      "size 900 600,title:^(nmtui)$"
       (f "org.gnome.Settings")
       (f "org.gnome.design.Palette")
       (f "Color Picker")

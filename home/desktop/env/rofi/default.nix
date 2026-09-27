@@ -19,12 +19,13 @@ let
 
   # The Wi-Fi tab (SUPER+N): nearby networks, strongest first, one click to
   # join. A password, when one is needed, is asked in a second rofi once this
-  # one has closed. Talks to NetworkManager through nmcli, so it sees the same
-  # saved networks as nm-applet and the shells. See ../../../../hosts/XiaNix/wifi.nix
-  # for why the Wi-Fi underneath it was bad.
+  # one has closed. It replaced nm-applet: the Graphide bar's Wi-Fi item opens
+  # it too. Talks to NetworkManager through nmcli, so it sees the same saved
+  # networks as the shells. See ../../../../hosts/XiaNix/wifi.nix for why the
+  # Wi-Fi underneath it was bad.
   rofiWifi = pkgs.writeShellApplication {
     name = "rofi-wifi";
-    runtimeInputs = with pkgs; [ networkmanager rofi libnotify curl xdg-utils util-linux procps gnugrep gnused coreutils networkmanagerapplet ];
+    runtimeInputs = with pkgs; [ networkmanager rofi libnotify curl xdg-utils util-linux procps gnugrep gnused coreutils ];
     text = builtins.readFile ./rofi-wifi.sh;
   };
 in

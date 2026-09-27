@@ -49,6 +49,8 @@ in
       # *committed* copy from GitHub, so an edit appears on the panel once it
       # is pushed, not when it is saved.
       todoCommand = [ "nvim" "${config.home.homeDirectory}/Documents/startup/Graphide/docs/TODO.md" ];
+      # The bar's Wi-Fi item opens the rofi Wi-Fi tab (../rofi/rofi-wifi.sh).
+      wifiCommand = [ "rofi" "-show" "wifi" ];
 
       hyprland = {
         # OFF, and the rules are written by hand below instead. Upstream emits
