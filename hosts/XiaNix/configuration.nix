@@ -14,6 +14,7 @@ in
     ../../system/head
     ./hardware-configuration.nix
     ./gram.nix
+    ./wifi.nix
     ./resources.nix
   ];
 

@@ -53,6 +53,8 @@ in
         # in the drun launcher above. See ../rofi/default.nix. Not SUPER+I:
         # claude-agents.nix owns that one.
         "$mainMod,Y,exec,pkill rofi || rofi -show artifacts"
+        # Wi-Fi picker; see ../rofi/rofi-wifi.sh.
+        "$mainMod,N,exec,pkill rofi || rofi -show wifi"
 
         # Desktop-shell surfaces. These do NOT name a shell: `rice ipc`
         # dispatches to whichever of caelestia / the Graphide shell is
