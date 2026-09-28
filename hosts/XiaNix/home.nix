@@ -6,6 +6,7 @@
   imports = [
     ../../home/term
     ../../home/desktop
+    inputs.graphide-tools.homeManagerModules.accounts
   ];
 
   programs.home-manager.enable = true;
@@ -34,6 +35,16 @@
   # module's XDG default, so the existing download is reused.
   graphide.gredTarball = "${config.home.homeDirectory}/MyApps/graphide-dist/graphide-linux-x64.tar.gz";
   programs.claudeAgents.enable = true;
+  # Ben's account system (monolith utilities/scripts/accounts): graphide-claude
+  # and graphide-codex wrappers pick an account per new launch, and a watcher
+  # keeps the 5h/7d usage the shell's Accounts panel shows. It replaces Orca's
+  # and claude-swap's in-place credential swapping. The wrappers exec the real
+  # vendor binaries by absolute path so nothing can loop back into them.
+  services.graphide-accounts = {
+    enable = true;
+    claudeCommand = "${config.home.profileDirectory}/bin/claude";
+    codexCommand = "${config.home.profileDirectory}/bin/codex";
+  };
 
   desktop = {
     gaming.enable = true;
