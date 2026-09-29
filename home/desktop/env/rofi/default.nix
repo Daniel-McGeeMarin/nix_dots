@@ -28,11 +28,24 @@ let
     runtimeInputs = with pkgs; [ networkmanager rofi libnotify curl xdg-utils util-linux procps gnugrep gnused coreutils ];
     text = builtins.readFile ./rofi-wifi.sh;
   };
+
+  # The textmoji picker (SUPER+L): kaomoji like ¯\_(ツ)_/¯, searched by mood
+  # ("happy", "smug", "angry") because every row carries keywords. The chosen
+  # one is copied and pasted straight into the window that had focus; recently
+  # sent ones float to the top. Add more to ./textmojis.tsv, one
+  # "textmoji<TAB>keywords" per line. It is a plain dmenu, not a tab in the
+  # launcher, because the paste has to happen after rofi has closed.
+  rofiTextmoji = pkgs.writeShellApplication {
+    name = "rofi-textmoji";
+    runtimeInputs = with pkgs; [ rofi wl-clipboard jq gawk gnused gnugrep coreutils ];
+    text = "TEXTMOJI_LIST=${./textmojis.tsv}\n" + builtins.readFile ./rofi-textmoji.sh;
+  };
 in
 {
   home.packages = lib.mkIf config.programs.rofi.enable [
     rofiArtifacts
     rofiWifi
+    rofiTextmoji
     (lib.mkIf config.programs.rbw.enable (pkgs.rofi-rbw.override { waylandSupport = true; }))
     # No `dmenu` shim here: graphide-shell's dmenu uses its own picker when that
     # shell is running and falls back to `rofi -dmenu` when it is not.

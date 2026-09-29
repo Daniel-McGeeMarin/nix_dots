@@ -55,6 +55,9 @@ in
         "$mainMod,Y,exec,pkill rofi || rofi -show artifacts"
         # Wi-Fi picker; see ../rofi/rofi-wifi.sh.
         "$mainMod,N,exec,pkill rofi || rofi -show wifi"
+        # Textmoji picker: search by mood, pastes into the focused window. See
+        # ../rofi/rofi-textmoji.sh. This took SUPER+L from movefocus r.
+        "$mainMod,L,exec,pkill rofi || rofi-textmoji"
 
         # Desktop-shell surfaces. These do NOT name a shell: `rice ipc`
         # dispatches to whichever of caelestia / the Graphide shell is
@@ -79,7 +82,6 @@ in
 
         # Focus
         "$mainMod,H,movefocus,l"
-        "$mainMod,L,movefocus,r"
         "$mainMod,K,movefocus,u"
         "$mainMod,J,movefocus,d"
 
