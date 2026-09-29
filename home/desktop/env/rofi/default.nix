@@ -29,7 +29,7 @@ let
     text = builtins.readFile ./rofi-wifi.sh;
   };
 
-  # The textmoji picker (SUPER+L): kaomoji like ¯\_(ツ)_/¯, searched by mood
+  # The textmoji picker (SUPER+;): kaomoji like ¯\_(ツ)_/¯, searched by mood
   # ("happy", "smug", "angry") because every row carries keywords. The chosen
   # one is copied and pasted straight into the window that had focus; recently
   # sent ones float to the top. Add more to ./textmojis.tsv, one
