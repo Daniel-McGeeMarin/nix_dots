@@ -108,6 +108,12 @@ in
     geoclue2.enable = true;
     upower.enable = true;
     desktopManager.gnome.enable = true;
+    # GNOME's ssh agent lists every ~/.ssh/*.pub as usable and unlocks a
+    # passphrase key through GNOME Shell's prompter. Under Hyprland there is
+    # no prompter, so signing with id_ed25519_server (the only key XiaServer
+    # takes) hung forever: the autoupdate unit once, every ssh on 2026-09-29.
+    # home.nix runs the plain OpenSSH agent instead.
+    gnome.gcr-ssh-agent.enable = false;
     xserver.enable = true;
     displayManager.autoLogin = {
       enable = true;
@@ -122,6 +128,9 @@ in
     nix-ld.libraries = [];
     kdeconnect.enable = true;
     noisetorch.enable = true;
+    # No seahorse passphrase dialog: an ssh with no terminal (an agent's
+    # shell) fails at once instead of popping one up for nobody to answer.
+    ssh.enableAskPassword = false;
   };
 
   # VA-API driver for the Meteor Lake (Arc) iGPU. Without it vainfo fails and

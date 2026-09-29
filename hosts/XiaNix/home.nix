@@ -78,6 +78,10 @@
     rbw.enable = true;
   };
 
-  systemd.user.sessionVariables.SSH_AUTH_SOCK = "/run/user/1000/keyring/ssh";
+  # The plain OpenSSH agent: it offers only keys actually loaded, so a locked
+  # key is skipped rather than waited on. ~/.ssh/config's AddKeysToAgent loads
+  # id_ed25519_server after its passphrase is typed once per login.
+  services.ssh-agent.enable = true;
+  systemd.user.sessionVariables.SSH_AUTH_SOCK = "/run/user/1000/ssh-agent";
   home.stateVersion = "23.11"; # Do not change
 }
