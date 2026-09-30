@@ -53,8 +53,8 @@ in
       # the net lines master gained, from this checkout's origin/master (fetched
       # hourly into the remote-tracking ref; the working tree is never touched).
       commitsRepo = "${config.home.homeDirectory}/Documents/startup/Graphide/monolith";
-      # The bar's Wi-Fi item opens the rofi Wi-Fi tab (../rofi/rofi-wifi.sh).
-      wifiCommand = [ "rofi" "-show" "wifi" ];
+      # The bar's Wi-Fi item opens the Wi-Fi manager (../../apps/wlctl.nix).
+      wifiCommand = [ "wifi" ];
 
       hyprland = {
         # OFF, and the rules are written by hand below instead. Upstream emits

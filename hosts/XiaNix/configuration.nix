@@ -193,7 +193,12 @@ in
   users.users.xia = {
     isNormalUser = true;
     shell = pkgs.zsh;
-    extraGroups = [ "adbusers" "docker" "wheel" "uinput" "input" "video" "lxc" ];
+    # networkmanager: NixOS's polkit rule lets this group do anything to
+    # NetworkManager without a password. Without it, joining a new network,
+    # changing a saved password or forgetting one is a *system* profile
+    # change, which polkit only grants to wheel after authenticating -- so
+    # nmcli and wlctl failed with "Insufficient privileges" unless run as root.
+    extraGroups = [ "adbusers" "docker" "wheel" "uinput" "input" "video" "lxc" "networkmanager" ];
     # Rootless podman needs a subordinate uid/gid range to map container users
     # other than root. Without one (/etc/subuid did not exist on this host until
     # 2026-09-12) every such user became `nobody` on disk: the Supabase

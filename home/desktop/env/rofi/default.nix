@@ -17,18 +17,6 @@ let
     text = builtins.readFile ./rofi-artifacts.sh;
   };
 
-  # The Wi-Fi tab (SUPER+N): nearby networks, strongest first, one click to
-  # join. A password, when one is needed, is asked in a second rofi once this
-  # one has closed. It replaced nm-applet: the Graphide bar's Wi-Fi item opens
-  # it too. Talks to NetworkManager through nmcli, so it sees the same saved
-  # networks as the shells. See ../../../../hosts/XiaNix/wifi.nix for why the
-  # Wi-Fi underneath it was bad.
-  rofiWifi = pkgs.writeShellApplication {
-    name = "rofi-wifi";
-    runtimeInputs = with pkgs; [ networkmanager rofi libnotify curl xdg-utils util-linux procps gnugrep gnused coreutils ];
-    text = builtins.readFile ./rofi-wifi.sh;
-  };
-
   # The textmoji picker (SUPER+;): kaomoji like ¯\_(ツ)_/¯, searched by mood
   # ("happy", "smug", "angry") because every row carries keywords. The chosen
   # one is copied and pasted straight into the window that had focus; recently
@@ -44,7 +32,6 @@ in
 {
   home.packages = lib.mkIf config.programs.rofi.enable [
     rofiArtifacts
-    rofiWifi
     rofiTextmoji
     (lib.mkIf config.programs.rbw.enable (pkgs.rofi-rbw.override { waylandSupport = true; }))
     # No `dmenu` shim here: graphide-shell's dmenu uses its own picker when that
@@ -54,7 +41,7 @@ in
     rofi = {
       package = pkgs.rofi;
       extraConfig = {
-        modi = "drun,filebrowser,run,artifacts:${rofiArtifacts}/bin/rofi-artifacts,wifi:${rofiWifi}/bin/rofi-wifi";
+        modi = "drun,filebrowser,run,artifacts:${rofiArtifacts}/bin/rofi-artifacts";
         show-icons = true;
         icon-theme = "Papirus";
         location = 0;
@@ -64,7 +51,6 @@ in
         display-run = " Run";
         display-filebrowser = " File";
         display-artifacts = "󰈙 Artifacts";
-        display-wifi = "󰖩 Wi-Fi";
       };
       theme =
         let

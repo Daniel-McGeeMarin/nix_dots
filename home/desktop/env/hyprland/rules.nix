@@ -60,9 +60,10 @@ in
       "pin,class:^(org\\.pulseaudio\\.pavucontrol)$"
       "noanim,class:^(pavucontrol)$"
       (f "nm-connection-editor")
-      # The rofi Wi-Fi tab's "Edit saved networks" (../rofi/rofi-wifi.sh).
-      "float,title:^(nmtui)$"
-      "size 900 600,title:^(nmtui)$"
+      # The Wi-Fi manager (SUPER+N, ../../apps/wlctl.nix).
+      (f "wlctl")
+      "size 1100 700, class:^(wlctl)$"
+      "center, class:^(wlctl)$"
       (f "org.gnome.Settings")
       (f "org.gnome.design.Palette")
       (f "Color Picker")
