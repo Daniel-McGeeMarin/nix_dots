@@ -8,6 +8,7 @@
     ../../home/desktop
     inputs.graphide-tools.homeManagerModules.accounts
     inputs.graphide-tools.homeManagerModules.transcripts
+    inputs.graphide-tools.homeManagerModules.ci-fixer
   ];
 
   programs.home-manager.enable = true;
@@ -51,6 +52,12 @@
   # never-deleting library (monolith utilities/scripts/transcripts). Offline
   # XiaServer is a quiet no-op; the next run catches up.
   services.graphide-transcripts.enable = true;
+
+  # Every 6 h, if monolith master is red and no fixer is on it, start one
+  # headless Opus fixer with a fixed tool allowlist (monolith
+  # utilities/scripts/ci-fixer). Normal agents never spend time on CI
+  # (Dan, 2026-10-01); this is what fixes it instead. Logs: ~/graphide-ci-fixer.
+  services.graphide-ci-fixer.enable = true;
 
   desktop = {
     gaming.enable = true;
