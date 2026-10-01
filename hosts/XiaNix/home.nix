@@ -7,6 +7,7 @@
     ../../home/term
     ../../home/desktop
     inputs.graphide-tools.homeManagerModules.accounts
+    inputs.graphide-tools.homeManagerModules.transcripts
   ];
 
   programs.home-manager.enable = true;
@@ -45,6 +46,11 @@
     claudeCommand = "${config.home.profileDirectory}/bin/claude";
     codexCommand = "${config.home.profileDirectory}/bin/codex";
   };
+
+  # Every 15 min, copy Claude Code / Codex / Cursor transcripts to XiaServer's
+  # never-deleting library (monolith utilities/scripts/transcripts). Offline
+  # XiaServer is a quiet no-op; the next run catches up.
+  services.graphide-transcripts.enable = true;
 
   desktop = {
     gaming.enable = true;

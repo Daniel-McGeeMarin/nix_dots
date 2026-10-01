@@ -253,11 +253,11 @@
         "vscode-src": "vscode-src_2"
       },
       "locked": {
-        "lastModified": 1790587836,
-        "narHash": "sha256-oM1looooSFprViGDkee82PTu36nBubYm4gjzvFnMUxo=",
+        "lastModified": 1790845769,
+        "narHash": "sha256-vnSGNlriFaNNFRGGhXBtji46S40H5ykKPwLn2ul5/Yw=",
         "ref": "refs/heads/master",
-        "rev": "04e5481600e942117d689e071b674a0e7becdbdd",
-        "revCount": 11338,
+        "rev": "9178714ef2e5048a7c79b1f010070e8ae34b8a27",
+        "revCount": 13247,
         "type": "git",
         "url": "ssh://git@github.com/graphideHQ/monolith"
       },
@@ -718,16 +718,16 @@
     "vscode-src_2": {
       "flake": false,
       "locked": {
-        "lastModified": 1736985831,
-        "narHash": "sha256-Uv04qs6wx/l3NgjgpddzvAGq0XjjS8qPmOrZ5bGnWEQ=",
+        "lastModified": 1790307657,
+        "narHash": "sha256-ik/S5+aczpBeJyo3RRRNYkFBP01e4Zi+8QqWtRnuYHU=",
         "owner": "microsoft",
         "repo": "vscode",
-        "rev": "cd4ee3b1c348a13bafd8f9ad8060705f6d4b9cba",
+        "rev": "04c0d99f4fb0d8afe6ce4f0c58e31e183ac3e4b1",
         "type": "github"
       },
       "original": {
         "owner": "microsoft",
-        "ref": "1.96.4",
+        "ref": "1.139.1",
         "repo": "vscode",
         "type": "github"
       }
