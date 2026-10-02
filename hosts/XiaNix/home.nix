@@ -22,6 +22,7 @@
   ai.codex.enable = true;
   ai.autoUpdate.enable = true;
   ai.privatellm.enable = true;
+  signalTodo.enable = true;
 
   graphide.enable = true;
   # The release build on PATH, not gr-dev. Since 2026-09-14 a checkout-channel

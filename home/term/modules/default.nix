@@ -8,6 +8,7 @@
     # The settings are in hosts/*/home.nix.
     inputs.graphide-tools.homeManagerModules.graphide
     ./privatellm.nix
+    ./signal-todo.nix
     ./programming
   ];
 
