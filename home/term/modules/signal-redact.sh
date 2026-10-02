@@ -191,6 +191,50 @@ case "$sender_key" in
     ;;
 esac
 
+# Remember the newest message already redacted for each chat+sender, so a
+# rerun only sends messages that arrived since. The cursor only advances after
+# privatellm-redact succeeds; a failed run resumes from its own checkpoint.
+# SIGNAL_REDACT_AFTER="YYYY-MM-DD HH:MM:SS" overrides the cursor and
+# SIGNAL_REDACT_ALL=1 ignores it.
+state_dir="${SIGNAL_REDACT_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/signal-redact}"
+cursor_file="$state_dir/cursor-$(printf '%s|%s' "$chat_id" "$sender_key" | sha256sum | cut -d' ' -f1)"
+after="${SIGNAL_REDACT_AFTER:-}"
+after_milliseconds=""
+if [[ -n "$after" ]]; then
+  if [[ ! "$after" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}\ [0-9]{2}:[0-9]{2}:[0-9]{2}$ ]]; then
+    echo "error: SIGNAL_REDACT_AFTER must be YYYY-MM-DD HH:MM:SS" >&2
+    exit 1
+  fi
+  after_milliseconds=$(( $(date -d "$after" +%s) * 1000 + 999 ))
+elif [[ "${SIGNAL_REDACT_ALL:-0}" != "1" && -f "$cursor_file" ]]; then
+  after_milliseconds="$(< "$cursor_file")"
+  if [[ ! "$after_milliseconds" =~ ^[0-9]+$ ]]; then
+    echo "error: invalid cursor at $cursor_file" >&2
+    exit 1
+  fi
+fi
+
+after_filter=""
+if [[ -n "$after_milliseconds" ]]; then
+  after_filter="AND COALESCE(m.timestamp, m.sent_at, m.received_at_ms, 0) > $after_milliseconds"
+  echo "Only messages after $(date -d "@$((after_milliseconds / 1000))" '+%Y-%m-%d %H:%M:%S') (SIGNAL_REDACT_ALL=1 for the full history)." >&2
+else
+  echo "No saved position for this chat and sender; redacting the full history." >&2
+fi
+
+match_filter="m.conversationId = CAST(X'$chat_hex' AS TEXT)
+  AND $sender_filter
+  $before_filter
+  $after_filter
+  AND NULLIF(trim(m.body), '') IS NOT NULL
+  AND COALESCE(m.isErased, 0) = 0"
+
+newest="$(run_sql "SELECT COALESCE(MAX(COALESCE(m.timestamp, m.sent_at, m.received_at_ms, 0)), '') FROM messages AS m WHERE $match_filter;")"
+if [[ -z "$newest" ]]; then
+  echo "No new messages to redact." >&2
+  exit 0
+fi
+
 extract_query="
 .mode list
 SELECT
@@ -213,13 +257,13 @@ FROM messages AS m
 LEFT JOIN conversations AS s
   ON s.serviceId = m.sourceServiceId
   OR (m.sourceServiceId IS NULL AND s.e164 = m.source)
-WHERE m.conversationId = CAST(X'$chat_hex' AS TEXT)
-  AND $sender_filter
-  $before_filter
-  AND NULLIF(trim(m.body), '') IS NOT NULL
-  AND COALESCE(m.isErased, 0) = 0
+WHERE $match_filter
 ORDER BY COALESCE(m.timestamp, m.sent_at, m.received_at_ms, 0), m.rowid;"
 
 run_sql "$extract_query" | privatellm-redact
 
-unset db_key before before_seconds before_milliseconds before_filter chat_choice chat_id chat_hex sender_choice sender_key sender_id sender_hex sender_filter extract_query
+mkdir -p "$state_dir"
+printf '%s\n' "$newest" > "$cursor_file.tmp"
+mv "$cursor_file.tmp" "$cursor_file"
+
+unset db_key after after_milliseconds after_filter match_filter newest before before_seconds before_milliseconds before_filter chat_choice chat_id chat_hex sender_choice sender_key sender_id sender_hex sender_filter extract_query
