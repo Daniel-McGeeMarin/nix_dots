@@ -22,6 +22,7 @@ let
     runtimeInputs = [ signal-cli pkgs.coreutils pkgs.procps pkgs.util-linux ];
     text = ''
       export SIGNAL_TODO_FILE=${lib.escapeShellArg cfg.todoFile}
+      export SIGNAL_TODO_SECTIONS=${lib.escapeShellArg (lib.concatStringsSep "|" cfg.sections)}
     '' + builtins.readFile ./signal-todo.sh;
   };
 in
@@ -33,6 +34,12 @@ in
       type = lib.types.str;
       default = "${config.home.homeDirectory}/Documents/startup/Graphide/docs/TODO.md";
       description = "Markdown file sent as the message body.";
+    };
+
+    sections = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ "Dan" "Ben" ];
+      description = "The \"## \" headings whose sections are sent; the rest of the file (e.g. Long term) is left out.";
     };
 
     checkEvery = lib.mkOption {

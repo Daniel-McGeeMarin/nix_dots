@@ -11,6 +11,7 @@ CONF="$HOME/.config/signal-todo/env"
 STATE_DIR="$HOME/.local/state/signal-todo"
 STAMP="$STATE_DIR/last-sent"
 TODO="${SIGNAL_TODO_FILE:?}"
+SECTIONS="${SIGNAL_TODO_SECTIONS:?}"   # "|"-separated "## " headings to send
 TODAY="$(date +%F)"
 
 mkdir -p "$STATE_DIR"
@@ -35,7 +36,15 @@ fi
 # Keep the linked device in sync; Signal unlinks devices that never check in.
 signal-cli -a "$ACCOUNT" receive -t 5 >/dev/null 2>&1 || true
 
-msg="TODO for $(date '+%a %b %-d')"$'\n\n'"$(cat "$TODO")"
+# Only the listed "## " sections, headings included; everything else is dropped.
+body="$(awk -v want="$SECTIONS" '
+	BEGIN { n = split(want, w, "|"); for (i = 1; i <= n; i++) keep[w[i]] = 1 }
+	/^## / { on = (substr($0, 4) in keep) }
+	/^#/ && !/^## / && !/^###/ { on = 0 }
+	on
+' "$TODO")"
+[[ -n "$body" ]] || { echo "no sections matching $SECTIONS in $TODO" >&2; exit 1; }
+msg="TODO for $(date '+%a %b %-d')"$'\n\n'"$body"
 signal-cli -a "$ACCOUNT" send -m "$msg" "${target[@]}"
 echo "$TODAY" >"$STAMP"
 echo "sent"
