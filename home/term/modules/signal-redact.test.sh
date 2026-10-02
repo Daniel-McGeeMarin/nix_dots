@@ -80,6 +80,7 @@ export SIGNAL_DB="$db"
 export SIGNAL_PLAINTEXT_DB=1
 export SIGNAL_SQLITE_BIN="$sqlite3_bin"
 export SIGNAL_REDACT_TEST_CAPTURE="$tmp_dir/captured"
+export SIGNAL_REDACT_STATE_DIR="$tmp_dir/signal-redact-state"
 
 expected=$'1970-01-01 00:00:01 Alice Builder: Graphide alpha decision\n1970-01-01 00:00:04 Alice Builder: Graphide deadline Friday'
 actual="$($script_dir/signal-redact.sh)"
@@ -103,6 +104,21 @@ if [[ "$actual" != "$expected" ]]; then
   exit 1
 fi
 
+# The run above saved a cursor at the newest message, so a rerun sends nothing.
+actual="$("$script_dir/signal-redact.sh" 2> "$tmp_dir/stderr")"
+if [[ -n "$actual" ]] || ! grep -q 'No new messages to redact' "$tmp_dir/stderr"; then
+  echo "rerun did not skip messages already redacted" >&2
+  exit 1
+fi
+
+expected=$'1970-01-01 00:00:03 Me: My reply\n1970-01-01 00:00:04 Alice Builder: Graphide deadline Friday'
+actual="$(SIGNAL_REDACT_AFTER='1970-01-01 00:00:02' "$script_dir/signal-redact.sh")"
+if [[ "$actual" != "$expected" ]]; then
+  printf 'unexpected SIGNAL_REDACT_AFTER transcript\nexpected:\n%s\nactual:\n%s\n' "$expected" "$actual" >&2
+  exit 1
+fi
+
+export SIGNAL_REDACT_ALL=1
 export SIGNAL_REDACT_BEFORE='1970-01-01 00:00:03'
 expected=$'1970-01-01 00:00:01 Alice Builder: Graphide alpha decision\n1970-01-01 00:00:02 Bob Writer: Bob side note'
 actual="$("$script_dir/signal-redact.sh")"

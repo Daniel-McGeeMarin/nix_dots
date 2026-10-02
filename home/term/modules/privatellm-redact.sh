@@ -4,6 +4,8 @@ set -euo pipefail
 endpoint="${PRIVATE_LLM_URL:-http://127.0.0.1:8090/v1/chat/completions}"
 model="${PRIVATE_LLM_MODEL:-gemma3}"
 max_line_chars=1500
+max_attempts="${PRIVATE_LLM_ATTEMPTS:-4}"
+retry_delay="${PRIVATE_LLM_RETRY_DELAY:-5}"
 state_root="${PRIVATE_LLM_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/privatellm-redact}"
 output_dir="${PRIVATE_LLM_OUTPUT_DIR:-${XDG_DOCUMENTS_DIR:-$HOME/Documents}/redacted-signal-transcripts}"
 
@@ -150,11 +152,24 @@ for index in "${!lines[@]}"; do
     }')"
 
   decision=""
-  if ! response="$(curl --fail-with-body --silent --show-error --connect-timeout 5 --max-time 30 \
-      -H 'Content-Type: application/json' \
-      --data-binary "$payload" \
-      "$endpoint")"; then
-    echo "error: local model request failed on line $number/$total" >&2
+  # One stalled request (the local server briefly busy) should not end a
+  # multi-hour run, so retry a few times before giving up.
+  request_ok=false
+  for (( attempt = 1; attempt <= max_attempts; attempt++ )); do
+    if response="$(curl --fail-with-body --silent --show-error --connect-timeout 5 --max-time 30 \
+        -H 'Content-Type: application/json' \
+        --data-binary "$payload" \
+        "$endpoint")"; then
+      request_ok=true
+      break
+    fi
+    if (( attempt < max_attempts )); then
+      echo "[$number/$total] local model request failed; retrying ($attempt/$((max_attempts - 1)))" >&2
+      sleep "$retry_delay"
+    fi
+  done
+  if [[ "$request_ok" != "true" ]]; then
+    echo "error: local model request failed on line $number/$total after $max_attempts attempts" >&2
     write_output
     echo "Partial redacted output saved to $output_path" >&2
     echo "Progress through line $index is saved locally. Run the same input again to resume." >&2

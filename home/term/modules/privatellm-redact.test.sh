@@ -62,6 +62,7 @@ export PATH="$tmp_dir:$PATH"
 export PRIVATE_LLM_TEST_CLIPBOARD="$tmp_dir/clipboard"
 export PRIVATE_LLM_STATE_DIR="$tmp_dir/state"
 export PRIVATE_LLM_OUTPUT_DIR="$tmp_dir/output"
+export PRIVATE_LLM_RETRY_DELAY=0
 
 input=$'Graphide deadline is Friday. damn\n\nI called Mom about dinner\n\nShip the Graphide relay by Tuesday.\nmalformed model output\n'
 expected=$'Graphide deadline is Friday. damn\n\nShip the Graphide relay by Tuesday.'
@@ -99,6 +100,11 @@ fi
 partial_file="$(find "$PRIVATE_LLM_OUTPUT_DIR" -type f -name '*.txt')"
 if [[ "$(cat "$partial_file")" != 'Graphide deadline is Friday. damn' ]]; then
   echo "redactor did not save partial output after a model timeout" >&2
+  exit 1
+fi
+
+if [[ "$(grep -c 'retrying' "$tmp_dir/resume-stderr")" != 3 ]]; then
+  echo "redactor did not retry a failed model request before giving up" >&2
   exit 1
 fi
 
