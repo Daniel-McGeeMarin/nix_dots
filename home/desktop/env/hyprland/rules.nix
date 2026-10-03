@@ -6,15 +6,6 @@ in
 {
   wayland.windowManager.hyprland.settings = {
     windowrule = [
-      ### Buffer Terms (invisible, parked on workspaces 13-15) ###
-      "workspace 13 silent, class:^(BufferTerm1)$"
-      "workspace 14 silent, class:^(BufferTerm2)$"
-      "workspace 15 silent, class:^(BufferTerm3)$"
-      "nofocus, class:^(BufferTerm.*)$"
-      "size 0 0, class:^(BufferTerm.*)$"
-      "move 0 0, class:^(BufferTerm.*)$"
-      "noinitialfocus, class:^(BufferTerm.*)$"
-
       ### Waydroid (magic workspace 21) ###
       "fullscreen, class:^(Waydroid)$"
       "fullscreen, class:^(waydroid\\..+)$"

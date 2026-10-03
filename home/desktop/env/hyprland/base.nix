@@ -26,11 +26,6 @@ in
       "signal-desktop &"
       "kitty --class StartupTerm &"
 
-      # Background buffer terms so they don't block the rotation logic
-      "kitty --class BufferTerm1 -e sleep infinity &"
-      "kitty --class BufferTerm2 -e sleep infinity &"
-      "kitty --class BufferTerm3 -e sleep infinity &"
-
       "${pkgs.kdePackages.kdeconnect-kde}/bin/kdeconnect-indicator &"
 
       "sleep 4"
