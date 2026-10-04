@@ -231,11 +231,11 @@
         "vscode-src": "vscode-src"
       },
       "locked": {
-        "lastModified": 1790406204,
-        "narHash": "sha256-1QPSo96lXVWfK69geDOwO0/cE/s1ZjBZrrRfuUc9sSA=",
+        "lastModified": 1791006808,
+        "narHash": "sha256-hGrCdAqAnWGX5PowsBExnxzE5nMQDRHUtFZKb3LRQAQ=",
         "ref": "refs/heads/master",
-        "rev": "9bf826ea94e2b0dcee728cd6a20c70dfb03a88be",
-        "revCount": 9879,
+        "rev": "db3f825aa01d7c24d066c866d66b1fbc26e8a0a0",
+        "revCount": 13807,
         "type": "git",
         "url": "ssh://git@github.com/graphideHQ/monolith"
       },
@@ -253,11 +253,11 @@
         "vscode-src": "vscode-src_2"
       },
       "locked": {
-        "lastModified": 1790850330,
-        "narHash": "sha256-MeI7FE3ARj1r23eqqK5MbYQMtz/kSYKUJXo7rbbP8iw=",
+        "lastModified": 1791137171,
+        "narHash": "sha256-hr/GfV+HNeLtEV0pxGjdUyb6GDplXiqe7/kV9o8pOi4=",
         "ref": "refs/heads/master",
-        "rev": "4dbff7d6398c1efefcd7218593ccb6e9922b97b0",
-        "revCount": 13280,
+        "rev": "753e805614c5dc7bbd1804e024d1aeb9715d91b2",
+        "revCount": 13934,
         "type": "git",
         "url": "ssh://git@github.com/graphideHQ/monolith"
       },
@@ -407,11 +407,11 @@
     },
     "nixpkgs-unstable": {
       "locked": {
-        "lastModified": 1790689126,
-        "narHash": "sha256-ilerN1WLSvF+HMjziC/Wv99J5y02maDH+6hZPwsORKg=",
+        "lastModified": 1791048980,
+        "narHash": "sha256-KgItSKML8Xvte0B7/uGnBDsYzSnnKHcOaiUbgWBXLXw=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "b4fd65b198c599cbe814fcb9f42d25d021595ec9",
+        "rev": "a7868a727837f3c09cee2ce0ca671c76b1589fed",
         "type": "github"
       },
       "original": {
@@ -701,16 +701,16 @@
     "vscode-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1736985831,
-        "narHash": "sha256-Uv04qs6wx/l3NgjgpddzvAGq0XjjS8qPmOrZ5bGnWEQ=",
+        "lastModified": 1790307657,
+        "narHash": "sha256-ik/S5+aczpBeJyo3RRRNYkFBP01e4Zi+8QqWtRnuYHU=",
         "owner": "microsoft",
         "repo": "vscode",
-        "rev": "cd4ee3b1c348a13bafd8f9ad8060705f6d4b9cba",
+        "rev": "04c0d99f4fb0d8afe6ce4f0c58e31e183ac3e4b1",
         "type": "github"
       },
       "original": {
         "owner": "microsoft",
-        "ref": "1.96.4",
+        "ref": "1.139.1",
         "repo": "vscode",
         "type": "github"
       }

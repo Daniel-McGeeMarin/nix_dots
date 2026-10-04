@@ -9,6 +9,7 @@
     inputs.graphide-tools.homeManagerModules.accounts
     inputs.graphide-tools.homeManagerModules.transcripts
     inputs.graphide-tools.homeManagerModules.ci-fixer
+    inputs.graphide-tools.homeManagerModules.points
   ];
 
   programs.home-manager.enable = true;
@@ -59,6 +60,11 @@
   # utilities/scripts/ci-fixer). Normal agents never spend time on CI
   # (Dan, 2026-10-01); this is what fixes it instead. Logs: ~/graphide-ci-fixer.
   services.graphide-ci-fixer.enable = true;
+
+  # Daily at 06:30, score each founder's landed stories for the working day
+  # that just ended (one Opus call, about $0.55) and publish POINTS.md plus
+  # the xiaserver:8420/points/ pages (monolith utilities/scripts/points).
+  services.graphide-points.enable = true;
 
   desktop = {
     gaming.enable = true;
