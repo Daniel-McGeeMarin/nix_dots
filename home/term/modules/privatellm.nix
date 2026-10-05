@@ -64,7 +64,15 @@ in
     home.packages = [
       (pkgs.writeShellApplication {
         name = "privatellm-chat";
+        runtimeInputs = [ pkgs.curl pkgs.coreutils ];
         text = ''
+          # The server is not started at login (it holds ~2 GB); start it here
+          # and wait for the model to load before opening the page.
+          systemctl --user start privatellm-server.service
+          for _ in $(seq 120); do
+            curl -sf "http://127.0.0.1:${toString port}/health" >/dev/null && break
+            sleep 0.5
+          done
           exec ${config.programs.firefox.finalPackage}/bin/firefox --private-window "http://127.0.0.1:${toString port}"
         '';
       })
@@ -81,6 +89,13 @@ in
         text = ''
           chunk_chars=4800  # ~1200 tokens; leaves headroom in the 16384-token
                              # context for the growing digest + response.
+
+          # Started on demand, not at login (see privatellm-chat).
+          systemctl --user start privatellm-server.service
+          for _ in $(seq 120); do
+            curl -sf "http://127.0.0.1:${toString port}/health" >/dev/null && break
+            sleep 0.5
+          done
 
           system_prompt='You maintain a running bulleted digest of a long business
           conversation between cofounders. You are given the CURRENT DIGEST (may be
@@ -207,7 +222,9 @@ in
         StandardOutput = "null";
         StandardError = "null";
       };
-      Install.WantedBy = [ "graphical-session.target" ];
+      # No Install.WantedBy: not started at login. It holds the model in
+      # ~2 GB of RAM, which on a busy day pushed the machine into swap
+      # (2026-10-04). privatellm-chat / privatellm-digest start it on demand.
     };
   };
 }
