@@ -2,6 +2,7 @@
 #
 #   signal-todo          send now (manual trigger; also arms the daily timer)
 #   signal-todo --auto   timer mode: send only if armed, not yet sent today,
+#                        it is past SIGNAL_TODO_NOT_BEFORE (hour, default 8),
 #                        and Signal Desktop is running
 #
 # Config: ~/.config/signal-todo/env  (ACCOUNT=+1..., and GROUP_ID=... or RECIPIENT=+1...)
@@ -21,6 +22,9 @@ flock -n 9 || exit 0   # another run is mid-send
 if [[ "${1:-}" == "--auto" ]]; then
 	[[ -f "$STAMP" ]] || { echo "not armed yet: run signal-todo by hand once"; exit 0; }
 	[[ "$(cat "$STAMP")" == "$TODAY" ]] && exit 0
+	# Not before the morning: a late night past midnight would otherwise send
+	# the new day's reminder at 1 a.m. A manual run ignores this.
+	(( 10#$(date +%H) >= ${SIGNAL_TODO_NOT_BEFORE:-8} )) || exit 0
 	pgrep -f 'signal-desktop.*app\.asar' >/dev/null || exit 0
 fi
 

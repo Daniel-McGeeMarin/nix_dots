@@ -23,6 +23,7 @@ let
     text = ''
       export SIGNAL_TODO_FILE=${lib.escapeShellArg cfg.todoFile}
       export SIGNAL_TODO_SECTIONS=${lib.escapeShellArg (lib.concatStringsSep "|" cfg.sections)}
+      export SIGNAL_TODO_NOT_BEFORE=${toString cfg.notBefore}
     '' + builtins.readFile ./signal-todo.sh;
   };
 in
@@ -40,6 +41,12 @@ in
       type = lib.types.listOf lib.types.str;
       default = [ "Dan" "Ben" ];
       description = "The \"## \" headings whose sections are sent; the rest of the file (e.g. Long term) is left out.";
+    };
+
+    notBefore = lib.mkOption {
+      type = lib.types.ints.between 0 23;
+      default = 8;
+      description = "Earliest local hour the timer may send the day's message (a manual `signal-todo` run ignores it).";
     };
 
     checkEvery = lib.mkOption {
