@@ -44,6 +44,15 @@ in
     syntaxHighlighting.enable = true;
     defaultKeymap = "viins";
 
+    # ~/.local/bin on PATH in every zsh, not just login shells (~/.zprofile):
+    # Orca's terminals are non-login, and gdev, the release's gr and
+    # agent-config live there since the home-manager Graphide install went
+    # away (2026-10-05).
+    envExtra = ''
+      typeset -U path
+      path=("$HOME/.local/bin" $path)
+    '';
+
     # powerlevel10k prompt theme. The matching prompt config lives in the
     # home.file.".p10k.zsh" block below and is sourced from initExtra.
     plugins = [
