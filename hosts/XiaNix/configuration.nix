@@ -125,7 +125,14 @@ in
     hyprland.enable = true;
     adb.enable = true;
     nix-ld.enable = true;
-    nix-ld.libraries = [];
+    # What the official Graphide editor (Electron) needs to run unwrapped under
+    # gdev's release build; the list is `gdev doctor`'s (2026-10-05).
+    nix-ld.libraries = with pkgs; [
+      alsa-lib at-spi2-atk at-spi2-core atk cairo cups dbus expat glib gtk3
+      libgbm libxkbcommon nspr nss pango
+      xorg.libX11 xorg.libXcomposite xorg.libXdamage xorg.libXext
+      xorg.libXfixes xorg.libXrandr xorg.libxcb
+    ];
     kdeconnect.enable = true;
     noisetorch.enable = true;
     # No seahorse passphrase dialog: an ssh with no terminal (an agent's

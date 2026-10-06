@@ -25,7 +25,10 @@
   ai.privatellm.enable = true;
   signalTodo.enable = true;
 
-  graphide.enable = true;
+  # Off since 2026-10-05: gdev runs the official release instead
+  # (~/.local/share/gdev/release), and this module's Nix-wrapped gr/gred
+  # would shadow it. The settings below only matter if it is turned back on.
+  graphide.enable = false;
   # The release build on PATH, not gr-dev. Since 2026-09-14 a checkout-channel
   # gr refuses the host daemon socket (monolith grug/daemonclient/channel.go),
   # so a gr-dev `gr claude` launched Claude Code with no Graphide integration
