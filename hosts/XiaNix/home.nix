@@ -70,12 +70,14 @@
   # the xiaserver:8420/points/ pages (monolith utilities/scripts/points).
   services.graphide-points.enable = true;
 
-  # Every 5 min, if origin/master moved in a way that can change the native
-  # app, build its Linux tarball on the Azure worker and publish it on
+  # Every minute, if origin/master moved in a way that can change the native
+  # app and has been still for 3 min (a burst of merges builds once), build
+  # its Linux tarball on the Azure worker and publish it on
   # XiaServer (/srv/build/graphide-master), and put the app in
   # ~/.cache/gred-rs/bin, where the SUPER+SHIFT+Q launcher runs the newest
   # (monolith gred-rs/scripts/master-build). `gdev run master` runs it isolated.
   services.graphide-master-build.enable = true;
+  services.graphide-master-build.interval = "1m";
 
   desktop = {
     gaming.enable = true;
