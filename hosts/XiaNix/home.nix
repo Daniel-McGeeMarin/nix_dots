@@ -10,6 +10,7 @@
     inputs.graphide-tools.homeManagerModules.transcripts
     inputs.graphide-tools.homeManagerModules.ci-fixer
     inputs.graphide-tools.homeManagerModules.points
+    inputs.graphide-tools.homeManagerModules.master-build
   ];
 
   programs.home-manager.enable = true;
@@ -68,6 +69,13 @@
   # that just ended (one Opus call, about $0.55) and publish POINTS.md plus
   # the xiaserver:8420/points/ pages (monolith utilities/scripts/points).
   services.graphide-points.enable = true;
+
+  # Every 5 min, if origin/master moved in a way that can change the native
+  # app, build its Linux tarball on the Azure worker and publish it on
+  # XiaServer (/srv/build/graphide-master), and put the app in
+  # ~/.cache/gred-rs/bin, where the SUPER+SHIFT+Q launcher runs the newest
+  # (monolith gred-rs/scripts/master-build). `gdev run master` runs it isolated.
+  services.graphide-master-build.enable = true;
 
   desktop = {
     gaming.enable = true;

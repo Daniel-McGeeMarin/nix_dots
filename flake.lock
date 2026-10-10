@@ -147,6 +147,27 @@
         "type": "github"
       }
     },
+    "disko": {
+      "inputs": {
+        "nixpkgs": [
+          "graphide-tools",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1789770686,
+        "narHash": "sha256-uZkBR7yHdIKUFB5SZdfgh1qkGfI3XmYmI/lTiquxbck=",
+        "owner": "nix-community",
+        "repo": "disko",
+        "rev": "725ea35e410ad83be4931d1bff7e090eacaf3563",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-community",
+        "repo": "disko",
+        "type": "github"
+      }
+    },
     "flake-parts": {
       "inputs": {
         "nixpkgs-lib": [
@@ -247,17 +268,19 @@
     "graphide-tools": {
       "inputs": {
         "agenix": "agenix_3",
+        "disko": "disko",
         "flake-utils": "flake-utils_2",
         "nixpkgs": "nixpkgs_3",
+        "nixpkgs-matrix": "nixpkgs-matrix",
         "sops-nix": "sops-nix_2",
         "vscode-src": "vscode-src_2"
       },
       "locked": {
-        "lastModified": 1791137171,
-        "narHash": "sha256-hr/GfV+HNeLtEV0pxGjdUyb6GDplXiqe7/kV9o8pOi4=",
+        "lastModified": 1791667817,
+        "narHash": "sha256-/5J7FnahWmJzwQCVULKh7njR3vID3HhYiYXiKgNFmqQ=",
         "ref": "refs/heads/master",
-        "rev": "753e805614c5dc7bbd1804e024d1aeb9715d91b2",
-        "revCount": 13934,
+        "rev": "9741d34af52ff1eadb217d367d13007dfce632ce",
+        "revCount": 19113,
         "type": "git",
         "url": "ssh://git@github.com/graphideHQ/monolith"
       },
@@ -402,6 +425,22 @@
         "owner": "NixOS",
         "repo": "nixpkgs",
         "rev": "8a6fd288ce1b6f52fa0038397f36608f64743d5a",
+        "type": "github"
+      }
+    },
+    "nixpkgs-matrix": {
+      "locked": {
+        "lastModified": 1791143449,
+        "narHash": "sha256-9+n3ReS2y9xS199LoJjKUWHwZrISGHWgkD/LUZTDZyA=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "0d9e9b832d03ac387417e16ce1febf73b2e631e1",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-26.05",
+        "repo": "nixpkgs",
         "type": "github"
       }
     },
