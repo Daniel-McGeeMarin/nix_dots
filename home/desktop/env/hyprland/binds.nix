@@ -6,6 +6,7 @@ let
   hyprWorkspaceCycle = pkgs.writeShellScriptBin "hypr-workspace-cycle" (builtins.readFile ./hypr-workspace-cycle.sh);
   hyprWorkspaceNext = pkgs.writeShellScriptBin "hypr-workspace-next" ''exec "${hyprWorkspaceCycle}/bin/hypr-workspace-cycle" next'';
   hyprWorkspacePrev = pkgs.writeShellScriptBin "hypr-workspace-prev" ''exec "${hyprWorkspaceCycle}/bin/hypr-workspace-cycle" prev'';
+  graphideEditor = pkgs.writeShellScriptBin "graphide-editor" (builtins.readFile ./graphide-editor.sh);
 in
 {
   wayland.windowManager.hyprland = {
@@ -31,6 +32,9 @@ in
         ''SUPER,n,exec,bash -c 'printf "${secrets.hypr.workLinkedinUrl}" | wl-copy --trim-newline && hyprctl dispatch sendshortcut "CTRL,V,"' ''
 
         "$mainMod,Q,exec,kitty"
+        # Graphide 2.0, the native Rust editor, on the monolith checkout. See
+        # ./graphide-editor.sh for which build it runs.
+        "$mainMod SHIFT,Q,exec,${graphideEditor}/bin/graphide-editor"
         "$mainMod,C,killactive,"
         "CTRL$mainMod,M,exit,"
         "$mainMod,E,exec,xdg-open '/'"
