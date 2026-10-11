@@ -3,16 +3,24 @@
 #
 # Runs a build already on this machine and never asks the Azure test worker
 # for one: the worker sleeps after 30 idle minutes and waking it takes
-# minutes, too long for a key. `gred-rs/scripts/try` is what fetches newer
-# builds into ~/.cache/gred-rs/bin (named gred-<commit>); the newest of those
-# runs here. Until one exists, gred-easy (the grim-easy branch build, the
-# Orca window) runs with the Orca face asked for by name.
+# minutes, too long for a key.
+#
+# First choice is the newest published master bundle gdev has downloaded
+# (~/.local/share/gdev/builds/master-*/tree; `gdev run master` fetches a
+# newer one). It carries grug, gr and grug-keep beside the app, so the window
+# starts its daemon on the real ~/.graphide, as an installed app does. A bare
+# gred binary finds no grug and runs with no daemon: no agents, no graph.
+#
+# Without a bundle, `gred-rs/scripts/try`'s builds in ~/.cache/gred-rs/bin
+# (named gred-<commit>) run, newest first, then gred-easy (the grim-easy
+# branch build, the Orca window) with the Orca face asked for by name.
 #
 # The libraries gred loads come from gred-rs's dev environment, which
 # scripts/try caches as ~/.cache/gred-rs/devenv-*.sh.
 set -u
 
 cache="${XDG_CACHE_HOME:-$HOME/.cache}/gred-rs"
+bundles="${XDG_DATA_HOME:-$HOME/.local/share}/gdev/builds"
 project="${1:-$HOME/Documents/startup/Graphide/monolith}"
 
 fail() {
@@ -22,7 +30,13 @@ fail() {
 }
 
 bin=""
-for b in $(ls -t "$cache"/bin/gred-* 2>/dev/null); do
+for tree in $(ls -td "$bundles"/master-*/tree 2>/dev/null); do
+	if [ -x "$tree/graphide" ] && [ -x "$tree/grug" ]; then
+		bin="$tree/graphide"
+		break
+	fi
+done
+for b in $([ -z "$bin" ] && ls -t "$cache"/bin/gred-* 2>/dev/null); do
 	case "$(basename "$b")" in
 	gred-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*) bin="$b"; break ;;
 	esac
