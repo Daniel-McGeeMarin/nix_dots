@@ -6,7 +6,12 @@ let
   hyprWorkspaceCycle = pkgs.writeShellScriptBin "hypr-workspace-cycle" (builtins.readFile ./hypr-workspace-cycle.sh);
   hyprWorkspaceNext = pkgs.writeShellScriptBin "hypr-workspace-next" ''exec "${hyprWorkspaceCycle}/bin/hypr-workspace-cycle" next'';
   hyprWorkspacePrev = pkgs.writeShellScriptBin "hypr-workspace-prev" ''exec "${hyprWorkspaceCycle}/bin/hypr-workspace-cycle" prev'';
-  graphideEditor = pkgs.writeShellScriptBin "graphide-editor" (builtins.readFile ./graphide-editor.sh);
+  graphideMaster = pkgs.writeShellApplication {
+    name = "graphide-master";
+    runtimeInputs = with pkgs; [ coreutils gnused git jq libnotify openssh systemd util-linux ];
+    bashOptions = [ ];
+    text = builtins.readFile ./graphide-master.sh;
+  };
 in
 {
   wayland.windowManager.hyprland = {
@@ -32,9 +37,10 @@ in
         ''SUPER,n,exec,bash -c 'printf "${secrets.hypr.workLinkedinUrl}" | wl-copy --trim-newline && hyprctl dispatch sendshortcut "CTRL,V,"' ''
 
         "$mainMod,Q,exec,kitty"
-        # Graphide 2.0, the native Rust editor, on the monolith checkout. See
-        # ./graphide-editor.sh for which build it runs.
-        "$mainMod SHIFT,Q,exec,${graphideEditor}/bin/graphide-editor"
+        # Graphide on the monolith checkout through gdev's master instance,
+        # updated to the newest published master first; toasts if it is still
+        # behind origin/master. See ./graphide-master.sh.
+        "$mainMod SHIFT,Q,exec,${graphideMaster}/bin/graphide-master"
         "$mainMod,C,killactive,"
         "CTRL$mainMod,M,exit,"
         "$mainMod,E,exec,xdg-open '/'"
