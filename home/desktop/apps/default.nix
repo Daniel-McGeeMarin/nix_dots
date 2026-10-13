@@ -8,6 +8,7 @@
     ./ncmpcpp.nix
     ./orca.nix
     ./paseo.nix
+    ./wispr-flow.nix
     ./wlctl.nix
     ./zathura.nix
   ];

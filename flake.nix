@@ -60,6 +60,12 @@
     # tree it is evaluated in, so the module cannot ride on that input without
     # waiting for a release. Update it on its own: nix flake update graphide-tools.
     graphide-tools.url = "git+ssh://git@github.com/graphideHQ/monolith";
+
+    # Wispr Flow for Linux (unofficial port) -- see home/desktop/apps/wispr-flow.nix.
+    # Deliberately NO inputs.nixpkgs.follows: it builds against its own
+    # nixpkgs-unstable pin (Electron 42), and following ours would put it on
+    # the daily nixpkgs-unstable re-pin and rebuild it every day.
+    wispr-flow.url = "github:wispr-flow-linux/wispr-flow-linux";
   };
 
   outputs = { self, nixpkgs, home-manager, nixpkgs-unstable, caelestia-shell, nixvim, ... }@inputs:

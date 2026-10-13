@@ -508,6 +508,22 @@
         "type": "github"
       }
     },
+    "nixpkgs_5": {
+      "locked": {
+        "lastModified": 1791487292,
+        "narHash": "sha256-tqM7xDEsaeK1p6VvRygeZ9LkQRpUUkbRT02BHv6hnTM=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "8edc0c72e3a38faf5434e40d1f19431125fe4b30",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "ref": "nixpkgs-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
     "nixvim": {
       "inputs": {
         "flake-parts": "flake-parts",
@@ -587,7 +603,8 @@
         "nixpkgs": "nixpkgs_4",
         "nixpkgs-electron-pin": "nixpkgs-electron-pin",
         "nixpkgs-unstable": "nixpkgs-unstable",
-        "nixvim": "nixvim"
+        "nixvim": "nixvim",
+        "wispr-flow": "wispr-flow"
       }
     },
     "sops-nix": {
@@ -768,6 +785,24 @@
         "owner": "microsoft",
         "ref": "1.139.1",
         "repo": "vscode",
+        "type": "github"
+      }
+    },
+    "wispr-flow": {
+      "inputs": {
+        "nixpkgs": "nixpkgs_5"
+      },
+      "locked": {
+        "lastModified": 1791795123,
+        "narHash": "sha256-t19STaM0GLLw0ibxOkZ26Eye+uzHcV2pLzQYksGUJjM=",
+        "owner": "wispr-flow-linux",
+        "repo": "wispr-flow-linux",
+        "rev": "02164022b38613a1d41a85688185e209cf3ae2a1",
+        "type": "github"
+      },
+      "original": {
+        "owner": "wispr-flow-linux",
+        "repo": "wispr-flow-linux",
         "type": "github"
       }
     }
