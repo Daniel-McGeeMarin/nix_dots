@@ -29,7 +29,39 @@ let
     sha256 = pinned "WISPR_INSTALLER_SHA256";
   };
 
-  wispr-flow = src.packages.${system}.wispr-flow.override { installerExe = installer; };
+  # The port's nix/wispr-flow.nix applies only the first two patches its own
+  # scripts/build-linux.sh applies (helper-resolver, mac-gates), then runs
+  # verify-patches.sh, which demands the markers of all of them, so the Nix
+  # build fails as "half-patched". Run the rest here, in build-linux.sh's
+  # order, before the asar is repacked. Drop this once upstream's derivation
+  # applies them itself (the build then fails on a patch run twice).
+  patch = script: target: ''bash ${src}/scripts/patches/${script} ${target}'';
+  missingPatches = ''
+    ${lib.concatMapStrings (p: patch p ''"$main_bundle"'' + "\n") [
+      "helper-env.sh"
+      "linux-window-frame.sh"
+      "linux-hub-focusable.sh"
+      "linux-deeplink.sh"
+      "linux-early-singleton.sh"
+      "linux-disable-pill-drag.sh"
+      "linux-main-shortcut-defaults.sh"
+      "linux-xdg-data-dir.sh"
+      "linux-autostart.sh"
+    ]}
+    ${patch "linux-renderer-chrome.sh" "asar-contents/.webpack/renderer/hub/index.js"}
+    for renderer in asar-contents/.webpack/renderer/*/index.js; do
+      grep -qF 'platform?.isWindows' "$renderer" || continue
+      ${patch "linux-renderer-treat-as-windows.sh" ''"$renderer"''}
+    done
+  '';
+  anchor = "# Stage the unpacked native-module tree";
+
+  wispr-flow = (src.packages.${system}.wispr-flow.override { installerExe = installer; }).overrideAttrs (old: {
+    buildPhase =
+      assert lib.assertMsg (lib.hasInfix anchor old.buildPhase)
+        "wispr-flow.nix: the port's buildPhase changed; re-check the missing-patches splice";
+      builtins.replaceStrings [ anchor ] [ (missingPatches + anchor) ] old.buildPhase;
+  });
 
   # The glibc FHS wrapper is the port's recommended output on NixOS (Electron
   # wants /lib64/ld-linux). pkgs.unfree because it inherits the app's unfree meta.
