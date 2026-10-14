@@ -18,6 +18,15 @@ set -u
 
 export PATH="$HOME/.local/bin:$PATH"
 project="${1:-$HOME/Documents/startup/Graphide/monolith}"
+
+# The monolith checkout's own copy does this job when it is there, so it
+# changes without a nixswitch: it swaps an open window to a newer build with
+# its terminals kept, and waits for a build in flight. What follows is the
+# fallback for a machine without it.
+key="$HOME/Documents/startup/Graphide/monolith/gred-rs/scripts/master-key"
+if [ -x "$key" ]; then
+	exec "$key" "$project"
+fi
 log="${XDG_STATE_HOME:-$HOME/.local/state}/graphide-master-key.log"
 mkdir -p "$(dirname "$log")"
 
