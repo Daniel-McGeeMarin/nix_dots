@@ -39,9 +39,6 @@
   # `graphide-autoupdate` instead of a 30m background timer. See the monolith's
   # nix/home-manager/graphide.nix for why the update script stays on PATH.
   graphide.autoUpdate.enable = false;
-  # Where the tarball has always lived on this machine, rather than the
-  # module's XDG default, so the existing download is reused.
-  graphide.gredTarball = "${config.home.homeDirectory}/MyApps/graphide-dist/graphide-linux-x64.tar.gz";
   programs.claudeAgents.enable = true;
   # Ben's account system (monolith utilities/scripts/accounts): graphide-claude
   # and graphide-codex wrappers pick an account per new launch, and a watcher
@@ -54,10 +51,16 @@
     codexCommand = "${config.home.profileDirectory}/bin/codex";
   };
 
-  # Every 15 min, copy Claude Code / Codex / Cursor transcripts to XiaServer's
+  # Hourly, copy Claude Code / Codex / Cursor transcripts to XiaServer's
   # never-deleting library (monolith utilities/scripts/transcripts). Offline
-  # XiaServer is a quiet no-op; the next run catches up.
-  services.graphide-transcripts.enable = true;
+  # XiaServer is a quiet no-op; the next run catches up. Every session goes,
+  # dot-named ones too: the scan for them re-read 3.8 GB of transcripts on
+  # each run (Dan, 2026-10-14).
+  services.graphide-transcripts = {
+    enable = true;
+    interval = "1h";
+    dotNames = false;
+  };
 
   # Every 6 h, if monolith master is red and no fixer is on it, start one
   # headless Opus fixer with a fixed tool allowlist (monolith
