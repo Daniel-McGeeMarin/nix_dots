@@ -19,10 +19,11 @@ set -u
 export PATH="$HOME/.local/bin:$PATH"
 project="${1:-$HOME/Documents/startup/Graphide/monolith}"
 
-# The monolith checkout's own copy does this job when it is there, so it
-# changes without a nixswitch: it swaps an open window to a newer build with
-# its terminals kept, and waits for a build in flight. What follows is the
-# fallback for a machine without it.
+# The monolith checkout's own copy (gred-rs/scripts/master-key) does this
+# job when it is there, so it changes without a nixswitch. It only gets the
+# newest build ready in the background, waiting for one in flight, and never
+# closes or opens a window: Super+Shift+W (master-switch) does that. What
+# follows is the fallback for a machine without it, which updates and opens.
 key="$HOME/Documents/startup/Graphide/monolith/gred-rs/scripts/master-key"
 if [ -x "$key" ]; then
 	exec "$key" "$project"

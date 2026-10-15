@@ -12,6 +12,16 @@ let
     bashOptions = [ ];
     text = builtins.readFile ./graphide-master.sh;
   };
+  # Super+Shift+W runs the monolith checkout's master-switch, so it changes
+  # without a nixswitch.
+  graphideMasterSwitch = pkgs.writeShellApplication {
+    name = "graphide-master-switch";
+    runtimeInputs = with pkgs; [ coreutils findutils gnused git jq libnotify util-linux ];
+    bashOptions = [ ];
+    text = ''
+      exec "$HOME/Documents/startup/Graphide/monolith/gred-rs/scripts/master-switch" "$@"
+    '';
+  };
 in
 {
   wayland.windowManager.hyprland = {
@@ -37,10 +47,13 @@ in
         ''SUPER,n,exec,bash -c 'printf "${secrets.hypr.workLinkedinUrl}" | wl-copy --trim-newline && hyprctl dispatch sendshortcut "CTRL,V,"' ''
 
         "$mainMod,Q,exec,kitty"
-        # Graphide on the monolith checkout through gdev's master instance,
-        # updated to the newest published master first; toasts if it is still
-        # behind origin/master. See ./graphide-master.sh.
+        # Graphide on the monolith checkout through gdev's master instance.
+        # Super+Shift+Q gets the newest published master ready in the
+        # background and toasts when it is; Super+Shift+W closes the old
+        # window and opens the ready build in a few seconds, terminals kept.
+        # See ./graphide-master.sh and the checkout's gred-rs/scripts/master-key.
         "$mainMod SHIFT,Q,exec,${graphideMaster}/bin/graphide-master"
+        "$mainMod SHIFT,W,exec,${graphideMasterSwitch}/bin/graphide-master-switch"
         "$mainMod,C,killactive,"
         "CTRL$mainMod,M,exit,"
         "$mainMod,E,exec,xdg-open '/'"
