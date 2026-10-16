@@ -10,6 +10,7 @@
     inputs.graphide-tools.homeManagerModules.transcripts
     inputs.graphide-tools.homeManagerModules.ci-fixer
     inputs.graphide-tools.homeManagerModules.points
+    inputs.graphide-tools.homeManagerModules.composal-report
     inputs.graphide-tools.homeManagerModules.master-build
   ];
 
@@ -71,6 +72,11 @@
   # that just ended (one Opus call, about $0.55) and publish POINTS.md plus
   # the xiaserver:8420/points/ pages (monolith utilities/scripts/points).
   services.graphide-points.enable = true;
+
+  # Daily at 06:15, gather the last day's Composal Verify runs, scans and
+  # findings and our CI runs, and have Opus publish the comparison as
+  # xiaserver:8420/composal-nightly (monolith utilities/scripts/composal-report).
+  services.graphide-composal-report.enable = true;
 
   # Every minute, if origin/master moved in a way that can change the native
   # app and has been still for 3 min (a burst of merges builds once), build
