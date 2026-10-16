@@ -275,11 +275,11 @@
         "sops-nix": "sops-nix_2"
       },
       "locked": {
-        "lastModified": 1792128031,
-        "narHash": "sha256-9UDKti3WuBTga3L7q5rVsmPi+mh/pkAz1DUwG9w9n4E=",
+        "lastModified": 1792131167,
+        "narHash": "sha256-Zp6/jcZXogFrXw6ODa6lnMjVwzX+6xiKYvwbjc7vTfI=",
         "ref": "refs/heads/master",
-        "rev": "2dc37ef8875881eeaa307684f7da67683720c9db",
-        "revCount": 24837,
+        "rev": "c19810deab3bb8e8651113ab51bf05cf5d740531",
+        "revCount": 24894,
         "type": "git",
         "url": "ssh://git@github.com/graphideHQ/monolith"
       },
