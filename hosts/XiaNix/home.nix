@@ -62,11 +62,10 @@
     dotNames = false;
   };
 
-  # Every 6 h, if monolith master is red and no fixer is on it, start one
-  # headless Opus fixer with a fixed tool allowlist (monolith
-  # utilities/scripts/ci-fixer). Normal agents never spend time on CI
-  # (Dan, 2026-10-01); this is what fixes it instead. Logs: ~/graphide-ci-fixer.
-  services.graphide-ci-fixer.enable = true;
+  # The CI fixer (headless Opus every 6 h when master is red) is off on this
+  # laptop: it started its own daemon and took ~7 cores and 11 GB (Dan,
+  # 2026-10-15). XiaServer's master-watcher owns a red master.
+  services.graphide-ci-fixer.enable = false;
 
   # Daily at 06:30, score each founder's landed stories for the working day
   # that just ended (one Opus call, about $0.55) and publish POINTS.md plus
