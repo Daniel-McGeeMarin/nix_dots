@@ -1,4 +1,4 @@
-{ config, lib, pkgs, inputs, ... }:
+{ config, lib, options, pkgs, inputs, ... }:
 # The Graphide company desktop: bar, launcher, wallpaper and company widgets,
 # drawn in Quickshell. It is the second of the two shells this host can run --
 # see ../shells.nix for the option that picks between them and the `rice`
@@ -18,7 +18,7 @@ in
     inputs.graphide-tools.homeManagerModules.quickshell
   ];
 
-  config = lib.mkIf cfg.enable {
+  config = lib.mkIf cfg.enable (lib.mkMerge [ {
     programs.graphide-shell = {
       enable = true;
 
@@ -89,5 +89,17 @@ in
     # The session picks one shell at login (../shells.nix); neither unit may
     # start itself, or both would come up at once on the same screen.
     systemd.user.services.graphide-shell.Install.WantedBy = lib.mkForce [ ];
-  };
+  }
+  # Upstream's to-do column turns light, blinks now and then and grows a
+  # quarter of the screen over a working day by default -- a nudge meant for
+  # Ben's desktop, not this one. Guarded on the option existing, so it holds
+  # across a graphide-tools pin from before the option and after it.
+  (lib.optionalAttrs (options.programs.graphide-shell ? todoColumn) {
+    programs.graphide-shell.todoColumn = {
+      theme = "dark";
+      blink = false;
+      grow.share = 0;
+    };
+  })
+  ]);
 }
