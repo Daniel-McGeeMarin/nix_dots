@@ -106,7 +106,14 @@ in
     fprintd.enable = true;
     thermald.enable = true;
     geoclue2.enable = true;
-    upower.enable = true;
+    # At 2% the default (HybridSleep) needs hibernation, which is not set
+    # up here, so the laptop ran to 0% and lost power outright (2026-10-14,
+    # 10-17, 10-18), each time with a clock reset and a journal replay.
+    # Shut down cleanly instead.
+    upower = {
+      enable = true;
+      criticalPowerAction = "PowerOff";
+    };
     desktopManager.gnome.enable = true;
     # GNOME's ssh agent lists every ~/.ssh/*.pub as usable and unlocks a
     # passphrase key through GNOME Shell's prompter. Under Hyprland there is
