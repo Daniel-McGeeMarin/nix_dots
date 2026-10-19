@@ -72,10 +72,11 @@ in
 
     # The 0.52 spelling of what layerRules would have written. Namespace-scoped
     # to graphide-*, so caelestia's own layers are untouched when the toggle is
-    # the other way. Order matters: the launcher rule has to come second to win.
+    # the other way. The launcher opens on a key and must be there at once: its
+    # slide from the top ran at the global speed (~0.8 s), so it gets none.
     wayland.windowManager.hyprland.settings.layerrule = [
       "animation fade, ^(graphide-.*)$"
-      "animation slide top, ^(graphide-launcher)$"
+      "noanim, ^(graphide-launcher)$"
     ];
 
     # Same problem caelestia has, same fix: applications launched from the

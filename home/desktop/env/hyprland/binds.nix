@@ -68,7 +68,8 @@ in
         # file is now only a shim in front of `view-agent-desktops-rofi`, which
         # was never installed here, so the bind had been exiting 127.
         # ../shells.nix installs the real package.
-        "$mainMod,A,exec,rice ipc desktops"
+        "$mainMod,A,global,graphide:desktops"
+        "$mainMod,A,exec,rice key desktops"
         "$mainMod SHIFT,A,exec,pkill aiclip; aiclip"
         "$mainMod,V,togglefloating,"
 "$mainMod SHIFT,R,exec,pkill rofi || rofi -show drun"
@@ -82,13 +83,17 @@ in
         # ../rofi/rofi-textmoji.sh.
         "$mainMod,semicolon,exec,pkill rofi || rofi-textmoji"
 
-        # Desktop-shell surfaces. These do NOT name a shell: `rice ipc`
-        # dispatches to whichever of caelestia / the Graphide shell is
-        # currently running. Both answer on Quickshell IPC but on different
-        # targets, and some surfaces exist in only one of them. See
-        # ../shells.nix.
-        "$mainMod,R,exec,rice ipc launcher"
-        "$mainMod SHIFT,A,exec,rice ipc sidebar"
+        # Desktop-shell surfaces. These do NOT name a shell. Each key has two
+        # binds: the Graphide shell registers `graphide:<surface>` global
+        # shortcuts and takes the key straight from Hyprland (an `ipc call`
+        # started a Qt client on every press, ~0.2 s, and the launcher felt
+        # slow); under caelestia nothing is registered, so the global is a
+        # no-op and `rice key` goes the `rice ipc` way instead. `rice key`
+        # does nothing while the Graphide shell is up. See ../shells.nix.
+        "$mainMod,R,global,graphide:launcher"
+        "$mainMod,R,exec,rice key launcher"
+        "$mainMod SHIFT,A,global,graphide:accounts"
+        "$mainMod SHIFT,A,exec,rice key sidebar"
 
         # Swap the whole desktop shell, live, no rebuild.
         "CTRL$mainMod,R,exec,rice toggle"
@@ -96,10 +101,14 @@ in
         # Graphide-shell surfaces with no caelestia equivalent. Under
         # caelestia they pop a "no such surface" notification rather than
         # doing nothing silently.
-        "$mainMod,U,exec,rice ipc vault"
-        "$mainMod SHIFT,U,exec,rice ipc accounts"
-        "$mainMod,B,exec,rice ipc bar"
-        "$mainMod SHIFT,B,exec,rice ipc widgets"
+        "$mainMod,U,global,graphide:vault"
+        "$mainMod,U,exec,rice key vault"
+        "$mainMod SHIFT,U,global,graphide:accounts"
+        "$mainMod SHIFT,U,exec,rice key accounts"
+        "$mainMod,B,global,graphide:bar"
+        "$mainMod,B,exec,rice key bar"
+        "$mainMod SHIFT,B,global,graphide:widgets"
+        "$mainMod SHIFT,B,exec,rice key widgets"
 
         "$mainMod SHIFT, V, exec, mullvad reconnect"
 

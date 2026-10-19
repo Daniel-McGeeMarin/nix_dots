@@ -210,8 +210,16 @@ let
           esac
           ;;
 
+        # What the keybinds run beside their `global, graphide:<surface>` bind
+        # (../hyprland/binds.nix). The Graphide shell already took the key from
+        # Hyprland itself, so this only acts for a shell that did not.
+        key)
+          [ "$(active)" = graphide ] && exit 0
+          exec "$0" ipc "''${2:-launcher}"
+          ;;
+
         *)
-          echo "usage: rice [status|list|toggle|use <shell>|apply|stop|ipc <surface>]" >&2
+          echo "usage: rice [status|list|toggle|use <shell>|apply|stop|ipc <surface>|key <surface>]" >&2
           exit 1
           ;;
       esac
