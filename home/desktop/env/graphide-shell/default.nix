@@ -56,6 +56,15 @@ in
       # The bar's Wi-Fi item opens the Wi-Fi manager (../../apps/wlctl.nix).
       wifiCommand = [ "wifi" ];
 
+      # The reminders column down the right edge: Dan's shared list on
+      # XiaServer (http://xiaserver:8422/dan.json), which Ben can add to from
+      # his shell. The launcher's Remind place adds to Dan's or Ben's. Done is
+      # sent over ssh as reminders@xiaserver, which takes Dan's human key.
+      serverReminders = {
+        person = "dan";
+        addTo = [ "dan" "ben" ];
+      };
+
       hyprland = {
         # OFF, and the rules are written by hand below instead. Upstream emits
         # Hyprland's newer `match:namespace ^(...)$` rule syntax; the Hyprland
