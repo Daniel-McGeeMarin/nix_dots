@@ -197,9 +197,15 @@ in
     # against. polkitd only reads actions out of the *system* profile, so from a
     # Home Manager install those actions are never registered and every request
     # fails with "an error occurred while requesting system authentication".
-    # Installing it here too registers them; same store path, so no extra cost.
-    # Keep in sync with home/desktop/default.nix.
-    unstable.signal-desktop
+    # So the system gets those action files, and only them: a second, launchable
+    # Signal here only moved on nixos-rebuild, fell behind the Home Manager one
+    # that ai.autoUpdate moves every morning, and an older Signal refuses the
+    # database a newer one has migrated (see system/home-manager-newest.nix).
+    # Keep the package in sync with home/desktop/default.nix.
+    (runCommand "signal-desktop-polkit-actions" { } ''
+      mkdir -p $out/share/polkit-1
+      cp -r ${unstable.signal-desktop}/share/polkit-1/actions $out/share/polkit-1/
+    '')
   ];
 
   time.timeZone = "America/Los_Angeles";

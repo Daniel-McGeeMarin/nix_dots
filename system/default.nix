@@ -6,6 +6,7 @@
   # of ./head.
   imports = [
     inputs.home-manager.nixosModules.default
+    ./home-manager-newest.nix
     ./grub.nix
   ];
 
