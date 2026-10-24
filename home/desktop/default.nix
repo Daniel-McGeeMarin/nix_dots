@@ -68,7 +68,7 @@
       wlvncc                                 # Wayland VNC client, for the interactive VM tunnels
 
       # ── Communications ────────────────────────────────────────────────────────
-      inputs.nixpkgs-unstable.legacyPackages.${pkgs.stdenv.hostPlatform.system}.signal-desktop
+      # signal-desktop: apps/signal-desktop.nix (newer of nixpkgs and Signal's own build)
       element-desktop
       unstable.unfree.zoom-us                # remote control only works in an X11 session
 
