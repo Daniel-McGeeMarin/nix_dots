@@ -112,14 +112,16 @@ in
     };
   })
   # The reminders column, by contrast, should nag here: while a reminder is
-  # owed it widens in a big jump every 10 minutes (stepMinutes, upstream's
-  # default) until, 30 minutes after it first showed, it covers 60% of the
-  # screen. Snoozing hides it but does not shrink it. Off
-  # upstream, so Ben's desktop is untouched. Same guard as above.
+  # owed it widens a step every half hour until, 12 hours after it first
+  # showed, it covers 60% of the screen. Half-hour steps are about 30 px each;
+  # upstream's 10-minute default would be 10 px slivers that re-tile every
+  # window for nothing you can see. Snoozing hides it but does not shrink it.
+  # Off upstream, so Ben's desktop is untouched. Same guard as above.
   (lib.optionalAttrs (options.programs.graphide-shell ? remindersColumn) {
     programs.graphide-shell.remindersColumn.grow = {
       widest = 0.6;
-      minutes = 30;
+      minutes = 720;
+      stepMinutes = 30;
     };
   })
   ]);
