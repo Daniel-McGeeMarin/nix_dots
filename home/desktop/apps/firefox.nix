@@ -8,38 +8,6 @@ let
     hash   = "sha256-WkUJytR6zPmq0vMCMlaEf3J8UM9XkY0IJa2Jn5OrO48=";
   };
 
-  caelestiafoxNativeHost = pkgs.writeScript "caelestiafox-host" ''
-    #!${pkgs.python3}/bin/python3
-    import sys, json, struct, os, time
-
-    state_dir = os.path.join(
-        os.environ.get('XDG_STATE_HOME', os.path.expanduser('~/.local/state')),
-        'caelestia'
-    )
-    scheme = os.path.join(state_dir, 'scheme.json')
-
-    def send():
-        with open(scheme) as f:
-            msg = json.dumps(json.load(f), separators=(',', ':')).encode()
-        sys.stdout.buffer.write(struct.pack('<I', len(msg)) + msg)
-        sys.stdout.buffer.flush()
-
-    try:
-        send()
-    except Exception:
-        pass
-
-    last = 0
-    while True:
-        time.sleep(1)
-        try:
-            mtime = os.path.getmtime(scheme)
-            if mtime != last:
-                last = mtime
-                send()
-        except Exception:
-            pass
-  '';
 in
 {
   config = {
@@ -80,10 +48,14 @@ in
             (extension "bitwarden-password-manager" "{446900e4-71c2-419f-a6a7-df9c091e268b}")
             (extension "video-downloadhelper"       "{b9db16a4-6edc-47ec-a1f4-b86292ed211d}")
             (extension "libredirect"                "7esoorv3@alefvanoon.anonaddy.me")
-            (extension "darkreader"                 "addon@darkreader.org")
             (extension "tridactyl-vim"              "tridactyl.vim@cmcaine.co.uk")
-            (extension "caelestiafox"               "caelestiafox@caelestia.org")
-          ];
+          ] // {
+            # Dropped 2026-10-26: CaelestiaFox themed the browser and pages
+            # from the shell's colour scheme, through Dark Reader. Blocked, not
+            # just left out, so Firefox uninstalls the copies it already has.
+            "caelestiafox@caelestia.org".installation_mode = "blocked";
+            "addon@darkreader.org".installation_mode = "blocked";
+          };
       };
 
       profiles.default = {
@@ -153,8 +125,8 @@ in
 
           /*
            * PotatoFox on Linux sets --uc-bg-opaque = ActiveCaption, which is
-           * transparent under Hyprland.  Override to use --lwt-accent-color
-           * (set by CaelestiaFox) with an opaque fallback.
+           * transparent under Hyprland.  Override to use the theme's
+           * --lwt-accent-color with an opaque fallback.
            */
           :root {
               --uc-bg-opaque: var(
@@ -188,17 +160,6 @@ in
     home.file.".mozilla/firefox/default/chrome/pf" = {
       source = "${potatofox}/chrome";
       recursive = true;
-    };
-
-    home.file.".mozilla/native-messaging-hosts/caelestiafox.json" = {
-      force = true;
-      text = builtins.toJSON {
-        name = "caelestiafox";
-        description = "Native app for CaelestiaFox extension.";
-        path = "${caelestiafoxNativeHost}";
-        type = "stdio";
-        allowed_extensions = [ "caelestiafox@caelestia.org" ];
-      };
     };
 
     home.packages = [
