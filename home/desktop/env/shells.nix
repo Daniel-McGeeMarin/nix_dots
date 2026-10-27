@@ -160,6 +160,14 @@ let
           stop_all
           ;;
 
+        # Exit 0 only when the named shell is the chosen one. Each shell unit
+        # runs this as its ExecCondition, so a start from anywhere else (a
+        # rebuild restarting the unit, an agent starting it by hand) is
+        # skipped while the other shell is in use, instead of drawing over it.
+        is)
+          [ "$(active)" = "''${2:-}" ]
+          ;;
+
         use)
           want="''${2:-}"
           if ! known "$want"; then
@@ -219,7 +227,7 @@ let
           ;;
 
         *)
-          echo "usage: rice [status|list|toggle|use <shell>|apply|stop|ipc <surface>|key <surface>]" >&2
+          echo "usage: rice [status|list|toggle|use <shell>|apply|stop|is <shell>|ipc <surface>|key <surface>]" >&2
           exit 1
           ;;
       esac
@@ -308,6 +316,15 @@ in
     # PartOf graphical-session.target already, so they go down with the
     # session, and stopping them from this unit's own shutdown would be a
     # second job in the same transaction.
+    # Only the shell `rice` names may start. `use` writes the state file
+    # before it starts the unit, so a switch passes its own condition.
+    systemd.user.services.caelestia = lib.mkIf cfg.caelestia.enable {
+      Service.ExecCondition = "${rice}/bin/rice is caelestia";
+    };
+    systemd.user.services.graphide-shell = lib.mkIf cfg.graphide.enable {
+      Service.ExecCondition = "${rice}/bin/rice is graphide";
+    };
+
     systemd.user.services.rice-session = {
       Unit = {
         Description = "Start the desktop shell selected by `rice`";
