@@ -111,6 +111,12 @@ in
       grow.share = 0;
     };
   })
+  # The customer board down the right edge: every company with a person
+  # tagged `customer` in the outreach brain, by where the ball is, fetched every
+  # minute with ~/.config/outreach-brain/config.toml. Same guard as above.
+  (lib.optionalAttrs (options.programs.graphide-shell ? customers) {
+    programs.graphide-shell.customers.enable = true;
+  })
   # The reminders column, by contrast, should nag here: while a reminder is
   # owed it widens a step every half hour until, 12 hours after it first
   # showed, it covers 60% of the screen. Half-hour steps are about 30 px each;
