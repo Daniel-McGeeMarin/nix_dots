@@ -86,6 +86,9 @@
   # (monolith gred-rs/scripts/master-build). `gdev run master` runs it isolated.
   services.graphide-master-build.enable = true;
   services.graphide-master-build.interval = "1m";
+  # Only build and publish; never download builds here in the background.
+  # SUPER+SHIFT+Q fetches the newest one when pressed.
+  systemd.user.services.graphide-master-build.Service.Environment = [ "MASTER_BUILD_GDEV=none" ];
 
   desktop = {
     gaming.enable = true;
