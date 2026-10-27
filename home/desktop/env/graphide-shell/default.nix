@@ -125,6 +125,14 @@ in
   (lib.optionalAttrs (options.programs.graphide-shell ? sidebar) {
     programs.graphide-shell.sidebar.enable = true;
   })
+  # The brain dashboard in that sidebar: Important (mail owed an answer, with a
+  # red count), Customers, CI/CD, PR bot and Contacts, rewritten every two
+  # minutes from the outreach brain and grail's triage. Off upstream. Guarded
+  # on the option existing, like the rest.
+  (lib.optionalAttrs (options.programs.graphide-shell ? sidebar
+      && options.programs.graphide-shell.sidebar ? dashboard) {
+    programs.graphide-shell.sidebar.dashboard.enable = true;
+  })
   # The reminders column, by contrast, should nag here: while a reminder is
   # owed it widens a step every half hour until, 12 hours after it first
   # showed, it covers 60% of the screen. Half-hour steps are about 30 px each;

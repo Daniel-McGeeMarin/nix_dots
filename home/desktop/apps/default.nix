@@ -27,6 +27,11 @@
       "text/html" = "firefox.desktop";
       "x-scheme-handler/http" = "firefox.desktop";
       "x-scheme-handler/https" = "firefox.desktop";
+      # grail:// links (the company sidebar's customers, mail and chats) open
+      # the place in grail. grail.desktop is hand-made in
+      # ~/.local/share/applications: it runs grail through gred-rs/mail/run,
+      # which loads the libraries its window needs.
+      "x-scheme-handler/grail" = "grail.desktop";
     };
   };
 }
