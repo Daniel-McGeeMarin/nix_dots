@@ -960,6 +960,7 @@ $first_msg" 2>/dev/null | head -1 | tr -d '"' | cut -c1-40) || true
     # Dan authorizes messages between his sessions, including sessions with
     # different permission modes. Claude reloads this setting while running.
     crossSessionInbound = "accept";
+    permissions.allow = [ "SendMessage" "ListAgents" "mcp__agent-mail__*" ];
     hooks = {
       SessionStart        = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookSessionStart}/bin/claude-agent-hook-session-start"; }]; }];
       UserPromptSubmit    = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookUserPromptSubmit}/bin/claude-agent-hook-user-prompt-submit"; }]; }];
@@ -1011,6 +1012,7 @@ $first_msg" 2>/dev/null | head -1 | tr -d '"' | cut -c1-40) || true
                )
              | .hooks |= with_entries(select((.value | length) > 0))
              | .crossSessionInbound = $want[0].crossSessionInbound
+             | .permissions.allow = (((.permissions.allow // []) + $want[0].permissions.allow) | unique)
            ' "$target" > "$tmp"; then
         chmod 644 "$tmp"
         mv -f "$tmp" "$target"
