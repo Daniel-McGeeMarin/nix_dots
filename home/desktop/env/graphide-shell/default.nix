@@ -117,12 +117,21 @@ in
   (lib.optionalAttrs (options.programs.graphide-shell ? customers) {
     programs.graphide-shell.customers.enable = true;
   })
+  # One sidebar down the right edge in place of the reminders column and the
+  # customer board: tabs for Dan's own live reminders, Ben's reminders, the
+  # customers and any page an agent writes with `graphide-sidebar`, all
+  # changed live from ~/.config/graphide-shell/sidebar. Off upstream, so Ben's
+  # desktop keeps the column. Same guard as above.
+  (lib.optionalAttrs (options.programs.graphide-shell ? sidebar) {
+    programs.graphide-shell.sidebar.enable = true;
+  })
   # The reminders column, by contrast, should nag here: while a reminder is
   # owed it widens a step every half hour until, 12 hours after it first
   # showed, it covers 60% of the screen. Half-hour steps are about 30 px each;
   # upstream's 10-minute default would be 10 px slivers that re-tile every
   # window for nothing you can see. Snoozing hides it but does not shrink it.
-  # Off upstream, so Ben's desktop is untouched. Same guard as above.
+  # The sidebar grows the same way. Off upstream, so Ben's desktop is
+  # untouched. Same guard as above.
   (lib.optionalAttrs (options.programs.graphide-shell ? remindersColumn) {
     programs.graphide-shell.remindersColumn.grow = {
       widest = 0.6;
