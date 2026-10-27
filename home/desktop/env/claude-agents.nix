@@ -957,6 +957,9 @@ $first_msg" 2>/dev/null | head -1 | tr -d '"' | cut -c1-40) || true
   hookMarker = "/bin/claude-agent-hook-";
 
   hmSettings = pkgs.writeText "claude-agents-settings.json" (builtins.toJSON {
+    # Dan authorizes messages between his sessions, including sessions with
+    # different permission modes. Claude reloads this setting while running.
+    crossSessionInbound = "accept";
     hooks = {
       SessionStart        = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookSessionStart}/bin/claude-agent-hook-session-start"; }]; }];
       UserPromptSubmit    = [{ matcher = ""; hooks = [{ type = "command"; command = "${hookUserPromptSubmit}/bin/claude-agent-hook-user-prompt-submit"; }]; }];
@@ -1007,6 +1010,7 @@ $first_msg" 2>/dev/null | head -1 | tr -d '"' | cut -c1-40) || true
                  .hooks[$event] = ((.hooks[$event] // []) + $ours[$event])
                )
              | .hooks |= with_entries(select((.value | length) > 0))
+             | .crossSessionInbound = $want[0].crossSessionInbound
            ' "$target" > "$tmp"; then
         chmod 644 "$tmp"
         mv -f "$tmp" "$target"
