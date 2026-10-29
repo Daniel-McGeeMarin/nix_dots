@@ -11,7 +11,6 @@
     inputs.graphide-tools.homeManagerModules.ci-fixer
     inputs.graphide-tools.homeManagerModules.points
     inputs.graphide-tools.homeManagerModules.composal-report
-    inputs.graphide-tools.homeManagerModules.master-build
   ];
 
   programs.home-manager.enable = true;
@@ -78,17 +77,8 @@
   # xiaserver:8420/composal-nightly (monolith utilities/scripts/composal-report).
   services.graphide-composal-report.enable = true;
 
-  # Every minute, if origin/master moved in a way that can change the native
-  # app and has been still for 3 min (a burst of merges builds once), build
-  # its Linux tarball on the Azure worker and publish it on
-  # XiaServer (/srv/build/graphide-master), and put the app in
-  # ~/.cache/gred-rs/bin, where the SUPER+SHIFT+Q launcher runs the newest
-  # (monolith gred-rs/scripts/master-build). `gdev run master` runs it isolated.
-  services.graphide-master-build.enable = true;
-  services.graphide-master-build.interval = "1m";
-  # Only build and publish; never download builds here in the background.
-  # SUPER+SHIFT+Q fetches the newest one when pressed.
-  systemd.user.services.graphide-master-build.Service.Environment = [ "MASTER_BUILD_GDEV=none" ];
+  # The native app's master-build timer left with the app for the
+  # graphide-ide repository on 2026-10-28; that repository builds master now.
 
   desktop = {
     gaming.enable = true;
