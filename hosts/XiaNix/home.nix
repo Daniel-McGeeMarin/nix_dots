@@ -69,12 +69,12 @@
 
   # Daily at 06:30, score each founder's landed stories for the working day
   # that just ended (one Opus call, about $0.55) and publish POINTS.md plus
-  # the xiaserver:8420/points/ pages (monolith utilities/scripts/points).
+  # the xiaserver:8420/points/ pages (graphide-tools utilities/scripts/points).
   services.graphide-points.enable = true;
 
   # Daily at 06:15, gather the last day's Composal Verify runs, scans and
   # findings and our CI runs, and have Opus publish the comparison as
-  # xiaserver:8420/composal-nightly (monolith utilities/scripts/composal-report).
+  # xiaserver:8420/composal-nightly (graphide-tools utilities/scripts/composal-report).
   services.graphide-composal-report.enable = true;
 
   # The native app's master-build timer left with the app for the

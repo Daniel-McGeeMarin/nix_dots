@@ -54,12 +54,11 @@
       # is exactly what graphide's own dev shell and CI built and tested.
     };
 
-    # The same repo again, for the home-manager module only
-    # (homeManagerModules.graphide). `graphide` above is pinned to a RELEASE
-    # commit by graphide-autoupdate, and gred refuses a tarball older than the
-    # tree it is evaluated in, so the module cannot ride on that input without
-    # waiting for a release. Update it on its own: nix flake update graphide-tools.
-    graphide-tools.url = "git+ssh://git@github.com/graphideHQ/monolith";
+    # The founders' home-manager modules (graphide, points, composal-report,
+    # quickshell, ...) and the internal tools they run. They left the monolith
+    # for GraphideHQ/graphide-tools on 2026-10-29. Update it on its own:
+    # nix flake update graphide-tools.
+    graphide-tools.url = "git+ssh://git@github.com/GraphideHQ/graphide-tools";
 
     # Wispr Flow for Linux (unofficial port) -- see home/desktop/apps/wispr-flow.nix.
     # Deliberately NO inputs.nixpkgs.follows: it builds against its own
