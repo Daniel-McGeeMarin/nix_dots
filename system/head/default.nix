@@ -8,7 +8,7 @@
 # by hand, and the moment one is missed - which is exactly what happened before -
 # a "headless" machine quietly grows a compositor.
 {
-  options.head.gaming = lib.mkEnableOption "gaming extras (gamemode, gamescope, uinput)";
+  options.head.gaming = lib.mkEnableOption "gaming extras (gamemode, gamescope, uinput, controller access)";
 
   config = {
     boot.plymouth.enable = lib.mkDefault true;
@@ -33,5 +33,8 @@
     };
 
     hardware.uinput.enable = lib.mkIf config.head.gaming true;
+    # Steam's udev rules: without them /dev/hidraw* is root-only and Steam
+    # cannot see Switch Pro, DualSense or Steam controllers at all.
+    hardware.steam-hardware.enable = lib.mkIf config.head.gaming true;
   };
 }
